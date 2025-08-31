@@ -5,9 +5,9 @@ import { connectDB, db } from "@/database/mongodb";
 import { ObjectId } from "mongodb";
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 // GET - Fetch specific inquiry
@@ -20,12 +20,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         { status: 401 }
       );
     }
-
+    const { id } = await params;
     await connectDB();
     const inquiriesCollection = db.collection("property_inquiries");
 
     const inquiry = await inquiriesCollection.findOne({
-      _id: new ObjectId(params.id),
+      _id: new ObjectId(id),
     });
 
     if (!inquiry) {
@@ -90,9 +90,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     if (priority) updateData.priority = priority;
     if (adminNotes !== undefined) updateData.adminNotes = adminNotes;
-
+    const { id } = await params;
     const result = await inquiriesCollection.updateOne(
-      { _id: new ObjectId(params.id) },
+      { _id: new ObjectId(id) },
       { $set: updateData }
     );
 
@@ -104,7 +104,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const updatedInquiry = await inquiriesCollection.findOne({
-      _id: new ObjectId(params.id),
+      _id: new ObjectId(id),
     });
 
     return NextResponse.json({
@@ -134,9 +134,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     await connectDB();
     const inquiriesCollection = db.collection("property_inquiries");
-
+    const { id } = await params;
     const result = await inquiriesCollection.deleteOne({
-      _id: new ObjectId(params.id),
+      _id: new ObjectId(id),
     });
 
     if (result.deletedCount === 0) {
