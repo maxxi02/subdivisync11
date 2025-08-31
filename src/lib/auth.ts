@@ -13,6 +13,7 @@ export const auth = betterAuth({
     process.env.NODE_ENV === "production"
       ? (process.env.NEXT_PUBLIC_URL! as string)
       : (process.env.BETTER_AUTH_URL! as string),
+          "https://subdivisync11.vercel.app",
   ],
   appName: "SubdiviSync",
   emailAndPassword: {
