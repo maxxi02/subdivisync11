@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status");
     const priority = searchParams.get("priority");
 
-    let query: Record<string, unknown> = {};
+    const query: Record<string, unknown> = {};
 
     // Regular users can only see their own inquiries
     if (session.user.role !== "admin") {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, ChangeEvent } from "react";
 import {
   Title,
   Group,
@@ -35,7 +35,6 @@ import {
   IconSearch,
 } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
-import axios from "axios";
 import { propertyInquiriesApi } from "@/lib/api/property-inquiries";
 
 interface PropertyInquiry {
@@ -107,7 +106,29 @@ const BrowsePropertiesSection = () => {
     }, 5000);
   };
 
-  const handleInputChange = (field: keyof PropertyInquiry, value: any) => {
+  const handleInputChange = (
+    field: keyof PropertyInquiry,
+    value: string | null
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSelectChange = (
+    field: keyof PropertyInquiry,
+    value: string | null
+  ) => {
+    if (value !== null) {
+      setFormData((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    }
+  };
+
+  const handleRadioChange = (field: keyof PropertyInquiry, value: string) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -447,7 +468,7 @@ const BrowsePropertiesSection = () => {
                   label="Full Name"
                   placeholder="Enter your full name"
                   value={formData.fullName || ""}
-                  onChange={(e) =>
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
                     handleInputChange("fullName", e.currentTarget.value)
                   }
                   required
@@ -459,7 +480,7 @@ const BrowsePropertiesSection = () => {
                   label="Primary Phone Number"
                   placeholder="+63 XXX XXX XXXX"
                   value={formData.primaryPhone || ""}
-                  onChange={(e) =>
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
                     handleInputChange("primaryPhone", e.currentTarget.value)
                   }
                   leftSection={<IconPhone size={16} />}
@@ -472,7 +493,7 @@ const BrowsePropertiesSection = () => {
                   label="Secondary Phone Number"
                   placeholder="+63 XXX XXX XXXX (Optional)"
                   value={formData.secondaryPhone || ""}
-                  onChange={(e) =>
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
                     handleInputChange("secondaryPhone", e.currentTarget.value)
                   }
                   leftSection={<IconPhone size={16} />}
@@ -484,7 +505,7 @@ const BrowsePropertiesSection = () => {
                   label="Email Address"
                   placeholder="your.email@example.com"
                   value={formData.email || ""}
-                  onChange={(e) =>
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
                     handleInputChange("email", e.currentTarget.value)
                   }
                   leftSection={<IconMail size={16} />}
@@ -497,7 +518,7 @@ const BrowsePropertiesSection = () => {
                   label="Current Address"
                   placeholder="Enter your current complete address"
                   value={formData.currentAddress || ""}
-                  onChange={(e) =>
+                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
                     handleInputChange("currentAddress", e.currentTarget.value)
                   }
                   autosize
@@ -511,7 +532,7 @@ const BrowsePropertiesSection = () => {
                   label="Preferred Contact Method"
                   value={formData.preferredContactMethod}
                   onChange={(value) =>
-                    handleInputChange("preferredContactMethod", value)
+                    handleSelectChange("preferredContactMethod", value)
                   }
                   data={[
                     { value: "phone", label: "Phone Call" },
@@ -526,7 +547,7 @@ const BrowsePropertiesSection = () => {
                   label="Preferred Contact Time"
                   placeholder="e.g., Weekdays 9AM-5PM"
                   value={formData.preferredContactTime || ""}
-                  onChange={(e) =>
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
                     handleInputChange(
                       "preferredContactTime",
                       e.currentTarget.value
@@ -552,7 +573,7 @@ const BrowsePropertiesSection = () => {
                   label="Specific Lot/Unit of Interest"
                   placeholder="e.g., Block 1 Lot 15, or leave blank for general inquiry"
                   value={formData.specificLotUnit || ""}
-                  onChange={(e) =>
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
                     handleInputChange("specificLotUnit", e.currentTarget.value)
                   }
                 />
@@ -562,7 +583,9 @@ const BrowsePropertiesSection = () => {
                 <Select
                   label="Property Type Preference"
                   value={formData.propertyType}
-                  onChange={(value) => handleInputChange("propertyType", value)}
+                  onChange={(value) =>
+                    handleSelectChange("propertyType", value)
+                  }
                   data={[
                     { value: "residential-lot", label: "Residential Lot" },
                     { value: "commercial", label: "Commercial" },
@@ -579,7 +602,7 @@ const BrowsePropertiesSection = () => {
                   label="Budget Range"
                   placeholder="e.g., ₱2M - ₱5M"
                   value={formData.budgetRange || ""}
-                  onChange={(e) =>
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
                     handleInputChange("budgetRange", e.currentTarget.value)
                   }
                   leftSection={<IconCash size={16} />}
@@ -592,7 +615,7 @@ const BrowsePropertiesSection = () => {
                   label="Preferred Lot Size"
                   placeholder="e.g., 300 sqm, 500 sqm"
                   value={formData.preferredLotSize || ""}
-                  onChange={(e) =>
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
                     handleInputChange("preferredLotSize", e.currentTarget.value)
                   }
                 />
@@ -605,7 +628,7 @@ const BrowsePropertiesSection = () => {
                 <Radio.Group
                   value={formData.paymentMethod}
                   onChange={(value) =>
-                    handleInputChange("paymentMethod", value)
+                    handleRadioChange("paymentMethod", value)
                   }
                 >
                   <Group>
@@ -621,7 +644,7 @@ const BrowsePropertiesSection = () => {
                   label="Additional Requirements or Questions"
                   placeholder="Any specific requirements, questions, or additional information you'd like to share..."
                   value={formData.additionalRequirements || ""}
-                  onChange={(e) =>
+                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
                     handleInputChange(
                       "additionalRequirements",
                       e.currentTarget.value

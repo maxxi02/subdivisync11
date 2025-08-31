@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status");
     const type = searchParams.get("type");
 
-    let query: Record<string, unknown> = {};
+    const query: Record<string, unknown> = {};
 
     if (status && status !== "all") {
       query.status = status;
