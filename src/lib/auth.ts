@@ -6,7 +6,7 @@ import { nextCookies } from "better-auth/next-js";
 import { admin as adminPlugin, twoFactor } from "better-auth/plugins";
 
 const resend = getResend();
-
+// asd
 export const auth = betterAuth({
   database: mongodbAdapter(db),
   trustedOrigins: [
