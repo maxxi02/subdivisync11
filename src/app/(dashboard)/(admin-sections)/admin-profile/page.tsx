@@ -79,7 +79,9 @@ const Enable2FA: React.FC<Enable2FAProps> = ({ session }) => {
     } catch (error) {
       notifications.show({
         title: "Error",
-        message: `Something went wrong ${state ? "enabling" : "disabling"} 2FA! 😿`,
+        message: `Something went wrong ${
+          state ? "enabling" : "disabling"
+        } 2FA! 😿`,
         color: "red",
       });
     } finally {

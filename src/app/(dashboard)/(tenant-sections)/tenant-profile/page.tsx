@@ -1,7 +1,7 @@
 import React from "react";
 
-const TenantProfile = () => {
-  return <div>TenantProfile here </div>;
+const page = () => {
+  return <div>Tenant profile here</div>;
 };
 
-export default TenantProfile;
+export default page;
