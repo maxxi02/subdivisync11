@@ -3,11 +3,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/better-auth/action";
 import { connectDB, db } from "@/database/mongodb";
 
+// Interface definitions
+interface Property {
+  _id?: string;
+  title: string;
+  location: string;
+  size: string;
+  price: string;
+  type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
+  status: "available" | "reserved" | "sold" | "rented";
+  image: string;
+  amenities: string[];
+  description?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  sqft?: number;
+  created_by?: string;
+  created_at?: Date;
+  updated_at?: Date;
+  availability_status?: string;
+}
+
 // GET - Fetch all properties
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession();
-
     if (!session) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
@@ -20,17 +40,11 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
+    const type = searchParams.get("type");
     const minPrice = searchParams.get("minPrice");
     const maxPrice = searchParams.get("maxPrice");
 
-    const query: {
-      availability_status?: string;
-      type?: string;
-      rent_amount?: {
-        $gte?: number;
-        $lte?: number;
-      };
-    } = {};
+    const query: Record<string, unknown> = {};
 
     // Non-admin users can only see available properties
     if (session.user.role !== "admin") {
@@ -42,10 +56,15 @@ export async function GET(request: NextRequest) {
       query.availability_status = status;
     }
 
+    if (type && type !== "all") {
+      query.type = type;
+    }
+
     if (minPrice || maxPrice) {
-      query.rent_amount = {};
-      if (minPrice) query.rent_amount.$gte = Number(minPrice);
-      if (maxPrice) query.rent_amount.$lte = Number(maxPrice);
+      const priceQuery: Record<string, number> = {};
+      if (minPrice) priceQuery.$gte = Number(minPrice);
+      if (maxPrice) priceQuery.$lte = Number(maxPrice);
+      query.rent_amount = priceQuery;
     }
 
     const properties = await propertiesCollection
@@ -70,7 +89,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession();
-
     if (!session || session.user.role !== "admin") {
       return NextResponse.json(
         { success: false, error: "Unauthorized - Admin access required" },
@@ -83,40 +101,73 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      address,
-      rent_amount,
+      title,
+      location,
+      size,
+      price,
+      type,
+      status = "available",
+      image = "/placeholder.svg",
+      amenities = [],
       description,
-      photos = [],
-      availability_status = "Available",
       bedrooms,
       bathrooms,
       sqft,
-      type,
-      amenities = [],
     } = body;
 
     // Validate required fields
-    if (!address || !rent_amount || !bedrooms || !bathrooms || !sqft || !type) {
+    if (!title || !location || !size || !price || !type) {
       return NextResponse.json(
-        { success: false, error: "Missing required fields" },
+        {
+          success: false,
+          error:
+            "Missing required fields: title, location, size, price, and type are required",
+        },
         { status: 400 }
       );
     }
 
-    const property = {
-      address,
-      rent_amount: Number(rent_amount),
-      description,
-      photos,
-      availability_status,
-      bedrooms: Number(bedrooms),
-      bathrooms: Number(bathrooms),
-      sqft: Number(sqft),
+    // Validate property type
+    const validTypes = [
+      "residential-lot",
+      "commercial",
+      "house-and-lot",
+      "condo",
+    ];
+    if (!validTypes.includes(type)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid property type" },
+        { status: 400 }
+      );
+    }
+
+    // Validate status
+    const validStatuses = ["available", "reserved", "sold", "rented"];
+    if (!validStatuses.includes(status)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid property status" },
+        { status: 400 }
+      );
+    }
+
+    const property: Omit<Property, "_id"> = {
+      title,
+      location,
+      size,
+      price,
       type,
-      amenities,
+      status,
+      image,
+      amenities: Array.isArray(amenities) ? amenities : [],
+      description,
+      bedrooms: bedrooms ? Number(bedrooms) : 0, // Changed from undefined to 0
+      bathrooms: bathrooms ? Number(bathrooms) : 0, // Changed from undefined to 0
+      sqft: sqft ? Number(sqft) : 0, // Changed from undefined to 0
       created_by: session.user.id,
       created_at: new Date(),
       updated_at: new Date(),
+      availability_status:
+        status === "available" ? "Available" : "Not Available",
     };
 
     const result = await propertiesCollection.insertOne(property);
