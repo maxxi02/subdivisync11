@@ -5,9 +5,9 @@ import { connectDB, db } from "@/database/mongodb";
 import { ObjectId } from "mongodb";
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 // GET - Fetch specific approved property
@@ -21,11 +21,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Await the params Promise
+    const { id } = await params;
+
     await connectDB();
     const approvedPropertiesCollection = db.collection("approved_properties");
 
     const property = await approvedPropertiesCollection.findOne({
-      _id: new ObjectId(params.id),
+      _id: new ObjectId(id),
     });
 
     if (!property) {
@@ -59,6 +62,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Await the params Promise
+    const { id } = await params;
+
     await connectDB();
     const approvedPropertiesCollection = db.collection("approved_properties");
 
@@ -76,7 +82,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (paymentStatus) updateData["owner.paymentStatus"] = paymentStatus;
 
     const result = await approvedPropertiesCollection.updateOne(
-      { _id: new ObjectId(params.id) },
+      { _id: new ObjectId(id) },
       { $set: updateData }
     );
 
@@ -88,7 +94,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const updatedProperty = await approvedPropertiesCollection.findOne({
-      _id: new ObjectId(params.id),
+      _id: new ObjectId(id),
     });
 
     return NextResponse.json({
@@ -116,11 +122,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Await the params Promise
+    const { id } = await params;
+
     await connectDB();
     const approvedPropertiesCollection = db.collection("approved_properties");
 
     const result = await approvedPropertiesCollection.deleteOne({
-      _id: new ObjectId(params.id),
+      _id: new ObjectId(id),
     });
 
     if (result.deletedCount === 0) {
