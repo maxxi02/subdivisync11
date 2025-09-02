@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, ChangeEvent } from "react";
+import { useState, ChangeEvent, useEffect } from "react";
 import {
   Title,
   Group,
@@ -36,10 +36,9 @@ import {
 } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import { propertyInquiriesApi } from "@/lib/api/property-inquiries";
-
+import { propertiesApi, Property } from "@/lib/api/properties";
 interface PropertyInquiry {
   id: string;
-  // Contact Information
   fullName: string;
   primaryPhone: string;
   secondaryPhone?: string;
@@ -47,8 +46,7 @@ interface PropertyInquiry {
   currentAddress: string;
   preferredContactMethod: "phone" | "email" | "text";
   preferredContactTime: string;
-
-  // Property Interest Details
+  selectedPropertyId?: string;
   specificLotUnit?: string;
   propertyType:
     | "residential-lot"
@@ -84,6 +82,10 @@ const BrowsePropertiesSection = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [inquiryModalOpened, { open: openInquiry, close: closeInquiry }] =
     useDisclosure(false);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
+  const [selectedPropertyType, setSelectedPropertyType] =
+    useState<string>("all");
 
   // Form state
   const [formData, setFormData] = useState<Partial<PropertyInquiry>>({
@@ -104,6 +106,56 @@ const BrowsePropertiesSection = () => {
       setError(null);
       setSuccessMessage(null);
     }, 5000);
+  };
+
+  const fetchProperties = async () => {
+    try {
+      setLoading(true);
+      const response = await propertiesApi.getAll({
+        status: "available", // Only show available properties to tenants
+      });
+
+      if (response.success && response.properties) {
+        setProperties(response.properties);
+        setFilteredProperties(response.properties);
+      } else {
+        setError(response.error || "Failed to fetch properties");
+      }
+    } catch (error) {
+      setError("Network error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProperties();
+  }, []);
+
+  const handleTypeFilter = (type: string) => {
+    setSelectedPropertyType(type);
+
+    if (type === "all") {
+      setFilteredProperties(properties);
+    } else {
+      const filtered = properties.filter((property) => property.type === type);
+      setFilteredProperties(filtered);
+    }
+  };
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case "available":
+        return "green";
+      case "reserved":
+        return "orange";
+      case "sold":
+        return "gray";
+      case "rented":
+        return "blue";
+      default:
+        return "gray";
+    }
   };
 
   const handleInputChange = (
@@ -171,6 +223,7 @@ const BrowsePropertiesSection = () => {
         timeline: formData.timeline || "flexible",
         paymentMethod: formData.paymentMethod || "financing",
         additionalRequirements: formData.additionalRequirements,
+        selectedPropertyId: formData.selectedPropertyId,
       };
 
       const response = await propertyInquiriesApi.create(inquiryData);
@@ -314,123 +367,257 @@ const BrowsePropertiesSection = () => {
               {/* Property Type Filter */}
               <Group mb="xl">
                 <Text fw={500}>Filter by Type:</Text>
-                <Button variant="light" size="sm">
+                <Button
+                  variant={selectedPropertyType === "all" ? "filled" : "light"}
+                  size="sm"
+                  onClick={() => handleTypeFilter("all")}
+                >
                   All Properties
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant={
+                    selectedPropertyType === "residential-lot"
+                      ? "filled"
+                      : "outline"
+                  }
+                  size="sm"
+                  onClick={() => handleTypeFilter("residential-lot")}
+                >
                   Residential Lots
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant={
+                    selectedPropertyType === "commercial" ? "filled" : "outline"
+                  }
+                  size="sm"
+                  onClick={() => handleTypeFilter("commercial")}
+                >
                   Commercial
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant={
+                    selectedPropertyType === "house-and-lot"
+                      ? "filled"
+                      : "outline"
+                  }
+                  size="sm"
+                  onClick={() => handleTypeFilter("house-and-lot")}
+                >
                   House & Lot
+                </Button>
+                <Button
+                  variant={
+                    selectedPropertyType === "condo" ? "filled" : "outline"
+                  }
+                  size="sm"
+                  onClick={() => handleTypeFilter("condo")}
+                >
+                  Condominiums
                 </Button>
               </Group>
 
               {/* Properties Grid */}
               <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
-                {sampleProperties.map((property) => (
-                  <Card key={property.id} shadow="sm" radius="md" withBorder>
-                    {/* Property Image Section */}
-                    <Card.Section>
-                      <img
-                        src={property.image || "/placeholder.svg"}
-                        alt={property.title}
-                        style={{
-                          width: "100%",
-                          height: "200px",
-                          objectFit: "cover",
-                        }}
-                      />
-                    </Card.Section>
-
-                    <Card.Section withBorder inheritPadding py="xs">
-                      <Group justify="space-between">
-                        <Text fw={500}>{property.title}</Text>
-                        <Text
-                          size="sm"
-                          c={
-                            property.status === "Available" ? "green" : "orange"
-                          }
-                          fw={500}
+                {loading ? (
+                  // Loading skeleton
+                  Array.from({ length: 6 }).map((_, index) => (
+                    <Card key={index} shadow="sm" radius="md" withBorder>
+                      <Card.Section>
+                        <div
+                          style={{
+                            width: "100%",
+                            height: "200px",
+                            backgroundColor: "#f8f9fa",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
                         >
-                          {property.status}
-                        </Text>
-                      </Group>
-                    </Card.Section>
-
-                    <Stack gap="sm" mt="md" px="md">
-                      <Group>
-                        <IconMapPin size={16} />
-                        <Text size="sm">{property.location}</Text>
-                      </Group>
-
-                      <Group>
-                        <IconBuilding size={16} />
-                        <Text size="sm">{property.size}</Text>
-                      </Group>
-
-                      <Group>
-                        <IconCash size={16} />
-                        <Text size="lg" fw={700} c="blue">
-                          {property.price}
-                        </Text>
-                      </Group>
-
-                      <Text size="xs" c="dimmed">
-                        {property.type}
-                      </Text>
-
-                      {/* Amenities Section */}
-                      <Box mt="sm">
-                        <Text size="sm" fw={500} mb="xs">
-                          Key Features:
-                        </Text>
-                        <Group gap="xs">
-                          {property.amenities
-                            .slice(0, 3)
-                            .map((amenity, index) => (
-                              <Text
-                                key={index}
-                                size="xs"
-                                px="xs"
-                                py={2}
-                                bg="blue.0"
-                                c="blue.7"
-                                style={{
-                                  borderRadius: "12px",
-                                  border:
-                                    "1px solid var(--mantine-color-blue-2)",
-                                }}
-                              >
-                                {amenity}
-                              </Text>
-                            ))}
-                          {property.amenities.length > 3 && (
-                            <Text size="xs" c="dimmed">
-                              +{property.amenities.length - 3} more
-                            </Text>
-                          )}
-                        </Group>
-                      </Box>
-                    </Stack>
-
-                    <Button
-                      fullWidth
-                      mt="md"
-                      mx="md"
-                      mb="md"
-                      variant="light"
-                      onClick={openInquiry}
-                      disabled={property.status !== "Available"}
-                    >
-                      {property.status === "Available"
-                        ? "Inquire Now"
-                        : "Not Available"}
-                    </Button>
+                          <Text c="dimmed">Loading...</Text>
+                        </div>
+                      </Card.Section>
+                      <Stack gap="sm" mt="md" px="md" pb="md">
+                        <div
+                          style={{
+                            height: "20px",
+                            backgroundColor: "#f8f9fa",
+                            borderRadius: "4px",
+                          }}
+                        />
+                        <div
+                          style={{
+                            height: "16px",
+                            backgroundColor: "#f8f9fa",
+                            borderRadius: "4px",
+                            width: "70%",
+                          }}
+                        />
+                        <div
+                          style={{
+                            height: "16px",
+                            backgroundColor: "#f8f9fa",
+                            borderRadius: "4px",
+                            width: "50%",
+                          }}
+                        />
+                      </Stack>
+                    </Card>
+                  ))
+                ) : filteredProperties.length === 0 ? (
+                  <Card
+                    shadow="sm"
+                    radius="md"
+                    withBorder
+                    style={{ gridColumn: "1 / -1" }}
+                  >
+                    <Text ta="center" c="dimmed" py="xl">
+                      No properties found for the selected criteria.
+                    </Text>
                   </Card>
-                ))}
+                ) : (
+                  filteredProperties.map((property) => (
+                    <Card key={property._id} shadow="sm" radius="md" withBorder>
+                      <Card.Section>
+                        <img
+                          src={property.image || "/placeholder.svg"}
+                          alt={property.title}
+                          style={{
+                            width: "100%",
+                            height: "200px",
+                            objectFit: "cover",
+                          }}
+                        />
+                      </Card.Section>
+
+                      <Card.Section withBorder inheritPadding py="xs">
+                        <Group justify="space-between">
+                          <Text fw={500}>{property.title}</Text>
+                          <Text
+                            size="sm"
+                            c={getStatusBadgeColor(property.status)}
+                            fw={500}
+                            tt="uppercase"
+                          >
+                            {property.status}
+                          </Text>
+                        </Group>
+                      </Card.Section>
+
+                      <Stack gap="sm" mt="md" px="md">
+                        <Group>
+                          <IconMapPin size={16} />
+                          <Text size="sm">{property.location}</Text>
+                        </Group>
+
+                        <Group>
+                          <IconBuilding size={16} />
+                          <Text size="sm">{property.size}</Text>
+                        </Group>
+
+                        <Group>
+                          <IconCash size={16} />
+                          <Text size="lg" fw={700} c="blue">
+                            {property.price}
+                          </Text>
+                        </Group>
+
+                        <Text size="xs" c="dimmed" tt="capitalize">
+                          {property.type.replace("-", " ")}
+                        </Text>
+
+                        {/* Show bedrooms/bathrooms/sqft for applicable types */}
+                        {(property.type === "house-and-lot" ||
+                          property.type === "condo") &&
+                          (property.bedrooms ||
+                            property.bathrooms ||
+                            property.sqft) && (
+                            <Group gap="md" mt="xs">
+                              {property.bedrooms && property.bedrooms > 0 && (
+                                <Text size="xs" c="dimmed">
+                                  {property.bedrooms} bed
+                                  {property.bedrooms > 1 ? "s" : ""}
+                                </Text>
+                              )}
+                              {property.bathrooms && property.bathrooms > 0 && (
+                                <Text size="xs" c="dimmed">
+                                  {property.bathrooms} bath
+                                  {property.bathrooms > 1 ? "s" : ""}
+                                </Text>
+                              )}
+                              {property.sqft && property.sqft > 0 && (
+                                <Text size="xs" c="dimmed">
+                                  {property.sqft} sqft
+                                </Text>
+                              )}
+                            </Group>
+                          )}
+
+                        {/* Amenities Section */}
+                        {property.amenities &&
+                          property.amenities.length > 0 && (
+                            <Box mt="sm">
+                              <Text size="sm" fw={500} mb="xs">
+                                Key Features:
+                              </Text>
+                              <Group gap="xs">
+                                {property.amenities
+                                  .slice(0, 3)
+                                  .map((amenity, index) => (
+                                    <Text
+                                      key={index}
+                                      size="xs"
+                                      px="xs"
+                                      py={2}
+                                      bg="blue.0"
+                                      c="blue.7"
+                                      style={{
+                                        borderRadius: "12px",
+                                        border:
+                                          "1px solid var(--mantine-color-blue-2)",
+                                      }}
+                                    >
+                                      {amenity
+                                        .replace("-", " ")
+                                        .replace(/\b\w/g, (l) =>
+                                          l.toUpperCase()
+                                        )}
+                                    </Text>
+                                  ))}
+                                {property.amenities.length > 3 && (
+                                  <Text size="xs" c="dimmed">
+                                    +{property.amenities.length - 3} more
+                                  </Text>
+                                )}
+                              </Group>
+                            </Box>
+                          )}
+
+                        {/* Description preview */}
+                        {property.description && (
+                          <Box mt="sm">
+                            <Text size="xs" c="dimmed" lineClamp={2}>
+                              {property.description}
+                            </Text>
+                          </Box>
+                        )}
+                      </Stack>
+
+                      <Button
+                        fullWidth
+                        mt="md"
+                        mx="md"
+                        mb="md"
+                        variant="light"
+                        onClick={openInquiry}
+                        disabled={property.status !== "available"}
+                      >
+                        {property.status === "available"
+                          ? "Inquire Now"
+                          : "Not Available"}
+                      </Button>
+                    </Card>
+                  ))
+                )}
               </SimpleGrid>
             </Card>
           </Tabs.Panel>
@@ -463,6 +650,25 @@ const BrowsePropertiesSection = () => {
             </Title>
 
             <Grid>
+              <Grid.Col span={12}>
+                <Select
+                  label="Select Property (Optional)"
+                  placeholder="Choose a specific property from our listings"
+                  value={formData.selectedPropertyId || ""}
+                  onChange={(value) =>
+                    handleSelectChange("selectedPropertyId", value)
+                  }
+                  data={[
+                    { value: "", label: "General Inquiry" },
+                    ...properties.map((property) => ({
+                      value: property._id,
+                      label: `${property.title} - ${property.location} (${property.price})`,
+                    })),
+                  ]}
+                  searchable
+                  clearable
+                />
+              </Grid.Col>
               <Grid.Col span={12}>
                 <TextInput
                   label="Full Name"

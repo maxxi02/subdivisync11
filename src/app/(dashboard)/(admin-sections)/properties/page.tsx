@@ -49,6 +49,11 @@ import {
   CreatePropertyRequest,
   Property,
 } from "@/lib/api/properties";
+import {
+  createImagePreview,
+  uploadImageToServer,
+  validateImageFile,
+} from "@/lib/upload";
 
 const AdminPropertiesSection = () => {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -87,6 +92,43 @@ const AdminPropertiesSection = () => {
     sqft: 0,
   });
 
+  const [editModalOpened, { open: openEditModal, close: closeEditModal }] =
+    useDisclosure(false);
+  const [editFormData, setEditFormData] = useState<CreatePropertyRequest>({
+    title: "",
+    location: "",
+    size: "",
+    price: "",
+    type: "residential-lot",
+    status: "available",
+    image: "",
+    amenities: [],
+    description: "",
+    bedrooms: 0,
+    bathrooms: 0,
+    sqft: 0,
+  });
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [updating, setUpdating] = useState(false);
+  const handleEditProperty = (property: Property) => {
+    setEditFormData({
+      title: property.title,
+      location: property.location,
+      size: property.size,
+      price: property.price,
+      type: property.type as CreatePropertyRequest["type"],
+      status: property.status as CreatePropertyRequest["status"],
+      image: property.image,
+      amenities: property.amenities || [],
+      description: property.description || "",
+      bedrooms: property.bedrooms || 0,
+      bathrooms: property.bathrooms || 0,
+      sqft: property.sqft || 0,
+    });
+    setSelectedProperty(property);
+    setEditImageFile(null);
+    openEditModal();
+  };
   const availableAmenities = [
     { value: "swimming-pool", label: "Swimming Pool" },
     { value: "gym", label: "Gym/Fitness Center" },
@@ -110,11 +152,167 @@ const AdminPropertiesSection = () => {
     { value: "internet-ready", label: "Internet Ready" },
   ];
 
+  const handleEditInputChange = (
+    field: keyof CreatePropertyRequest,
+    value: string | number | string[]
+  ) => {
+    setEditFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleEditImageUpload = (file: File | null) => {
+    setEditImageFile(file);
+
+    if (file) {
+      const validation = validateImageFile(file);
+      if (!validation.valid) {
+        showNotification(validation.error || "Invalid file", true);
+        setEditImageFile(null);
+        handleEditInputChange("image", editFormData.image!);
+        return;
+      }
+
+      const previewUrl = createImagePreview(file);
+      handleEditInputChange("image", previewUrl);
+    } else {
+      // Reset to original image if no new file selected
+      handleEditInputChange("image", selectedProperty?.image || "");
+    }
+  };
+
+  const handleUpdateProperty = async () => {
+    if (
+      !selectedProperty ||
+      !editFormData.title ||
+      !editFormData.location ||
+      !editFormData.size ||
+      !editFormData.price
+    ) {
+      showNotification("Please fill in all required fields", true);
+      return;
+    }
+
+    try {
+      setUpdating(true);
+
+      let imageUrl = editFormData.image;
+
+      // Upload new image if file is selected
+      if (editImageFile) {
+        const uploadResult = await uploadImageToServer(editImageFile);
+
+        if (!uploadResult.success) {
+          showNotification(
+            uploadResult.error || "Failed to upload image",
+            true
+          );
+          return;
+        }
+
+        imageUrl = uploadResult.imageUrl || "";
+      }
+
+      // Prepare the update payload
+      const updateData: CreatePropertyRequest = {
+        ...editFormData,
+        image: imageUrl,
+      };
+
+      const response = await propertiesApi.update(
+        selectedProperty._id,
+        updateData
+      );
+
+      if (response.success) {
+        showNotification(response.message || "Property updated successfully!");
+        closeEditModal();
+        await fetchProperties(); // Refresh the properties list
+      } else {
+        showNotification(response.error || "Failed to update property", true);
+      }
+    } catch (error) {
+      console.error("Error updating property:", error);
+      showNotification("Failed to update property. Please try again.", true);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const handleImageUpload = (file: File | null) => {
     setImageFile(file);
+
     if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      handleInputChange("image", imageUrl);
+      // Validate the file on client side
+      const validation = validateImageFile(file);
+      if (!validation.valid) {
+        showNotification(validation.error || "Invalid file", true);
+        setImageFile(null);
+        handleInputChange("image", "");
+        return;
+      }
+
+      // Create preview URL
+      const previewUrl = createImagePreview(file);
+      handleInputChange("image", previewUrl);
+    } else {
+      handleInputChange("image", "");
+    }
+  };
+
+  const handleCreateProperty = async () => {
+    if (
+      !formData.title ||
+      !formData.location ||
+      !formData.size ||
+      !formData.price
+    ) {
+      showNotification("Please fill in all required fields", true);
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      let imageUrl = "";
+
+      // Upload image to server if file is selected
+      if (imageFile) {
+        const uploadResult = await uploadImageToServer(imageFile);
+
+        if (!uploadResult.success) {
+          showNotification(
+            uploadResult.error || "Failed to upload image",
+            true
+          );
+          return;
+        }
+
+        imageUrl = uploadResult.imageUrl || "";
+      }
+
+      // Prepare the request payload
+      const propertyData: CreatePropertyRequest = {
+        ...formData,
+        image: imageUrl || formData.image, // Use uploaded URL or existing URL
+      };
+
+      const response = await propertiesApi.create(propertyData);
+
+      if (response.success) {
+        showNotification(response.message || "Property created successfully!");
+        closeCreateModal();
+        resetForm();
+        await fetchProperties(); // Refresh the properties list
+      } else {
+        showNotification(response.error || "Failed to create property", true);
+      }
+    } catch (error) {
+      console.error("Error creating property:", error);
+      showNotification("Failed to create property. Please try again.", true);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -144,36 +342,8 @@ const AdminPropertiesSection = () => {
       sqft: 0,
     });
     setImageFile(null);
-  };
-
-  const handleCreateProperty = async () => {
-    if (
-      !formData.title ||
-      !formData.location ||
-      !formData.size ||
-      !formData.price
-    ) {
-      showNotification("Please fill in all required fields", true);
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      const response = await propertiesApi.create(formData);
-
-      if (response.success) {
-        showNotification(response.message || "Property created successfully!");
-        closeCreateModal();
-        resetForm();
-        fetchProperties();
-      } else {
-        showNotification(response.error || "Failed to create property", true);
-      }
-    } catch (error) {
-      showNotification("Failed to create property. Please try again.", true);
-    } finally {
-      setSubmitting(false);
-    }
+    setError(null);
+    setSuccessMessage(null);
   };
 
   const handleAmenityChange = (value: string[]) => {
@@ -455,7 +625,7 @@ const AdminPropertiesSection = () => {
                     <Grid.Col span={{ base: 12, sm: 4 }}>
                       <TextInput
                         label="Bedrooms"
-                        placeholder="Number of bedrooms"
+                        placeholder="Number of bedrooms (0 for lots)"
                         type="number"
                         value={formData.bedrooms?.toString() || ""}
                         onChange={(e) =>
@@ -470,7 +640,7 @@ const AdminPropertiesSection = () => {
                     <Grid.Col span={{ base: 12, sm: 4 }}>
                       <TextInput
                         label="Bathrooms"
-                        placeholder="Number of bathrooms"
+                        placeholder="Number of bathrooms (0 for lots)"
                         type="number"
                         value={formData.bathrooms?.toString() || ""}
                         onChange={(e) =>
@@ -641,6 +811,33 @@ const AdminPropertiesSection = () => {
                         </Text>
                       </Group>
 
+                      {/* Add bedrooms/bathrooms/sqft display for applicable property types */}
+                      {(property.type === "house-and-lot" ||
+                        property.type === "condo") &&
+                        (property.bedrooms ||
+                          property.bathrooms ||
+                          property.sqft) && (
+                          <Group gap="md" mt="xs">
+                            {property.bedrooms && property.bedrooms > 0 && (
+                              <Text size="xs" c="dimmed">
+                                {property.bedrooms} bed
+                                {property.bedrooms > 1 ? "s" : ""}
+                              </Text>
+                            )}
+                            {property.bathrooms && property.bathrooms > 0 && (
+                              <Text size="xs" c="dimmed">
+                                {property.bathrooms} bath
+                                {property.bathrooms > 1 ? "s" : ""}
+                              </Text>
+                            )}
+                            {property.sqft && property.sqft > 0 && (
+                              <Text size="xs" c="dimmed">
+                                {property.sqft} sqft
+                              </Text>
+                            )}
+                          </Group>
+                        )}
+
                       <Divider />
 
                       <Box>
@@ -651,7 +848,7 @@ const AdminPropertiesSection = () => {
                           <Avatar size="sm" color="blue">
                             {property.owner?.fullName
                               ?.split(" ")
-                              .map((n: string) => n[0]) // Fixed: Added type annotation
+                              .map((n: string) => n[0])
                               .join("") || "U"}
                           </Avatar>
                           <div>
@@ -675,8 +872,7 @@ const AdminPropertiesSection = () => {
                           </Badge>
                           <Text size="xs" c="dimmed">
                             Approved:{" "}
-                            {new Date(property.created_at).toLocaleDateString()}{" "}
-                            {/* Fixed: Use created_at */}
+                            {new Date(property.created_at).toLocaleDateString()}
                           </Text>
                         </Group>
                       </Box>
@@ -691,7 +887,11 @@ const AdminPropertiesSection = () => {
                       >
                         View Details
                       </Button>
-                      <ActionIcon variant="light" color="blue">
+                      <ActionIcon
+                        variant="light"
+                        color="blue"
+                        onClick={() => handleEditProperty(property)}
+                      >
                         <IconEdit size={16} />
                       </ActionIcon>
                     </Group>
@@ -708,6 +908,7 @@ const AdminPropertiesSection = () => {
                   <Table.Tr>
                     <Table.Th>Owner</Table.Th>
                     <Table.Th>Property</Table.Th>
+                    <Table.Th>Details</Table.Th>
                     <Table.Th>Contact</Table.Th>
                     <Table.Th>Payment Status</Table.Th>
                     <Table.Th>Created Date</Table.Th>
@@ -722,7 +923,7 @@ const AdminPropertiesSection = () => {
                           <Avatar size="sm" color="blue">
                             {property.owner?.fullName
                               ?.split(" ")
-                              .map((n: string) => n[0]) // Fixed: Added type annotation
+                              .map((n: string) => n[0])
                               .join("") || "U"}
                           </Avatar>
                           <div>
@@ -751,6 +952,44 @@ const AdminPropertiesSection = () => {
                           >
                             {property.status}
                           </Badge>
+                        </div>
+                      </Table.Td>
+                      <Table.Td>
+                        <div>
+                          <Text size="xs" c="dimmed">
+                            {property.type.replace("-", " ").toUpperCase()}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            Size: {property.size}
+                          </Text>
+                          <Text size="xs" fw={500} c="blue">
+                            {property.price}
+                          </Text>
+                          {/* Show bedrooms/bathrooms/sqft for applicable types */}
+                          {(property.type === "house-and-lot" ||
+                            property.type === "condo") &&
+                            (property.bedrooms ||
+                              property.bathrooms ||
+                              property.sqft) && (
+                              <Group gap="xs" mt="2px">
+                                {property.bedrooms && property.bedrooms > 0 && (
+                                  <Text size="xs" c="dimmed">
+                                    {property.bedrooms}BR
+                                  </Text>
+                                )}
+                                {property.bathrooms &&
+                                  property.bathrooms > 0 && (
+                                    <Text size="xs" c="dimmed">
+                                      {property.bathrooms}BA
+                                    </Text>
+                                  )}
+                                {property.sqft && property.sqft > 0 && (
+                                  <Text size="xs" c="dimmed">
+                                    {property.sqft}sqft
+                                  </Text>
+                                )}
+                              </Group>
+                            )}
                         </div>
                       </Table.Td>
                       <Table.Td>
@@ -784,8 +1023,7 @@ const AdminPropertiesSection = () => {
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm">
-                          {new Date(property.created_at).toLocaleDateString()}{" "}
-                          {/* Fixed: Use created_at */}
+                          {new Date(property.created_at).toLocaleDateString()}
                         </Text>
                       </Table.Td>
                       <Table.Td>
@@ -1057,12 +1295,250 @@ const AdminPropertiesSection = () => {
                 <Button variant="outline" onClick={closePropertyModal}>
                   Close
                 </Button>
-                <Button leftSection={<IconEdit size={16} />}>
+                <Button
+                  leftSection={<IconEdit size={16} />}
+                  onClick={() => {
+                    closePropertyModal();
+                    handleEditProperty(selectedProperty);
+                  }}
+                >
                   Edit Property
                 </Button>
               </Group>
             </Stack>
           )}
+        </Modal>
+
+        {/* EDIT MODAL */}
+        <Modal
+          opened={editModalOpened}
+          onClose={closeEditModal}
+          title="Edit Property"
+          centered
+          size="lg"
+        >
+          <Stack gap="md">
+            <Box>
+              <Title order={4} mb="md" c="blue">
+                <IconBuilding size={20} style={{ marginRight: 8 }} />
+                Property Information
+              </Title>
+
+              <Grid>
+                <Grid.Col span={12}>
+                  <TextInput
+                    label="Property Title"
+                    placeholder="Enter property title"
+                    value={editFormData.title}
+                    onChange={(e) =>
+                      handleEditInputChange("title", e.currentTarget.value)
+                    }
+                    required
+                  />
+                </Grid.Col>
+
+                <Grid.Col span={12}>
+                  <TextInput
+                    label="Location/Address"
+                    placeholder="Enter property location"
+                    value={editFormData.location}
+                    onChange={(e) =>
+                      handleEditInputChange("location", e.currentTarget.value)
+                    }
+                    leftSection={<IconMapPin size={16} />}
+                    required
+                  />
+                </Grid.Col>
+
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="Size"
+                    placeholder="e.g., 300 sqm"
+                    value={editFormData.size}
+                    onChange={(e) =>
+                      handleEditInputChange("size", e.currentTarget.value)
+                    }
+                    required
+                  />
+                </Grid.Col>
+
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="Price"
+                    placeholder="e.g., ₱2,500,000"
+                    value={editFormData.price}
+                    onChange={(e) =>
+                      handleEditInputChange("price", e.currentTarget.value)
+                    }
+                    leftSection={<IconCash size={16} />}
+                    required
+                  />
+                </Grid.Col>
+
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <Select
+                    label="Property Type"
+                    value={editFormData.type}
+                    onChange={(value) =>
+                      handleEditInputChange("type", value || "residential-lot")
+                    }
+                    data={[
+                      { value: "residential-lot", label: "Residential Lot" },
+                      { value: "commercial", label: "Commercial" },
+                      { value: "house-and-lot", label: "House and Lot" },
+                      { value: "condo", label: "Condominium" },
+                    ]}
+                    required
+                  />
+                </Grid.Col>
+
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <Select
+                    label="Status"
+                    value={editFormData.status}
+                    onChange={(value) =>
+                      handleEditInputChange("status", value || "available")
+                    }
+                    data={[
+                      { value: "available", label: "Available" },
+                      { value: "reserved", label: "Reserved" },
+                      { value: "sold", label: "Sold" },
+                      { value: "rented", label: "Rented" },
+                    ]}
+                  />
+                </Grid.Col>
+
+                <Grid.Col span={12}>
+                  <FileInput
+                    label="Property Image"
+                    placeholder="Select new image or keep current"
+                    value={editImageFile}
+                    onChange={handleEditImageUpload}
+                    leftSection={<IconUpload size={16} />}
+                    accept="image/*"
+                  />
+                  {editFormData.image && (
+                    <Box mt="sm">
+                      <Text size="sm" c="dimmed" mb="xs">
+                        {editImageFile
+                          ? "New Image Preview:"
+                          : "Current Image:"}
+                      </Text>
+                      <img
+                        src={editFormData.image}
+                        alt="Property preview"
+                        style={{
+                          width: "100%",
+                          maxWidth: "200px",
+                          height: "120px",
+                          objectFit: "cover",
+                          borderRadius: "8px",
+                          border: "1px solid #e9ecef",
+                        }}
+                      />
+                    </Box>
+                  )}
+                </Grid.Col>
+
+                <Grid.Col span={12}>
+                  <Textarea
+                    label="Description"
+                    placeholder="Enter property description"
+                    value={editFormData.description}
+                    onChange={(e) =>
+                      handleEditInputChange(
+                        "description",
+                        e.currentTarget.value
+                      )
+                    }
+                    autosize
+                    minRows={3}
+                  />
+                </Grid.Col>
+
+                {(editFormData.type === "house-and-lot" ||
+                  editFormData.type === "condo") && (
+                  <>
+                    <Grid.Col span={{ base: 12, sm: 4 }}>
+                      <TextInput
+                        label="Bedrooms"
+                        placeholder="Number of bedrooms"
+                        type="number"
+                        value={editFormData.bedrooms?.toString() || ""}
+                        onChange={(e) =>
+                          handleEditInputChange(
+                            "bedrooms",
+                            Number(e.currentTarget.value) || 0
+                          )
+                        }
+                      />
+                    </Grid.Col>
+
+                    <Grid.Col span={{ base: 12, sm: 4 }}>
+                      <TextInput
+                        label="Bathrooms"
+                        placeholder="Number of bathrooms"
+                        type="number"
+                        value={editFormData.bathrooms?.toString() || ""}
+                        onChange={(e) =>
+                          handleEditInputChange(
+                            "bathrooms",
+                            Number(e.currentTarget.value) || 0
+                          )
+                        }
+                      />
+                    </Grid.Col>
+
+                    <Grid.Col span={{ base: 12, sm: 4 }}>
+                      <TextInput
+                        label="Floor Area (sqft)"
+                        placeholder="Floor area in square feet"
+                        type="number"
+                        value={editFormData.sqft?.toString() || ""}
+                        onChange={(e) =>
+                          handleEditInputChange(
+                            "sqft",
+                            Number(e.currentTarget.value) || 0
+                          )
+                        }
+                      />
+                    </Grid.Col>
+                  </>
+                )}
+
+                <Grid.Col span={12}>
+                  <MultiSelect
+                    label="Amenities"
+                    placeholder="Select available amenities"
+                    value={editFormData.amenities || []}
+                    onChange={(value: string[]) =>
+                      handleEditInputChange("amenities", value)
+                    }
+                    data={availableAmenities}
+                    searchable
+                    clearable
+                  />
+                </Grid.Col>
+              </Grid>
+            </Box>
+
+            <Group justify="right" mt="xl">
+              <Button
+                variant="outline"
+                onClick={closeEditModal}
+                disabled={updating}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpdateProperty}
+                loading={updating}
+                leftSection={<IconCheck size={16} />}
+              >
+                Update Property
+              </Button>
+            </Group>
+          </Stack>
         </Modal>
       </Stack>
     </Container>

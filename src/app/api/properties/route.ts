@@ -1,11 +1,9 @@
 // app/api/properties/route.ts
-import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/better-auth/action";
+import { NextRequest, NextResponse } from "next/server";
 import { connectDB, db } from "@/database/mongodb";
 
-// Interface definitions
-interface Property {
-  _id?: string;
+export interface CreatePropertyRequest {
   title: string;
   location: string;
   size: string;
@@ -14,20 +12,45 @@ interface Property {
   status: "available" | "reserved" | "sold" | "rented";
   image: string;
   amenities: string[];
-  description?: string;
+  description: string;
   bedrooms?: number;
   bathrooms?: number;
   sqft?: number;
-  created_by?: string;
-  created_at?: Date;
+}
+
+export interface Property {
+  _id: string;
+  title: string;
+  location: string;
+  size: string;
+  price: string;
+  type: string;
+  status: string;
+  image: string;
+  amenities: string[];
+  description: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  sqft?: number;
+  availability_status: string;
+  created_by: string;
+  created_at: Date;
   updated_at?: Date;
-  availability_status?: string;
+  owner?: {
+    fullName: string;
+    email: string;
+    phone?: string;
+    address?: string;
+    paymentStatus: string;
+    paymentMethod?: string;
+  };
 }
 
 // GET - Fetch all properties
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession();
+
     if (!session) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
@@ -37,13 +60,15 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
     const propertiesCollection = db.collection("properties");
+    const usersCollection = db.collection("users");
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const type = searchParams.get("type");
-    const minPrice = searchParams.get("minPrice");
-    const maxPrice = searchParams.get("maxPrice");
+    const limit = parseInt(searchParams.get("limit") || "50");
+    const page = parseInt(searchParams.get("page") || "1");
 
+    // Build query
     const query: Record<string, unknown> = {};
 
     // Non-admin users can only see available properties
@@ -51,30 +76,69 @@ export async function GET(request: NextRequest) {
       query.availability_status = "Available";
     }
 
-    // Apply filters for admin users
-    if (status && status !== "all" && session.user.role === "admin") {
-      query.availability_status = status;
+    if (status && status !== "all") {
+      query.status = status;
     }
 
     if (type && type !== "all") {
       query.type = type;
     }
 
-    if (minPrice || maxPrice) {
-      const priceQuery: Record<string, number> = {};
-      if (minPrice) priceQuery.$gte = Number(minPrice);
-      if (maxPrice) priceQuery.$lte = Number(maxPrice);
-      query.rent_amount = priceQuery;
-    }
+    // Calculate pagination
+    const skip = (page - 1) * limit;
 
+    // Fetch properties with pagination
     const properties = await propertiesCollection
       .find(query)
       .sort({ created_at: -1 })
+      .skip(skip)
+      .limit(limit)
       .toArray();
+
+    // Get total count for pagination
+    const totalCount = await propertiesCollection.countDocuments(query);
+
+    // For admin users, populate owner information
+    let enrichedProperties = properties;
+    if (session.user.role === "admin") {
+      enrichedProperties = await Promise.all(
+        properties.map(async (property) => {
+          if (property.created_by) {
+            const owner = await usersCollection.findOne(
+              { _id: property.created_by },
+              { projection: { password: 0 } }
+            );
+
+            return {
+              ...property,
+              owner: owner
+                ? {
+                    fullName:
+                      owner.name ||
+                      `${owner.firstName || ""} ${owner.lastName || ""}`.trim(),
+                    email: owner.email,
+                    phone: owner.phone,
+                    address: owner.address,
+                    paymentStatus: owner.paymentStatus || "pending",
+                    paymentMethod: owner.paymentMethod,
+                  }
+                : null,
+            };
+          }
+          return property;
+        })
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      properties,
+      properties: enrichedProperties,
+      pagination: {
+        total: totalCount,
+        page,
+        limit,
+        pages: Math.ceil(totalCount / limit),
+      },
     });
   } catch (error) {
     console.error("Error fetching properties:", error);
@@ -89,6 +153,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession();
+
     if (!session || session.user.role !== "admin") {
       return NextResponse.json(
         { success: false, error: "Unauthorized - Admin access required" },
@@ -99,29 +164,22 @@ export async function POST(request: NextRequest) {
     await connectDB();
     const propertiesCollection = db.collection("properties");
 
-    const body = await request.json();
-    const {
-      title,
-      location,
-      size,
-      price,
-      type,
-      status = "available",
-      image = "/placeholder.svg",
-      amenities = [],
-      description,
-      bedrooms,
-      bathrooms,
-      sqft,
-    } = body;
+    const body: CreatePropertyRequest = await request.json();
 
     // Validate required fields
-    if (!title || !location || !size || !price || !type) {
+    const requiredFields: (keyof CreatePropertyRequest)[] = [
+      "title",
+      "location",
+      "size",
+      "price",
+    ];
+    const missingFields = requiredFields.filter((field) => !body[field]);
+
+    if (missingFields.length > 0) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Missing required fields: title, location, size, price, and type are required",
+          error: `Missing required fields: ${missingFields.join(", ")}`,
         },
         { status: 400 }
       );
@@ -134,7 +192,7 @@ export async function POST(request: NextRequest) {
       "house-and-lot",
       "condo",
     ];
-    if (!validTypes.includes(type)) {
+    if (!validTypes.includes(body.type)) {
       return NextResponse.json(
         { success: false, error: "Invalid property type" },
         { status: 400 }
@@ -143,34 +201,43 @@ export async function POST(request: NextRequest) {
 
     // Validate status
     const validStatuses = ["available", "reserved", "sold", "rented"];
-    if (!validStatuses.includes(status)) {
+    if (!validStatuses.includes(body.status)) {
       return NextResponse.json(
         { success: false, error: "Invalid property status" },
         { status: 400 }
       );
     }
 
-    const property: Omit<Property, "_id"> = {
-      title,
-      location,
-      size,
-      price,
-      type,
-      status,
-      image,
-      amenities: Array.isArray(amenities) ? amenities : [],
-      description,
-      bedrooms: bedrooms ? Number(bedrooms) : 0, // Changed from undefined to 0
-      bathrooms: bathrooms ? Number(bathrooms) : 0, // Changed from undefined to 0
-      sqft: sqft ? Number(sqft) : 0, // Changed from undefined to 0
+    // Create property document
+    const propertyDocument = {
+      title: body.title.trim(),
+      location: body.location.trim(),
+      size: body.size.trim(),
+      price: body.price.trim(),
+      type: body.type,
+      status: body.status,
+      image: body.image || "",
+      amenities: Array.isArray(body.amenities) ? body.amenities : [],
+      description: body.description?.trim() || "",
+      bedrooms: body.bedrooms || 0,
+      bathrooms: body.bathrooms || 0,
+      sqft: body.sqft || 0,
+      availability_status:
+        body.status === "available" ? "Available" : "Not Available",
       created_by: session.user.id,
       created_at: new Date(),
-      updated_at: new Date(),
-      availability_status:
-        status === "available" ? "Available" : "Not Available",
     };
 
-    const result = await propertiesCollection.insertOne(property);
+    const result = await propertiesCollection.insertOne(propertyDocument);
+
+    if (!result.insertedId) {
+      return NextResponse.json(
+        { success: false, error: "Failed to create property" },
+        { status: 500 }
+      );
+    }
+
+    // Fetch the created property
     const createdProperty = await propertiesCollection.findOne({
       _id: result.insertedId,
     });

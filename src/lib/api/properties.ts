@@ -63,4 +63,22 @@ export const propertiesApi = {
       throw error;
     }
   },
+
+  update: async (id: string, data: CreatePropertyRequest) => {
+    try {
+      const response = await fetch(`/api/properties/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error("Error updating property:", error);
+      return { success: false, error: "Network error occurred" };
+    }
+  },
 };

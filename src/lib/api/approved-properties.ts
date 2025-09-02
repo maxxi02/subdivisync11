@@ -1,5 +1,6 @@
 // lib/api/approved-properties.ts
 import axios from "axios";
+import { CreatePropertyRequest } from "./properties";
 
 export interface PropertyOwner {
   id: string;
@@ -129,39 +130,21 @@ export const approvedPropertiesApi = {
     }
   },
 
-  // Update approved property (Admin only)
-  update: async (
-    id: string,
-    updateData: {
-      status?: ApprovedProperty["status"];
-      paymentStatus?: PropertyOwner["paymentStatus"];
-      title?: string;
-      price?: string;
-      location?: string;
-    }
-  ): Promise<ApiResponse<ApprovedProperty>> => {
+  update: async (id: string, data: CreatePropertyRequest) => {
     try {
-      const response = await axios.put(
-        `/api/approved-properties/${id}`,
-        updateData
-      );
-      return {
-        success: true,
-        data: response.data.property,
-        message: response.data.message,
-      };
+      const response = await fetch(`/api/properties/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+      return result;
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response) {
-        return {
-          success: false,
-          error:
-            error.response.data.error || "Failed to update approved property",
-        };
-      }
-      return {
-        success: false,
-        error: "Network error occurred",
-      };
+      console.error("Error updating property:", error);
+      return { success: false, error: "Network error occurred" };
     }
   },
 
