@@ -2,7 +2,6 @@
 import { getServerSession } from "@/better-auth/action";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB, db } from "@/database/mongodb";
-
 export interface CreatePropertyRequest {
   title: string;
   location: string;
@@ -10,7 +9,7 @@ export interface CreatePropertyRequest {
   price: string;
   type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
   status: "available" | "reserved" | "sold" | "rented";
-  image: string;
+  images: string[];
   amenities: string[];
   description: string;
   bedrooms?: number;
@@ -26,7 +25,7 @@ export interface Property {
   price: string;
   type: string;
   status: string;
-  image: string;
+  images: string[];
   amenities: string[];
   description: string;
   bedrooms?: number;
@@ -216,7 +215,7 @@ export async function POST(request: NextRequest) {
       price: body.price.trim(),
       type: body.type,
       status: body.status,
-      image: body.image || "",
+      images: Array.isArray(body.images) ? body.images : [],
       amenities: Array.isArray(body.amenities) ? body.amenities : [],
       description: body.description?.trim() || "",
       bedrooms: body.bedrooms || 0,

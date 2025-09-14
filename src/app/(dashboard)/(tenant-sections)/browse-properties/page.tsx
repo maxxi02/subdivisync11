@@ -37,6 +37,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { propertyInquiriesApi } from "@/lib/api/property-inquiries";
 import { propertiesApi, Property } from "@/lib/api/properties";
+import CustomCarousel from "./_components/carousel";
 interface PropertyInquiry {
   id: string;
   fullName: string;
@@ -74,8 +75,8 @@ interface PropertyInquiry {
 }
 
 const BrowsePropertiesSection = () => {
+  const [appliedProperties, setAppliedProperties] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>("browse");
-  const [inquiries, setInquiries] = useState<PropertyInquiry[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +87,20 @@ const BrowsePropertiesSection = () => {
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
   const [selectedPropertyType, setSelectedPropertyType] =
     useState<string>("all");
+
+  //view property details
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(
+    null
+  );
+  const [
+    propertyModalOpened,
+    { open: openPropertyModal, close: closePropertyModal },
+  ] = useDisclosure(false);
+
+  const handleViewProperty = (property: Property) => {
+    setSelectedProperty(property);
+    openPropertyModal();
+  };
 
   // Form state
   const [formData, setFormData] = useState<Partial<PropertyInquiry>>({
@@ -107,6 +122,29 @@ const BrowsePropertiesSection = () => {
       setSuccessMessage(null);
     }, 5000);
   };
+
+  const fetchAppliedProperties = async () => {
+    try {
+      const response = await propertyInquiriesApi.getAll();
+      if (response.success && response.data?.inquiries) {
+        const propertyIds: string[] = response.data.inquiries
+          .map((inquiry) => inquiry.selectedPropertyId)
+          .filter((id): id is string => Boolean(id));
+        setAppliedProperties(propertyIds);
+      }
+    } catch (error) {
+      console.error("Failed to fetch applied properties:", error);
+    }
+  };
+
+  const hasAppliedToProperty = (propertyId: string) => {
+    return appliedProperties.includes(propertyId);
+  };
+
+  useEffect(() => {
+    fetchProperties();
+    fetchAppliedProperties();
+  }, []);
 
   const fetchProperties = async () => {
     try {
@@ -138,7 +176,18 @@ const BrowsePropertiesSection = () => {
     if (type === "all") {
       setFilteredProperties(properties);
     } else {
-      const filtered = properties.filter((property) => property.type === type);
+      // Map display types to API types
+      const typeMapping: Record<string, string> = {
+        "residential-lot": "residential-lot",
+        commercial: "commercial",
+        "house-and-lot": "house-and-lot",
+        condo: "condo",
+      };
+
+      const apiType = typeMapping[type] || type;
+      const filtered = properties.filter(
+        (property) => property.type === apiType
+      );
       setFilteredProperties(filtered);
     }
   };
@@ -188,20 +237,18 @@ const BrowsePropertiesSection = () => {
   };
 
   const submitInquiry = async () => {
-    // Validate required fields
     const requiredFields = [
       "fullName",
       "primaryPhone",
       "email",
       "currentAddress",
-      "budgetRange",
     ];
     const missingFields = requiredFields.filter(
       (field) => !formData[field as keyof PropertyInquiry]
     );
 
     if (missingFields.length > 0) {
-      showNotification("Please fill in all required fields", true);
+      showNotification("Please fill in all required contact fields", true);
       return;
     }
 
@@ -218,7 +265,7 @@ const BrowsePropertiesSection = () => {
         preferredContactTime: formData.preferredContactTime || "",
         specificLotUnit: formData.specificLotUnit,
         propertyType: formData.propertyType || "residential-lot",
-        budgetRange: formData.budgetRange!,
+        budgetRange: formData.budgetRange || "",
         preferredLotSize: formData.preferredLotSize,
         timeline: formData.timeline || "flexible",
         paymentMethod: formData.paymentMethod || "financing",
@@ -235,6 +282,7 @@ const BrowsePropertiesSection = () => {
         );
         closeInquiry();
         resetForm();
+        await fetchAppliedProperties();
       } else {
         showNotification(
           response.error || "Failed to submit inquiry. Please try again.",
@@ -256,61 +304,6 @@ const BrowsePropertiesSection = () => {
       paymentMethod: "financing",
     });
   };
-
-  // Sample properties for display
-  const sampleProperties = [
-    {
-      id: "1",
-      title: "Prime Residential Lot",
-      location: "Subdivision A, Block 1, Lot 15",
-      size: "300 sqm",
-      price: "₱2,500,000",
-      type: "Residential Lot",
-      status: "Available",
-      image: "/modern-residential-lot-with-trees-and-paved-roads.png",
-      amenities: [
-        "Paved Roads",
-        "Street Lighting",
-        "Water Connection",
-        "Electricity Ready",
-        "24/7 Security",
-      ],
-    },
-    {
-      id: "2",
-      title: "Commercial Space",
-      location: "Main Road, Corner Lot",
-      size: "500 sqm",
-      price: "₱8,000,000",
-      type: "Commercial",
-      status: "Available",
-      image: "/commercial-corner-lot-with-wide-frontage-and-parki.png",
-      amenities: [
-        "Corner Lot",
-        "Wide Frontage",
-        "High Traffic Area",
-        "Parking Space",
-        "Near Public Transport",
-      ],
-    },
-    {
-      id: "3",
-      title: "House and Lot Package",
-      location: "Subdivision B, Block 3, Lot 8",
-      size: "250 sqm lot, 120 sqm floor area",
-      price: "₱4,200,000",
-      type: "House and Lot",
-      status: "Reserved",
-      image: "/modern-two-story-house-with-garden-and-garage.png",
-      amenities: [
-        "3 Bedrooms",
-        "2 Bathrooms",
-        "Garage",
-        "Garden Area",
-        "Fully Furnished",
-      ],
-    },
-  ];
 
   return (
     <Container size="xl" py="md">
@@ -359,7 +352,7 @@ const BrowsePropertiesSection = () => {
         <Tabs value={activeTab} onChange={setActiveTab}>
           <Tabs.List>
             <Tabs.Tab value="browse">Browse Properties</Tabs.Tab>
-            <Tabs.Tab value="featured">Featured Listings</Tabs.Tab>
+            <Tabs.Tab value="featured">Owned Properties</Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="browse" pt="md">
@@ -478,14 +471,14 @@ const BrowsePropertiesSection = () => {
                   filteredProperties.map((property) => (
                     <Card key={property._id} shadow="sm" radius="md" withBorder>
                       <Card.Section>
-                        <img
-                          src={property.image || "/placeholder.svg"}
+                        <CustomCarousel
+                          images={
+                            property.images && property.images.length > 0
+                              ? property.images
+                              : ["/placeholder.svg"]
+                          }
+                          height={200}
                           alt={property.title}
-                          style={{
-                            width: "100%",
-                            height: "200px",
-                            objectFit: "cover",
-                          }}
                         />
                       </Card.Section>
 
@@ -601,20 +594,47 @@ const BrowsePropertiesSection = () => {
                           </Box>
                         )}
                       </Stack>
-
-                      <Button
-                        fullWidth
-                        mt="md"
-                        mx="md"
-                        mb="md"
-                        variant="light"
-                        onClick={openInquiry}
-                        disabled={property.status !== "available"}
-                      >
-                        {property.status === "available"
-                          ? "Inquire Now"
-                          : "Not Available"}
-                      </Button>
+                      <Group mt="md" mx="md" mb="md" justify="space-between">
+                        <Button
+                          flex={1}
+                          variant="outline"
+                          leftSection={<IconSearch size={16} />}
+                          onClick={() => handleViewProperty(property)}
+                        >
+                          View Details
+                        </Button>
+                        <Button
+                          flex={1}
+                          variant={
+                            hasAppliedToProperty(property._id)
+                              ? "filled"
+                              : "light"
+                          }
+                          onClick={() => {
+                            if (hasAppliedToProperty(property._id)) {
+                              window.location.href = "/my-applications";
+                            } else {
+                              setFormData((prev) => ({
+                                ...prev,
+                                selectedPropertyId: property._id,
+                                propertyType: property.type,
+                                budgetRange: property.price,
+                              }));
+                              openInquiry();
+                            }
+                          }}
+                          disabled={
+                            property.status !== "available" &&
+                            !hasAppliedToProperty(property._id)
+                          }
+                        >
+                          {property.status !== "available"
+                            ? "Not Available"
+                            : hasAppliedToProperty(property._id)
+                            ? "Pending"
+                            : "Inquire Now"}
+                        </Button>
+                      </Group>
                     </Card>
                   ))
                 )}
@@ -766,17 +786,21 @@ const BrowsePropertiesSection = () => {
 
           <Divider />
 
-          {/* Property Interest Section */}
+          {/* Property Interest Section - NOW OPTIONAL */}
           <Box>
             <Title order={3} size="h4" mb="md" c="green">
               <IconHome size={20} style={{ marginRight: 8 }} />
-              Property Interest Details
+              Property Interest Details (Optional)
             </Title>
+            <Text size="sm" c="dimmed" mb="md">
+              Providing these details helps us serve you better, but they are
+              not required.
+            </Text>
 
             <Grid>
               <Grid.Col span={12}>
                 <TextInput
-                  label="Specific Lot/Unit of Interest"
+                  label="Specific Lot/Unit of Interest (Optional)"
                   placeholder="e.g., Block 1 Lot 15, or leave blank for general inquiry"
                   value={formData.specificLotUnit || ""}
                   onChange={(e: ChangeEvent<HTMLInputElement>) =>
@@ -787,7 +811,8 @@ const BrowsePropertiesSection = () => {
 
               <Grid.Col span={{ base: 12, sm: 6 }}>
                 <Select
-                  label="Property Type Preference"
+                  label="Property Type Preference (Optional)"
+                  placeholder="Select property type"
                   value={formData.propertyType}
                   onChange={(value) =>
                     handleSelectChange("propertyType", value)
@@ -799,26 +824,25 @@ const BrowsePropertiesSection = () => {
                     { value: "condo", label: "Condominium" },
                     { value: "other", label: "Other" },
                   ]}
-                  required
+                  clearable
                 />
               </Grid.Col>
 
               <Grid.Col span={{ base: 12, sm: 6 }}>
                 <TextInput
-                  label="Budget Range"
+                  label="Budget Range (Optional)"
                   placeholder="e.g., ₱2M - ₱5M"
                   value={formData.budgetRange || ""}
                   onChange={(e: ChangeEvent<HTMLInputElement>) =>
                     handleInputChange("budgetRange", e.currentTarget.value)
                   }
                   leftSection={<IconCash size={16} />}
-                  required
                 />
               </Grid.Col>
 
               <Grid.Col span={{ base: 12, sm: 6 }}>
                 <TextInput
-                  label="Preferred Lot Size"
+                  label="Preferred Lot Size (Optional)"
                   placeholder="e.g., 300 sqm, 500 sqm"
                   value={formData.preferredLotSize || ""}
                   onChange={(e: ChangeEvent<HTMLInputElement>) =>
@@ -827,9 +851,26 @@ const BrowsePropertiesSection = () => {
                 />
               </Grid.Col>
 
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Select
+                  label="Purchase Timeline (Optional)"
+                  placeholder="Select timeline"
+                  value={formData.timeline}
+                  onChange={(value) => handleSelectChange("timeline", value)}
+                  data={[
+                    { value: "immediate", label: "Immediate (within 1 month)" },
+                    { value: "1-3-months", label: "1-3 months" },
+                    { value: "3-6-months", label: "3-6 months" },
+                    { value: "6-12-months", label: "6-12 months" },
+                    { value: "flexible", label: "Flexible timeline" },
+                  ]}
+                  clearable
+                />
+              </Grid.Col>
+
               <Grid.Col span={12}>
                 <Text size="sm" fw={500} mb="xs">
-                  Payment Method Preference
+                  Payment Method Preference (Optional)
                 </Text>
                 <Radio.Group
                   value={formData.paymentMethod}
@@ -847,7 +888,7 @@ const BrowsePropertiesSection = () => {
 
               <Grid.Col span={12}>
                 <Textarea
-                  label="Additional Requirements or Questions"
+                  label="Additional Requirements or Questions (Optional)"
                   placeholder="Any specific requirements, questions, or additional information you'd like to share..."
                   value={formData.additionalRequirements || ""}
                   onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
@@ -880,6 +921,185 @@ const BrowsePropertiesSection = () => {
             </Button>
           </Group>
         </Stack>
+      </Modal>
+
+      {/* Property Detail Modal */}
+      <Modal
+        opened={propertyModalOpened}
+        onClose={closePropertyModal}
+        title={`Property Details - ${selectedProperty?.title}`}
+        size="xl"
+        centered
+      >
+        {selectedProperty && (
+          <Stack gap="md">
+            {/* Property Images */}
+            {selectedProperty.images && selectedProperty.images.length > 0 ? (
+              <CustomCarousel
+                images={selectedProperty.images}
+                height={300}
+                alt={selectedProperty.title}
+              />
+            ) : (
+              <Box
+                style={{
+                  height: 300,
+                  backgroundColor: "#f8f9fa",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 8,
+                }}
+              >
+                <Text c="dimmed">No images available</Text>
+              </Box>
+            )}
+
+            {/* Property Information */}
+            <Grid>
+              <Grid.Col span={{ base: 12, md: 8 }}>
+                <Stack gap="sm">
+                  <Group>
+                    <Title order={2}>{selectedProperty.title}</Title>
+                    <Text
+                      size="lg"
+                      c={getStatusBadgeColor(selectedProperty.status)}
+                      fw={600}
+                      tt="uppercase"
+                    >
+                      {selectedProperty.status}
+                    </Text>
+                  </Group>
+
+                  <Group>
+                    <IconMapPin size={18} />
+                    <Text size="lg">{selectedProperty.location}</Text>
+                  </Group>
+
+                  <Group>
+                    <IconBuilding size={18} />
+                    <Text>{selectedProperty.size}</Text>
+                  </Group>
+
+                  <Group>
+                    <IconCash size={18} />
+                    <Text size="xl" fw={700} c="blue">
+                      {selectedProperty.price}
+                    </Text>
+                  </Group>
+
+                  <Text size="sm" c="dimmed" tt="capitalize">
+                    Property Type: {selectedProperty.type.replace("-", " ")}
+                  </Text>
+
+                  {/* House/Condo specific details */}
+                  {(selectedProperty.type === "house-and-lot" ||
+                    selectedProperty.type === "condo") &&
+                    (selectedProperty.bedrooms ||
+                      selectedProperty.bathrooms ||
+                      selectedProperty.sqft) && (
+                      <Group gap="lg">
+                        {selectedProperty.bedrooms &&
+                          selectedProperty.bedrooms > 0 && (
+                            <Text>
+                              <Text component="span" fw={500}>
+                                {selectedProperty.bedrooms}
+                              </Text>{" "}
+                              Bedroom
+                              {selectedProperty.bedrooms > 1 ? "s" : ""}
+                            </Text>
+                          )}
+                        {selectedProperty.bathrooms &&
+                          selectedProperty.bathrooms > 0 && (
+                            <Text>
+                              <Text component="span" fw={500}>
+                                {selectedProperty.bathrooms}
+                              </Text>{" "}
+                              Bathroom
+                              {selectedProperty.bathrooms > 1 ? "s" : ""}
+                            </Text>
+                          )}
+                        {selectedProperty.sqft && selectedProperty.sqft > 0 && (
+                          <Text>
+                            <Text component="span" fw={500}>
+                              {selectedProperty.sqft}
+                            </Text>{" "}
+                            sq ft
+                          </Text>
+                        )}
+                      </Group>
+                    )}
+                </Stack>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 4 }}>
+                {/* Action Card */}
+                <Card withBorder p="md">
+                  <Title order={4} mb="sm" c="blue">
+                    Interested in this property?
+                  </Title>
+                  <Button
+                    fullWidth
+                    onClick={() => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        selectedPropertyId: selectedProperty._id,
+                      }));
+                      closePropertyModal();
+                      openInquiry();
+                    }}
+                    disabled={selectedProperty.status !== "available"}
+                  >
+                    {selectedProperty.status === "available"
+                      ? "Inquire About This Property"
+                      : "Property Not Available"}
+                  </Button>
+                </Card>
+              </Grid.Col>
+            </Grid>
+
+            {/* Description */}
+            {selectedProperty.description && (
+              <Box>
+                <Title order={4} mb="sm">
+                  Description
+                </Title>
+                <Text>{selectedProperty.description}</Text>
+              </Box>
+            )}
+
+            {/* Amenities */}
+            {selectedProperty.amenities &&
+              selectedProperty.amenities.length > 0 && (
+                <Box>
+                  <Title order={4} mb="sm">
+                    Amenities & Features
+                  </Title>
+                  <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
+                    {selectedProperty.amenities.map((amenity, index) => (
+                      <Text
+                        key={index}
+                        size="sm"
+                        px="sm"
+                        py="xs"
+                        bg="blue.0"
+                        c="blue.7"
+                        ta="center"
+                        style={{
+                          borderRadius: "16px",
+                          border: "1px solid var(--mantine-color-blue-2)",
+                        }}
+                      >
+                        {amenity
+                          .replace("-", " ")
+                          .replace(/\b\w/g, (l) => l.toUpperCase())}
+                      </Text>
+                    ))}
+                  </SimpleGrid>
+                </Box>
+              )}
+          </Stack>
+        )}
       </Modal>
     </Container>
   );

@@ -1,8 +1,8 @@
-import axios from "axios";
+// lib/api/property-inquiries.ts
 
-// Type definitions
-export interface PropertyInquiry {
-  _id?: string;
+import axios, { AxiosResponse } from "axios";
+
+export interface CreatePropertyInquiryRequest {
   fullName: string;
   primaryPhone: string;
   secondaryPhone?: string;
@@ -10,6 +10,7 @@ export interface PropertyInquiry {
   currentAddress: string;
   preferredContactMethod: "phone" | "email" | "text";
   preferredContactTime: string;
+  selectedPropertyId?: string;
   specificLotUnit?: string;
   propertyType:
     | "residential-lot"
@@ -27,163 +28,271 @@ export interface PropertyInquiry {
     | "flexible";
   paymentMethod: "cash" | "financing" | "installment";
   additionalRequirements?: string;
+  rejectionReason?: string;
+}
+
+// Updated to include 'rejected' status
+export interface PropertyInquiry extends CreatePropertyInquiryRequest {
+  _id: string;
   status:
     | "new"
     | "contacted"
     | "viewing-scheduled"
     | "negotiating"
-    | "approved"
+    | "closed"
     | "rejected"
-    | "closed";
-  submittedAt: string;
+    | "owned";
+  rejectionReason?: string;
   priority: "high" | "medium" | "low";
-  createdBy: string;
-  updatedAt?: string;
-  adminNotes?: string;
+  submittedAt: Date;
+  created_by: string;
+  created_at: Date;
+  updated_at?: Date;
+  property?: {
+    _id: string; // Added _id field
+    title: string;
+    location: string;
+    price: string;
+    type: string;
+    size?: string;
+    images?: string[];
+    amenities?: string[];
+    description?: string;
+    bedrooms?: number;
+    bathrooms?: number;
+    sqft?: number;
+    status?: "available" | "reserved" | "sold" | "rented" | "owned";
+    availability_status?: string;
+  };
+  tenant?: {
+    fullName: string;
+    email: string;
+    phone: string;
+  };
 }
 
-export interface ApiResponse<T> {
+// Add CreatePropertyRequest interface for property API
+export interface CreatePropertyRequest {
+  title: string;
+  location: string;
+  price: string;
+  type: string;
+  size?: string;
+  images?: string[];
+  amenities?: string[];
+  description?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  sqft?: number;
+  status: "available" | "reserved" | "sold" | "rented" | "owned";
+  availability_status?: string;
+  owner_details?: {
+    fullName: string;
+    email: string;
+    phone: string;
+    address: string;
+  };
+}
+
+// Define pagination interface
+interface PaginationInfo {
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
-  error?: string;
   message?: string;
+  error?: string;
 }
 
-// Property Inquiries API
-export const propertyInquiriesApi = {
-  // Create new inquiry
-  create: async (
-    inquiryData: Omit<
-      PropertyInquiry,
-      "_id" | "status" | "submittedAt" | "priority" | "createdBy" | "updatedAt"
-    >
-  ): Promise<ApiResponse<PropertyInquiry>> => {
+interface GetInquiriesParams {
+  status?: string;
+  priority?: string;
+  propertyType?: string;
+  limit?: number;
+  page?: number;
+}
+
+class PropertyInquiriesApi {
+  private baseUrl = "/api/property-inquiries";
+
+  async create(
+    data: CreatePropertyInquiryRequest
+  ): Promise<ApiResponse<PropertyInquiry>> {
     try {
-      const response = await axios.post("/api/property-inquiries", inquiryData);
+      const response: AxiosResponse = await axios.post(this.baseUrl, data);
+
       return {
         success: true,
         data: response.data.inquiry,
-        message: response.data.message,
+        message: response.data.message || "Inquiry submitted successfully",
       };
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response) {
+      if (axios.isAxiosError(error)) {
         return {
           success: false,
-          error: error.response.data.error || "Failed to submit inquiry",
+          error:
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to submit inquiry",
         };
       }
+      console.error("Error creating property inquiry:", error);
       return {
         success: false,
-        error: "Network error occurred",
+        error: "Network error occurred while submitting inquiry",
       };
     }
-  },
+  }
 
-  // Get all inquiries (with optional filters)
-  getAll: async (params?: {
-    status?: string;
-    priority?: string;
-  }): Promise<ApiResponse<PropertyInquiry[]>> => {
+  async getAll(
+    params: GetInquiriesParams = {}
+  ): Promise<
+    ApiResponse<{ inquiries: PropertyInquiry[]; pagination: PaginationInfo }>
+  > {
     try {
-      const queryParams = new URLSearchParams();
-      if (params?.status) queryParams.append("status", params.status);
-      if (params?.priority) queryParams.append("priority", params.priority);
+      const response: AxiosResponse = await axios.get(this.baseUrl, {
+        params: {
+          ...(params.status && { status: params.status }),
+          ...(params.priority && { priority: params.priority }),
+          ...(params.propertyType && { propertyType: params.propertyType }),
+          ...(params.limit && { limit: params.limit }),
+          ...(params.page && { page: params.page }),
+        },
+      });
 
-      const response = await axios.get(
-        `/api/property-inquiries?${queryParams}`
-      );
       return {
         success: true,
-        data: response.data.inquiries,
+        data: {
+          inquiries: response.data.inquiries,
+          pagination: response.data.pagination,
+        },
       };
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response) {
+      if (axios.isAxiosError(error)) {
         return {
           success: false,
-          error: error.response.data.error || "Failed to fetch inquiries",
+          error:
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to fetch inquiries",
         };
       }
+      console.error("Error fetching property inquiries:", error);
       return {
         success: false,
-        error: "Network error occurred",
+        error: "Network error occurred while fetching inquiries",
       };
     }
-  },
+  }
 
-  // Get single inquiry
-  getById: async (id: string): Promise<ApiResponse<PropertyInquiry>> => {
+  async getById(id: string): Promise<ApiResponse<PropertyInquiry>> {
     try {
-      const response = await axios.get(`/api/property-inquiries/${id}`);
+      const response: AxiosResponse = await axios.get(`${this.baseUrl}/${id}`);
+
       return {
         success: true,
         data: response.data.inquiry,
       };
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response) {
+      if (axios.isAxiosError(error)) {
         return {
           success: false,
-          error: error.response.data.error || "Failed to fetch inquiry",
+          error:
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to fetch inquiry",
         };
       }
+      console.error("Error fetching property inquiry:", error);
       return {
         success: false,
-        error: "Network error occurred",
+        error: "Network error occurred while fetching inquiry",
       };
     }
-  },
+  }
 
-  // Update inquiry status (Admin only)
-  updateStatus: async (
+  async update(
     id: string,
-    updateData: {
-      status: PropertyInquiry["status"];
+    data: Partial<CreatePropertyInquiryRequest> & {
+      status?: PropertyInquiry["status"];
       priority?: PropertyInquiry["priority"];
-      adminNotes?: string;
     }
-  ): Promise<ApiResponse<PropertyInquiry>> => {
+  ): Promise<ApiResponse<PropertyInquiry>> {
     try {
-      const response = await axios.put(
-        `/api/property-inquiries/${id}`,
-        updateData
+      const response: AxiosResponse = await axios.put(
+        `${this.baseUrl}/${id}`,
+        data
       );
+
       return {
         success: true,
         data: response.data.inquiry,
-        message: response.data.message,
+        message: response.data.message || "Inquiry updated successfully",
       };
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response) {
+      if (axios.isAxiosError(error)) {
         return {
           success: false,
-          error: error.response.data.error || "Failed to update inquiry",
+          error:
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to update inquiry",
         };
       }
+      console.error("Error updating property inquiry:", error);
       return {
         success: false,
-        error: "Network error occurred",
+        error: "Network error occurred while updating inquiry",
       };
     }
-  },
+  }
 
-  // Delete inquiry (Admin only)
-  delete: async (id: string): Promise<ApiResponse<void>> => {
+  async delete(id: string): Promise<ApiResponse> {
     try {
-      const response = await axios.delete(`/api/property-inquiries/${id}`);
+      const response: AxiosResponse = await axios.delete(
+        `${this.baseUrl}/${id}`
+      );
+
       return {
         success: true,
-        message: response.data.message,
+        message: response.data.message || "Inquiry deleted successfully",
       };
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response) {
+      if (axios.isAxiosError(error)) {
         return {
           success: false,
-          error: error.response.data.error || "Failed to delete inquiry",
+          error:
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to delete inquiry",
         };
       }
+      console.error("Error deleting property inquiry:", error);
       return {
         success: false,
-        error: "Network error occurred",
+        error: "Network error occurred while deleting inquiry",
       };
     }
-  },
-};
+  }
+
+  async updateStatus(
+    id: string,
+    status: PropertyInquiry["status"]
+  ): Promise<ApiResponse<PropertyInquiry>> {
+    return this.update(id, { status });
+  }
+
+  async updatePriority(
+    id: string,
+    priority: PropertyInquiry["priority"]
+  ): Promise<ApiResponse<PropertyInquiry>> {
+    return this.update(id, { priority });
+  }
+}
+
+export const propertyInquiriesApi = new PropertyInquiriesApi();

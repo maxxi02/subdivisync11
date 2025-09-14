@@ -1,4 +1,5 @@
-import axios from "axios";
+import axios, { AxiosResponse } from "axios";
+import { ApiResponse } from "./approved-properties";
 
 interface PropertyOwner {
   fullName?: string;
@@ -17,7 +18,7 @@ export interface Property {
   price: string;
   type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
   status: "available" | "reserved" | "sold" | "rented";
-  image?: string;
+  images?: string[];
   amenities: string[];
   description?: string;
   bedrooms?: number;
@@ -33,18 +34,25 @@ export interface Property {
 export interface CreatePropertyRequest {
   title: string;
   location: string;
-  size: string;
   price: string;
-  type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
-  status: "available" | "reserved" | "sold" | "rented";
-  image?: string;
-  amenities: string[];
+  type: string;
+  size?: string;
+  images?: string[];
+  amenities?: string[];
   description?: string;
   bedrooms?: number;
   bathrooms?: number;
   sqft?: number;
+  status: "available" | "reserved" | "sold" | "rented" | "owned";
+  availability_status?: string;
+  owner_details?: {
+    fullName: string;
+    email: string;
+    phone: string;
+    address: string;
+  };
 }
-
+const baseUrl = "/api/property-inquiries";
 export const propertiesApi = {
   getAll: async (params?: { status?: string }) => {
     try {
@@ -64,21 +72,33 @@ export const propertiesApi = {
     }
   },
 
-  update: async (id: string, data: CreatePropertyRequest) => {
+  async update(
+    id: string,
+    data: Partial<CreatePropertyRequest>
+  ): Promise<ApiResponse<Property>> {
     try {
-      const response = await fetch(`/api/properties/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
+      const response: AxiosResponse = await axios.put(`${baseUrl}/${id}`, data);
 
-      const result = await response.json();
-      return result;
+      return {
+        success: true,
+        data: response.data.property,
+        message: response.data.message || "Property updated successfully",
+      };
     } catch (error) {
+      if (axios.isAxiosError(error)) {
+        return {
+          success: false,
+          error:
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to update property",
+        };
+      }
       console.error("Error updating property:", error);
-      return { success: false, error: "Network error occurred" };
+      return {
+        success: false,
+        error: "Network error occurred while updating property",
+      };
     }
   },
 };
