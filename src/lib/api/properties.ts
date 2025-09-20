@@ -1,5 +1,5 @@
 import axios, { AxiosResponse } from "axios";
-import { ApiResponse } from "./approved-properties";
+import { ApiResponse } from "./payments";
 
 interface PropertyOwner {
   fullName?: string;
@@ -60,6 +60,32 @@ export const propertiesApi = {
       return response.data;
     } catch (error) {
       throw error;
+    }
+  },
+
+  getById: async (id: string): Promise<ApiResponse<Property>> => {
+    try {
+      const response: AxiosResponse = await axios.get(`${baseUrl}/${id}`);
+      return {
+        success: true,
+        data: response.data.property,
+        message: response.data.message || "Property fetched successfully",
+      };
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        return {
+          success: false,
+          error:
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to fetch property",
+        };
+      }
+      console.error("Error fetching property:", error);
+      return {
+        success: false,
+        error: "Network error occurred while fetching property",
+      };
     }
   },
 

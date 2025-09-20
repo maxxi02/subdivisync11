@@ -1,296 +1,157 @@
 "use client";
 
-import { useState, ChangeEvent, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Title,
-  Group,
-  Card,
-  Stack,
-  Button,
-  Text,
-  Container,
-  SimpleGrid,
-  Modal,
-  TextInput,
-  LoadingOverlay,
-  Notification,
-  Tabs,
-  Textarea,
-  Grid,
-  Box,
-  Select,
-  Radio,
-  Divider,
-} from "@mantine/core";
-import {
-  IconHome,
-  IconExclamationMark,
-  IconCash,
-  IconUser,
-  IconPhone,
-  IconMail,
   IconMapPin,
-  IconCheck,
+  IconStar,
+  IconBed,
+  IconBath,
+  IconRuler,
+  IconSmokingNo,
+  IconToolsKitchen2,
   IconBuilding,
-  IconSearch,
+  IconWifi,
+  IconCar,
 } from "@tabler/icons-react";
-import { useDisclosure } from "@mantine/hooks";
-import { propertyInquiriesApi } from "@/lib/api/property-inquiries";
-import { propertiesApi, Property } from "@/lib/api/properties";
-import CustomCarousel from "./_components/carousel";
-interface PropertyInquiry {
-  id: string;
-  fullName: string;
-  primaryPhone: string;
-  secondaryPhone?: string;
-  email: string;
-  currentAddress: string;
-  preferredContactMethod: "phone" | "email" | "text";
-  preferredContactTime: string;
-  selectedPropertyId?: string;
-  specificLotUnit?: string;
-  propertyType:
-    | "residential-lot"
-    | "commercial"
-    | "house-and-lot"
-    | "condo"
-    | "other";
-  budgetRange: string;
-  preferredLotSize?: string;
-  timeline:
-    | "immediate"
-    | "1-3-months"
-    | "3-6-months"
-    | "6-12-months"
-    | "flexible";
-  paymentMethod: "cash" | "financing" | "installment";
+import { Label } from "@/components/ui/label";
 
-  // Additional Details
-  additionalRequirements?: string;
-
-  // System fields
-  status: "new" | "contacted" | "viewing-scheduled" | "negotiating" | "closed";
-  submittedAt: string;
-  priority: "high" | "medium" | "low";
+// Property interface (aligned with API)
+interface Property {
+  _id: string;
+  title: string;
+  location: string;
+  size: string;
+  price: number;
+  type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
+  status: "CREATED" | "UNDER_INQUIRY" | "APPROVED" | "REJECTED" | "LEASED";
+  images?: string[];
+  amenities: string[];
+  description?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  sqft?: number;
+  created_by?: string;
+  created_at: string;
+  updated_at?: string;
 }
 
-const BrowsePropertiesSection = () => {
-  const [appliedProperties, setAppliedProperties] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<string | null>("browse");
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+interface InquiryRequest {
+  fullName: string;
+  email: string;
+  phone: string;
+  message: string;
+  propertyId: string;
+}
+
+const PropertyDetailSection = ({ propertyId }: { propertyId: string }) => {
+  const [property, setProperty] = useState<Property | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [inquiryModalOpened, { open: openInquiry, close: closeInquiry }] =
-    useDisclosure(false);
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
-  const [selectedPropertyType, setSelectedPropertyType] =
-    useState<string>("all");
 
-  //view property details
-  const [selectedProperty, setSelectedProperty] = useState<Property | null>(
-    null
-  );
-  const [
-    propertyModalOpened,
-    { open: openPropertyModal, close: closePropertyModal },
-  ] = useDisclosure(false);
-
-  const handleViewProperty = (property: Property) => {
-    setSelectedProperty(property);
-    openPropertyModal();
-  };
-
-  // Form state
-  const [formData, setFormData] = useState<Partial<PropertyInquiry>>({
-    preferredContactMethod: "email",
-    propertyType: "residential-lot",
-    timeline: "flexible",
-    paymentMethod: "financing",
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    message: "",
   });
 
-  const showNotification = (message: string, isError = false) => {
-    if (isError) {
-      setError(message);
-    } else {
-      setSuccessMessage(message);
-    }
-
-    setTimeout(() => {
-      setError(null);
-      setSuccessMessage(null);
-    }, 5000);
-  };
-
-  const fetchAppliedProperties = async () => {
-    try {
-      const response = await propertyInquiriesApi.getAll();
-      if (response.success && response.data?.inquiries) {
-        const propertyIds: string[] = response.data.inquiries
-          .map((inquiry) => inquiry.selectedPropertyId)
-          .filter((id): id is string => Boolean(id));
-        setAppliedProperties(propertyIds);
-      }
-    } catch (error) {
-      console.error("Failed to fetch applied properties:", error);
-    }
-  };
-
-  const hasAppliedToProperty = (propertyId: string) => {
-    return appliedProperties.includes(propertyId);
-  };
-
   useEffect(() => {
-    fetchProperties();
-    fetchAppliedProperties();
-  }, []);
-
-  const fetchProperties = async () => {
-    try {
-      setLoading(true);
-      const response = await propertiesApi.getAll({
-        status: "available", // Only show available properties to tenants
-      });
-
-      if (response.success && response.properties) {
-        setProperties(response.properties);
-        setFilteredProperties(response.properties);
-      } else {
-        setError(response.error || "Failed to fetch properties");
+    const fetchProperty = async () => {
+      if (!propertyId || propertyId === "undefined") {
+        setError("Invalid or missing property ID");
+        setLoading(false);
+        return;
       }
-    } catch (error) {
-      setError("Network error occurred");
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    fetchProperties();
-  }, []);
-
-  const handleTypeFilter = (type: string) => {
-    setSelectedPropertyType(type);
-
-    if (type === "all") {
-      setFilteredProperties(properties);
-    } else {
-      // Map display types to API types
-      const typeMapping: Record<string, string> = {
-        "residential-lot": "residential-lot",
-        commercial: "commercial",
-        "house-and-lot": "house-and-lot",
-        condo: "condo",
-      };
-
-      const apiType = typeMapping[type] || type;
-      const filtered = properties.filter(
-        (property) => property.type === apiType
-      );
-      setFilteredProperties(filtered);
-    }
-  };
-
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case "available":
-        return "green";
-      case "reserved":
-        return "orange";
-      case "sold":
-        return "gray";
-      case "rented":
-        return "blue";
-      default:
-        return "gray";
-    }
-  };
-
-  const handleInputChange = (
-    field: keyof PropertyInquiry,
-    value: string | null
-  ) => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch(`/api/properties/${propertyId}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        const data = await response.json();
+        if (!data.success || !data.property) {
+          throw new Error(data.error || "Property not found");
+        }
+        setProperty({
+          ...data.property,
+          price: parseFloat(data.property.price.toString()),
+          created_at: new Date(data.property.created_at),
+          updated_at: data.property.updated_at
+            ? new Date(data.property.updated_at)
+            : undefined,
+        });
+      } catch (err) {
+        setError((err as Error).message || "Failed to fetch property");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProperty();
+  }, [propertyId]);
+  
+  const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }));
   };
 
-  const handleSelectChange = (
-    field: keyof PropertyInquiry,
-    value: string | null
-  ) => {
-    if (value !== null) {
-      setFormData((prev) => ({
-        ...prev,
-        [field]: value,
-      }));
-    }
-  };
-
-  const handleRadioChange = (field: keyof PropertyInquiry, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const submitInquiry = async () => {
-    const requiredFields = [
-      "fullName",
-      "primaryPhone",
-      "email",
-      "currentAddress",
-    ];
+  const handleSubmit = async () => {
+    const requiredFields = ["fullName", "email", "phone"];
     const missingFields = requiredFields.filter(
-      (field) => !formData[field as keyof PropertyInquiry]
+      (field) => !formData[field as keyof typeof formData]
     );
 
     if (missingFields.length > 0) {
-      showNotification("Please fill in all required contact fields", true);
+      setError(
+        `Please fill in all required fields: ${missingFields.join(", ")}`
+      );
       return;
     }
 
     try {
       setSubmitting(true);
+      setError(null);
 
-      const inquiryData = {
-        fullName: formData.fullName!,
-        primaryPhone: formData.primaryPhone!,
-        secondaryPhone: formData.secondaryPhone,
-        email: formData.email!,
-        currentAddress: formData.currentAddress!,
-        preferredContactMethod: formData.preferredContactMethod || "email",
-        preferredContactTime: formData.preferredContactTime || "",
-        specificLotUnit: formData.specificLotUnit,
-        propertyType: formData.propertyType || "residential-lot",
-        budgetRange: formData.budgetRange || "",
-        preferredLotSize: formData.preferredLotSize,
-        timeline: formData.timeline || "flexible",
-        paymentMethod: formData.paymentMethod || "financing",
-        additionalRequirements: formData.additionalRequirements,
-        selectedPropertyId: formData.selectedPropertyId,
+      const inquiryData: InquiryRequest = {
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        message: formData.message || "N/A",
+        propertyId,
       };
 
-      const response = await propertyInquiriesApi.create(inquiryData);
+      const response = await fetch("/api/inquiries", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(inquiryData),
+      });
 
-      if (response.success) {
-        showNotification(
-          response.message ||
-            "Your property inquiry has been submitted successfully! We'll contact you soon."
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccessMessage(
+          data.message || "Your inquiry has been submitted successfully!"
         );
-        closeInquiry();
         resetForm();
-        await fetchAppliedProperties();
       } else {
-        showNotification(
-          response.error || "Failed to submit inquiry. Please try again.",
-          true
-        );
+        setError(data.error || "Failed to submit inquiry");
       }
     } catch (err) {
-      showNotification("Failed to submit inquiry. Please try again.", true);
+      setError("Failed to submit inquiry. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -298,811 +159,320 @@ const BrowsePropertiesSection = () => {
 
   const resetForm = () => {
     setFormData({
-      preferredContactMethod: "email",
-      propertyType: "residential-lot",
-      timeline: "flexible",
-      paymentMethod: "financing",
+      fullName: "",
+      email: "",
+      phone: "",
+      message: "",
     });
   };
 
+  // Amenity to icon mapping
+  const amenityIconMap: Record<
+    string,
+    React.ComponentType<{ className?: string }>
+  > = {
+    beds: IconBed,
+    baths: IconBath,
+    "sq ft": IconRuler,
+    "smoking area": IconSmokingNo,
+    kitchen: IconToolsKitchen2,
+    balcony: IconBuilding,
+    wifi: IconWifi,
+    "parking area": IconCar,
+  };
+
+  const amenities =
+    property?.amenities?.map((amenity) => ({
+      icon: amenityIconMap[amenity.toLowerCase()] || IconBuilding,
+      label: amenity,
+    })) || [];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading property...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !property) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-500">{error || "Property not found"}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <Container size="xl" py="md">
-      <Stack gap="xl">
-        {/* Notifications */}
-        {error && (
-          <Notification
-            icon={<IconExclamationMark size={18} />}
-            color="red"
-            title="Error"
-            onClose={() => setError(null)}
-          >
-            {error}
-          </Notification>
-        )}
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left side - Images and Property Details */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Image Gallery */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Main large image */}
+              <div className="md:col-span-2">
+                <div className="relative h-80 md:h-96 overflow-hidden rounded-lg">
+                  <img
+                    src={property.images?.[0] || "/placeholder.svg"}
+                    alt={`${property.title} Main View`}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
 
-        {successMessage && (
-          <Notification
-            icon={<IconCheck size={18} />}
-            color="green"
-            title="Success"
-            onClose={() => setSuccessMessage(null)}
-          >
-            {successMessage}
-          </Notification>
-        )}
-
-        {/* Header */}
-        <Group justify="space-between">
-          <Group>
-            <IconHome size={32} color="var(--mantine-color-blue-6)" />
-            <Title order={1} size="h2">
-              Property Listings
-            </Title>
-          </Group>
-          <Button
-            size="lg"
-            onClick={openInquiry}
-            leftSection={<IconSearch size={20} />}
-          >
-            Inquire About Property
-          </Button>
-        </Group>
-
-        {/* Tabs for different views */}
-        <Tabs value={activeTab} onChange={setActiveTab}>
-          <Tabs.List>
-            <Tabs.Tab value="browse">Browse Properties</Tabs.Tab>
-            <Tabs.Tab value="featured">Owned Properties</Tabs.Tab>
-          </Tabs.List>
-
-          <Tabs.Panel value="browse" pt="md">
-            <Card withBorder p="md" radius="md">
-              {/* Property Type Filter */}
-              <Group mb="xl">
-                <Text fw={500}>Filter by Type:</Text>
-                <Button
-                  variant={selectedPropertyType === "all" ? "filled" : "light"}
-                  size="sm"
-                  onClick={() => handleTypeFilter("all")}
-                >
-                  All Properties
-                </Button>
-                <Button
-                  variant={
-                    selectedPropertyType === "residential-lot"
-                      ? "filled"
-                      : "outline"
-                  }
-                  size="sm"
-                  onClick={() => handleTypeFilter("residential-lot")}
-                >
-                  Residential Lots
-                </Button>
-                <Button
-                  variant={
-                    selectedPropertyType === "commercial" ? "filled" : "outline"
-                  }
-                  size="sm"
-                  onClick={() => handleTypeFilter("commercial")}
-                >
-                  Commercial
-                </Button>
-                <Button
-                  variant={
-                    selectedPropertyType === "house-and-lot"
-                      ? "filled"
-                      : "outline"
-                  }
-                  size="sm"
-                  onClick={() => handleTypeFilter("house-and-lot")}
-                >
-                  House & Lot
-                </Button>
-                <Button
-                  variant={
-                    selectedPropertyType === "condo" ? "filled" : "outline"
-                  }
-                  size="sm"
-                  onClick={() => handleTypeFilter("condo")}
-                >
-                  Condominiums
-                </Button>
-              </Group>
-
-              {/* Properties Grid */}
-              <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
-                {loading ? (
-                  // Loading skeleton
-                  Array.from({ length: 6 }).map((_, index) => (
-                    <Card key={index} shadow="sm" radius="md" withBorder>
-                      <Card.Section>
-                        <div
-                          style={{
-                            width: "100%",
-                            height: "200px",
-                            backgroundColor: "#f8f9fa",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <Text c="dimmed">Loading...</Text>
-                        </div>
-                      </Card.Section>
-                      <Stack gap="sm" mt="md" px="md" pb="md">
-                        <div
-                          style={{
-                            height: "20px",
-                            backgroundColor: "#f8f9fa",
-                            borderRadius: "4px",
-                          }}
-                        />
-                        <div
-                          style={{
-                            height: "16px",
-                            backgroundColor: "#f8f9fa",
-                            borderRadius: "4px",
-                            width: "70%",
-                          }}
-                        />
-                        <div
-                          style={{
-                            height: "16px",
-                            backgroundColor: "#f8f9fa",
-                            borderRadius: "4px",
-                            width: "50%",
-                          }}
-                        />
-                      </Stack>
-                    </Card>
-                  ))
-                ) : filteredProperties.length === 0 ? (
-                  <Card
-                    shadow="sm"
-                    radius="md"
-                    withBorder
-                    style={{ gridColumn: "1 / -1" }}
-                  >
-                    <Text ta="center" c="dimmed" py="xl">
-                      No properties found for the selected criteria.
-                    </Text>
-                  </Card>
-                ) : (
-                  filteredProperties.map((property) => (
-                    <Card key={property._id} shadow="sm" radius="md" withBorder>
-                      <Card.Section>
-                        <CustomCarousel
-                          images={
-                            property.images && property.images.length > 0
-                              ? property.images
-                              : ["/placeholder.svg"]
-                          }
-                          height={200}
-                          alt={property.title}
-                        />
-                      </Card.Section>
-
-                      <Card.Section withBorder inheritPadding py="xs">
-                        <Group justify="space-between">
-                          <Text fw={500}>{property.title}</Text>
-                          <Text
-                            size="sm"
-                            c={getStatusBadgeColor(property.status)}
-                            fw={500}
-                            tt="uppercase"
-                          >
-                            {property.status}
-                          </Text>
-                        </Group>
-                      </Card.Section>
-
-                      <Stack gap="sm" mt="md" px="md">
-                        <Group>
-                          <IconMapPin size={16} />
-                          <Text size="sm">{property.location}</Text>
-                        </Group>
-
-                        <Group>
-                          <IconBuilding size={16} />
-                          <Text size="sm">{property.size}</Text>
-                        </Group>
-
-                        <Group>
-                          <IconCash size={16} />
-                          <Text size="lg" fw={700} c="blue">
-                            {property.price}
-                          </Text>
-                        </Group>
-
-                        <Text size="xs" c="dimmed" tt="capitalize">
-                          {property.type.replace("-", " ")}
-                        </Text>
-
-                        {/* Show bedrooms/bathrooms/sqft for applicable types */}
-                        {(property.type === "house-and-lot" ||
-                          property.type === "condo") &&
-                          (property.bedrooms ||
-                            property.bathrooms ||
-                            property.sqft) && (
-                            <Group gap="md" mt="xs">
-                              {property.bedrooms && property.bedrooms > 0 && (
-                                <Text size="xs" c="dimmed">
-                                  {property.bedrooms} bed
-                                  {property.bedrooms > 1 ? "s" : ""}
-                                </Text>
-                              )}
-                              {property.bathrooms && property.bathrooms > 0 && (
-                                <Text size="xs" c="dimmed">
-                                  {property.bathrooms} bath
-                                  {property.bathrooms > 1 ? "s" : ""}
-                                </Text>
-                              )}
-                              {property.sqft && property.sqft > 0 && (
-                                <Text size="xs" c="dimmed">
-                                  {property.sqft} sqft
-                                </Text>
-                              )}
-                            </Group>
-                          )}
-
-                        {/* Amenities Section */}
-                        {property.amenities &&
-                          property.amenities.length > 0 && (
-                            <Box mt="sm">
-                              <Text size="sm" fw={500} mb="xs">
-                                Key Features:
-                              </Text>
-                              <Group gap="xs">
-                                {property.amenities
-                                  .slice(0, 3)
-                                  .map((amenity, index) => (
-                                    <Text
-                                      key={index}
-                                      size="xs"
-                                      px="xs"
-                                      py={2}
-                                      bg="blue.0"
-                                      c="blue.7"
-                                      style={{
-                                        borderRadius: "12px",
-                                        border:
-                                          "1px solid var(--mantine-color-blue-2)",
-                                      }}
-                                    >
-                                      {amenity
-                                        .replace("-", " ")
-                                        .replace(/\b\w/g, (l) =>
-                                          l.toUpperCase()
-                                        )}
-                                    </Text>
-                                  ))}
-                                {property.amenities.length > 3 && (
-                                  <Text size="xs" c="dimmed">
-                                    +{property.amenities.length - 3} more
-                                  </Text>
-                                )}
-                              </Group>
-                            </Box>
-                          )}
-
-                        {/* Description preview */}
-                        {property.description && (
-                          <Box mt="sm">
-                            <Text size="xs" c="dimmed" lineClamp={2}>
-                              {property.description}
-                            </Text>
-                          </Box>
-                        )}
-                      </Stack>
-                      <Group mt="md" mx="md" mb="md" justify="space-between">
-                        <Button
-                          flex={1}
-                          variant="outline"
-                          leftSection={<IconSearch size={16} />}
-                          onClick={() => handleViewProperty(property)}
-                        >
-                          View Details
-                        </Button>
-                        <Button
-                          flex={1}
-                          variant={
-                            hasAppliedToProperty(property._id)
-                              ? "filled"
-                              : "light"
-                          }
-                          onClick={() => {
-                            if (hasAppliedToProperty(property._id)) {
-                              window.location.href = "/my-applications";
-                            } else {
-                              setFormData((prev) => ({
-                                ...prev,
-                                selectedPropertyId: property._id,
-                                propertyType: property.type,
-                                budgetRange: property.price,
-                              }));
-                              openInquiry();
-                            }
-                          }}
-                          disabled={
-                            property.status !== "available" &&
-                            !hasAppliedToProperty(property._id)
-                          }
-                        >
-                          {property.status !== "available"
-                            ? "Not Available"
-                            : hasAppliedToProperty(property._id)
-                            ? "Pending"
-                            : "Inquire Now"}
-                        </Button>
-                      </Group>
-                    </Card>
-                  ))
-                )}
-              </SimpleGrid>
-            </Card>
-          </Tabs.Panel>
-
-          <Tabs.Panel value="featured" pt="md">
-            <Card withBorder p="xl">
-              <Text c="dimmed" ta="center" size="lg">
-                Featured properties coming soon...
-              </Text>
-            </Card>
-          </Tabs.Panel>
-        </Tabs>
-      </Stack>
-
-      {/* Property Inquiry Modal */}
-      <Modal
-        opened={inquiryModalOpened}
-        onClose={closeInquiry}
-        title="Property Inquiry Form"
-        centered
-        size="lg"
-      >
-        <LoadingOverlay visible={submitting} />
-        <Stack gap="md">
-          {/* Contact Information Section */}
-          <Box>
-            <Title order={3} size="h4" mb="md" c="blue">
-              <IconUser size={20} style={{ marginRight: 8 }} />
-              Contact Information
-            </Title>
-
-            <Grid>
-              <Grid.Col span={12}>
-                <Select
-                  label="Select Property (Optional)"
-                  placeholder="Choose a specific property from our listings"
-                  value={formData.selectedPropertyId || ""}
-                  onChange={(value) =>
-                    handleSelectChange("selectedPropertyId", value)
-                  }
-                  data={[
-                    { value: "", label: "General Inquiry" },
-                    ...properties.map((property) => ({
-                      value: property._id,
-                      label: `${property.title} - ${property.location} (${property.price})`,
-                    })),
-                  ]}
-                  searchable
-                  clearable
-                />
-              </Grid.Col>
-              <Grid.Col span={12}>
-                <TextInput
-                  label="Full Name"
-                  placeholder="Enter your full name"
-                  value={formData.fullName || ""}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                    handleInputChange("fullName", e.currentTarget.value)
-                  }
-                  required
-                />
-              </Grid.Col>
-
-              <Grid.Col span={{ base: 12, sm: 6 }}>
-                <TextInput
-                  label="Primary Phone Number"
-                  placeholder="+63 XXX XXX XXXX"
-                  value={formData.primaryPhone || ""}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                    handleInputChange("primaryPhone", e.currentTarget.value)
-                  }
-                  leftSection={<IconPhone size={16} />}
-                  required
-                />
-              </Grid.Col>
-
-              <Grid.Col span={{ base: 12, sm: 6 }}>
-                <TextInput
-                  label="Secondary Phone Number"
-                  placeholder="+63 XXX XXX XXXX (Optional)"
-                  value={formData.secondaryPhone || ""}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                    handleInputChange("secondaryPhone", e.currentTarget.value)
-                  }
-                  leftSection={<IconPhone size={16} />}
-                />
-              </Grid.Col>
-
-              <Grid.Col span={12}>
-                <TextInput
-                  label="Email Address"
-                  placeholder="your.email@example.com"
-                  value={formData.email || ""}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                    handleInputChange("email", e.currentTarget.value)
-                  }
-                  leftSection={<IconMail size={16} />}
-                  required
-                />
-              </Grid.Col>
-
-              <Grid.Col span={12}>
-                <Textarea
-                  label="Current Address"
-                  placeholder="Enter your current complete address"
-                  value={formData.currentAddress || ""}
-                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
-                    handleInputChange("currentAddress", e.currentTarget.value)
-                  }
-                  autosize
-                  minRows={2}
-                  required
-                />
-              </Grid.Col>
-
-              <Grid.Col span={{ base: 12, sm: 6 }}>
-                <Select
-                  label="Preferred Contact Method"
-                  value={formData.preferredContactMethod}
-                  onChange={(value) =>
-                    handleSelectChange("preferredContactMethod", value)
-                  }
-                  data={[
-                    { value: "phone", label: "Phone Call" },
-                    { value: "email", label: "Email" },
-                    { value: "text", label: "Text Message" },
-                  ]}
-                />
-              </Grid.Col>
-
-              <Grid.Col span={{ base: 12, sm: 6 }}>
-                <TextInput
-                  label="Preferred Contact Time"
-                  placeholder="e.g., Weekdays 9AM-5PM"
-                  value={formData.preferredContactTime || ""}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                    handleInputChange(
-                      "preferredContactTime",
-                      e.currentTarget.value
-                    )
-                  }
-                />
-              </Grid.Col>
-            </Grid>
-          </Box>
-
-          <Divider />
-
-          {/* Property Interest Section - NOW OPTIONAL */}
-          <Box>
-            <Title order={3} size="h4" mb="md" c="green">
-              <IconHome size={20} style={{ marginRight: 8 }} />
-              Property Interest Details (Optional)
-            </Title>
-            <Text size="sm" c="dimmed" mb="md">
-              Providing these details helps us serve you better, but they are
-              not required.
-            </Text>
-
-            <Grid>
-              <Grid.Col span={12}>
-                <TextInput
-                  label="Specific Lot/Unit of Interest (Optional)"
-                  placeholder="e.g., Block 1 Lot 15, or leave blank for general inquiry"
-                  value={formData.specificLotUnit || ""}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                    handleInputChange("specificLotUnit", e.currentTarget.value)
-                  }
-                />
-              </Grid.Col>
-
-              <Grid.Col span={{ base: 12, sm: 6 }}>
-                <Select
-                  label="Property Type Preference (Optional)"
-                  placeholder="Select property type"
-                  value={formData.propertyType}
-                  onChange={(value) =>
-                    handleSelectChange("propertyType", value)
-                  }
-                  data={[
-                    { value: "residential-lot", label: "Residential Lot" },
-                    { value: "commercial", label: "Commercial" },
-                    { value: "house-and-lot", label: "House and Lot" },
-                    { value: "condo", label: "Condominium" },
-                    { value: "other", label: "Other" },
-                  ]}
-                  clearable
-                />
-              </Grid.Col>
-
-              <Grid.Col span={{ base: 12, sm: 6 }}>
-                <TextInput
-                  label="Budget Range (Optional)"
-                  placeholder="e.g., ₱2M - ₱5M"
-                  value={formData.budgetRange || ""}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                    handleInputChange("budgetRange", e.currentTarget.value)
-                  }
-                  leftSection={<IconCash size={16} />}
-                />
-              </Grid.Col>
-
-              <Grid.Col span={{ base: 12, sm: 6 }}>
-                <TextInput
-                  label="Preferred Lot Size (Optional)"
-                  placeholder="e.g., 300 sqm, 500 sqm"
-                  value={formData.preferredLotSize || ""}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                    handleInputChange("preferredLotSize", e.currentTarget.value)
-                  }
-                />
-              </Grid.Col>
-
-              <Grid.Col span={{ base: 12, sm: 6 }}>
-                <Select
-                  label="Purchase Timeline (Optional)"
-                  placeholder="Select timeline"
-                  value={formData.timeline}
-                  onChange={(value) => handleSelectChange("timeline", value)}
-                  data={[
-                    { value: "immediate", label: "Immediate (within 1 month)" },
-                    { value: "1-3-months", label: "1-3 months" },
-                    { value: "3-6-months", label: "3-6 months" },
-                    { value: "6-12-months", label: "6-12 months" },
-                    { value: "flexible", label: "Flexible timeline" },
-                  ]}
-                  clearable
-                />
-              </Grid.Col>
-
-              <Grid.Col span={12}>
-                <Text size="sm" fw={500} mb="xs">
-                  Payment Method Preference (Optional)
-                </Text>
-                <Radio.Group
-                  value={formData.paymentMethod}
-                  onChange={(value) =>
-                    handleRadioChange("paymentMethod", value)
-                  }
-                >
-                  <Group>
-                    <Radio value="cash" label="Cash" />
-                    <Radio value="financing" label="Bank Financing" />
-                    <Radio value="installment" label="Installment" />
-                  </Group>
-                </Radio.Group>
-              </Grid.Col>
-
-              <Grid.Col span={12}>
-                <Textarea
-                  label="Additional Requirements or Questions (Optional)"
-                  placeholder="Any specific requirements, questions, or additional information you'd like to share..."
-                  value={formData.additionalRequirements || ""}
-                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
-                    handleInputChange(
-                      "additionalRequirements",
-                      e.currentTarget.value
-                    )
-                  }
-                  autosize
-                  minRows={3}
-                />
-              </Grid.Col>
-            </Grid>
-          </Box>
-
-          <Group justify="right" mt="xl">
-            <Button
-              variant="outline"
-              onClick={closeInquiry}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={submitInquiry}
-              loading={submitting}
-              leftSection={<IconCheck size={16} />}
-            >
-              Submit Inquiry
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-
-      {/* Property Detail Modal */}
-      <Modal
-        opened={propertyModalOpened}
-        onClose={closePropertyModal}
-        title={`Property Details - ${selectedProperty?.title}`}
-        size="xl"
-        centered
-      >
-        {selectedProperty && (
-          <Stack gap="md">
-            {/* Property Images */}
-            {selectedProperty.images && selectedProperty.images.length > 0 ? (
-              <CustomCarousel
-                images={selectedProperty.images}
-                height={300}
-                alt={selectedProperty.title}
-              />
-            ) : (
-              <Box
-                style={{
-                  height: 300,
-                  backgroundColor: "#f8f9fa",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: 8,
-                }}
-              >
-                <Text c="dimmed">No images available</Text>
-              </Box>
-            )}
+              {/* Side images */}
+              <div className="space-y-4">
+                <div className="relative h-[185px] overflow-hidden rounded-lg">
+                  <img
+                    src={property.images?.[1] || "/placeholder.svg"}
+                    alt={`${property.title} Side View`}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="relative h-[185px] overflow-hidden rounded-lg bg-gray-800 flex items-center justify-center">
+                  <img
+                    src={property.images?.[2] || "/placeholder.svg"}
+                    alt="More Views"
+                    className="w-full h-full object-cover opacity-70"
+                  />
+                  <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                    <span className="text-white text-2xl font-bold">
+                      {property.images?.length || 0}+
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Property Information */}
-            <Grid>
-              <Grid.Col span={{ base: 12, md: 8 }}>
-                <Stack gap="sm">
-                  <Group>
-                    <Title order={2}>{selectedProperty.title}</Title>
-                    <Text
-                      size="lg"
-                      c={getStatusBadgeColor(selectedProperty.status)}
-                      fw={600}
-                      tt="uppercase"
-                    >
-                      {selectedProperty.status}
-                    </Text>
-                  </Group>
-
-                  <Group>
-                    <IconMapPin size={18} />
-                    <Text size="lg">{selectedProperty.location}</Text>
-                  </Group>
-
-                  <Group>
-                    <IconBuilding size={18} />
-                    <Text>{selectedProperty.size}</Text>
-                  </Group>
-
-                  <Group>
-                    <IconCash size={18} />
-                    <Text size="xl" fw={700} c="blue">
-                      {selectedProperty.price}
-                    </Text>
-                  </Group>
-
-                  <Text size="sm" c="dimmed" tt="capitalize">
-                    Property Type: {selectedProperty.type.replace("-", " ")}
-                  </Text>
-
-                  {/* House/Condo specific details */}
-                  {(selectedProperty.type === "house-and-lot" ||
-                    selectedProperty.type === "condo") &&
-                    (selectedProperty.bedrooms ||
-                      selectedProperty.bathrooms ||
-                      selectedProperty.sqft) && (
-                      <Group gap="lg">
-                        {selectedProperty.bedrooms &&
-                          selectedProperty.bedrooms > 0 && (
-                            <Text>
-                              <Text component="span" fw={500}>
-                                {selectedProperty.bedrooms}
-                              </Text>{" "}
-                              Bedroom
-                              {selectedProperty.bedrooms > 1 ? "s" : ""}
-                            </Text>
-                          )}
-                        {selectedProperty.bathrooms &&
-                          selectedProperty.bathrooms > 0 && (
-                            <Text>
-                              <Text component="span" fw={500}>
-                                {selectedProperty.bathrooms}
-                              </Text>{" "}
-                              Bathroom
-                              {selectedProperty.bathrooms > 1 ? "s" : ""}
-                            </Text>
-                          )}
-                        {selectedProperty.sqft && selectedProperty.sqft > 0 && (
-                          <Text>
-                            <Text component="span" fw={500}>
-                              {selectedProperty.sqft}
-                            </Text>{" "}
-                            sq ft
-                          </Text>
-                        )}
-                      </Group>
-                    )}
-                </Stack>
-              </Grid.Col>
-
-              <Grid.Col span={{ base: 12, md: 4 }}>
-                {/* Action Card */}
-                <Card withBorder p="md">
-                  <Title order={4} mb="sm" c="blue">
-                    Interested in this property?
-                  </Title>
-                  <Button
-                    fullWidth
-                    onClick={() => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        selectedPropertyId: selectedProperty._id,
-                      }));
-                      closePropertyModal();
-                      openInquiry();
-                    }}
-                    disabled={selectedProperty.status !== "available"}
-                  >
-                    {selectedProperty.status === "available"
-                      ? "Inquire About This Property"
-                      : "Property Not Available"}
-                  </Button>
-                </Card>
-              </Grid.Col>
-            </Grid>
-
-            {/* Description */}
-            {selectedProperty.description && (
-              <Box>
-                <Title order={4} mb="sm">
-                  Description
-                </Title>
-                <Text>{selectedProperty.description}</Text>
-              </Box>
-            )}
-
-            {/* Amenities */}
-            {selectedProperty.amenities &&
-              selectedProperty.amenities.length > 0 && (
-                <Box>
-                  <Title order={4} mb="sm">
-                    Amenities & Features
-                  </Title>
-                  <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
-                    {selectedProperty.amenities.map((amenity, index) => (
-                      <Text
-                        key={index}
-                        size="sm"
-                        px="sm"
-                        py="xs"
-                        bg="blue.0"
-                        c="blue.7"
-                        ta="center"
-                        style={{
-                          borderRadius: "16px",
-                          border: "1px solid var(--mantine-color-blue-2)",
-                        }}
-                      >
-                        {amenity
-                          .replace("-", " ")
-                          .replace(/\b\w/g, (l) => l.toUpperCase())}
-                      </Text>
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  {property.title}
+                </h1>
+                <div className="flex items-center text-gray-600 mb-2">
+                  <IconMapPin className="w-4 h-4 mr-1" />
+                  <span className="text-sm">{property.location}</span>
+                </div>
+                <div className="flex items-center mb-4">
+                  <div className="flex items-center mr-4">
+                    {[...Array(5)].map((_, i) => (
+                      <IconStar
+                        key={i}
+                        className="w-4 h-4 text-yellow-400 fill-current"
+                      />
                     ))}
-                  </SimpleGrid>
-                </Box>
-              )}
-          </Stack>
-        )}
-      </Modal>
-    </Container>
+                    <span className="ml-1 text-sm text-gray-600">5.0</span>
+                  </div>
+                </div>
+                <div className="text-3xl font-bold text-gray-900 mb-2">
+                  ${property.price.toLocaleString()}{" "}
+                  <span className="text-lg font-normal text-gray-600">USD</span>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Description:</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  {property.description || "No description available"}
+                </p>
+              </div>
+
+              {/* Key Features */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Key Features:</h3>
+
+                {/* Amenities Grid */}
+                <div className="bg-white rounded-lg p-6 border">
+                  <h4 className="font-medium mb-4">Amenities</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {amenities.map((amenity, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center space-x-2 text-sm text-gray-600"
+                      >
+                        <amenity.icon className="w-4 h-4" />
+                        <span>{amenity.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Areas & Lot */}
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Areas & Lot</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white rounded-lg p-4 border">
+                    <div className="text-sm text-gray-600">Status</div>
+                    <div className="font-medium">{property.status}</div>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 border">
+                    <div className="text-sm text-gray-600">Availability</div>
+                    <div className="font-medium">
+                      {property.status === "CREATED"
+                        ? "Available"
+                        : "Not Available"}
+                    </div>
+                  </div>
+                  {(property.type === "house-and-lot" ||
+                    property.type === "condo") && (
+                    <>
+                      {property.bedrooms && (
+                        <div className="bg-white rounded-lg p-4 border">
+                          <div className="text-sm text-gray-600">Bedrooms</div>
+                          <div className="font-medium">{property.bedrooms}</div>
+                        </div>
+                      )}
+                      {property.bathrooms && (
+                        <div className="bg-white rounded-lg p-4 border">
+                          <div className="text-sm text-gray-600">Bathrooms</div>
+                          <div className="font-medium">
+                            {property.bathrooms}
+                          </div>
+                        </div>
+                      )}
+                      {property.sqft && (
+                        <div className="bg-white rounded-lg p-4 border">
+                          <div className="text-sm text-gray-600">
+                            Square Footage
+                          </div>
+                          <div className="font-medium">
+                            {property.sqft} sq ft
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right side - Contact Form */}
+          <div className="lg:col-span-1">
+            <Card className="sticky top-8">
+              <CardContent className="p-6">
+                {/* Agent Info */}
+                <div className="flex items-center space-x-3 mb-6">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src="/professional-real-estate-agent.png" />
+                    <AvatarFallback>AR</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="font-medium">Alex Ripon</div>
+                    <div className="text-sm text-gray-600">
+                      example@gmail.com
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contact Form */}
+                <div className="space-y-4">
+                  <div>
+                    <Label
+                      htmlFor="fullName"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Full Name
+                    </Label>
+                    <Input
+                      id="fullName"
+                      placeholder="John Doe"
+                      value={formData.fullName}
+                      onChange={(e) =>
+                        handleInputChange("fullName", e.target.value)
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label
+                      htmlFor="email"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Email Address
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="yourmail@gmail.com"
+                      value={formData.email}
+                      onChange={(e) =>
+                        handleInputChange("email", e.target.value)
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label
+                      htmlFor="phone"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Phone
+                    </Label>
+                    <Input
+                      id="phone"
+                      placeholder="+880"
+                      value={formData.phone}
+                      onChange={(e) =>
+                        handleInputChange("phone", e.target.value)
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label
+                      htmlFor="message"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Message
+                    </Label>
+                    <Textarea
+                      id="message"
+                      placeholder="Write here..."
+                      value={formData.message}
+                      onChange={(e) =>
+                        handleInputChange("message", e.target.value)
+                      }
+                      className="mt-1"
+                      rows={4}
+                    />
+                  </div>
+
+                  {error && <div className="text-red-500 text-sm">{error}</div>}
+                  {successMessage && (
+                    <div className="text-green-500 text-sm">
+                      {successMessage}
+                    </div>
+                  )}
+
+                  <Button
+                    onClick={handleSubmit}
+                    className="w-full bg-black hover:bg-gray-800 text-white"
+                    disabled={submitting || property.status !== "CREATED"}
+                  >
+                    {submitting ? "Submitting..." : "Submit Inquiry"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
-export default BrowsePropertiesSection;
+export default PropertyDetailSection;
