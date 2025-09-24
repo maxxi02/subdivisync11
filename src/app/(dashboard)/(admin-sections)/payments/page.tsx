@@ -1,486 +1,625 @@
-"use client"
+"use client";
 
-import { useState } from "react"
+import React, { useState, useEffect } from "react";
 import {
-  Card,
-  Text,
-  Title,
-  Select,
-  Button,
-  Badge,
-  Group,
-  Stack,
-  Paper,
-  Tabs,
-  FileInput,
-  Modal,
-  Alert,
-  ActionIcon,
-  Menu,
-  Divider,
-} from "@mantine/core"
-import {
-  IconDeviceMobile,
-  IconSend,
-  IconCreditCard,
-  IconCheck,
-  IconUpload,
-  IconReceipt,
-  IconAlertTriangle,
-  IconDots,
-  IconEye,
-  IconDownload,
-  IconBrandPaypal,
-  IconCalendar,
-  IconHome,
-} from "@tabler/icons-react"
+  DollarSign,
+  Eye,
+  AlertTriangle,
+  User,
+  Mail,
+  Clock,
+  CreditCard,
+  Send,
+  FileText,
+  Home,
+  Search,
+  RefreshCw,
+} from "lucide-react";
 
-interface PaymentHistory {
-  id: string
-  tenant: string
-  property: string
-  amount: number
-  dueDate: string
-  paidDate?: string
-  status: "paid" | "pending" | "overdue" | "partial"
-  method: "gcash" | "paypal" | "manual" | "bank"
-  receiptUrl?: string
-  proofUrl?: string
-  notes?: string
+interface PaymentPlan {
+  _id: string;
+  propertyId: string;
+  propertyTitle: string;
+  propertyPrice: number;
+  downPayment: number;
+  monthlyPayment: number;
+  interestRate: number;
+  leaseDuration: number;
+  totalAmount: number;
+  startDate: string;
+  currentMonth: number;
+  remainingBalance: number;
+  nextPaymentDate: string;
+  status: string;
+  tenant: {
+    fullName: string;
+    email: string;
+    phone: string;
+  };
+  created_at: string;
 }
 
-const mockPaymentHistory: PaymentHistory[] = [
-  {
-    id: "1",
-    tenant: "John Doe",
-    property: "Unit 101 - Sunrise Apartments",
-    amount: 15000.0,
-    dueDate: "2024-01-01",
-    paidDate: "2024-01-02",
-    status: "paid",
-    method: "gcash",
-    receiptUrl: "/receipts/receipt-001.pdf",
-  },
-  {
-    id: "2",
-    tenant: "Maria Santos",
-    property: "Unit 205 - Moonlight Condos",
-    amount: 18000.0,
-    dueDate: "2024-01-01",
-    paidDate: "2024-01-15",
-    status: "paid",
-    method: "paypal",
-    receiptUrl: "/receipts/receipt-002.pdf",
-  },
-  {
-    id: "3",
-    tenant: "Carlos Rivera",
-    property: "Unit 302 - Sunset Towers",
-    amount: 20000.0,
-    dueDate: "2024-01-01",
-    status: "overdue",
-    method: "gcash",
-    notes: "Payment reminder sent on Jan 10",
-  },
-  {
-    id: "4",
-    tenant: "Ana Lopez",
-    property: "Unit 150 - Garden View",
-    amount: 12000.0,
-    dueDate: "2024-01-15",
-    paidDate: "2024-01-14",
-    status: "paid",
-    method: "manual",
-    proofUrl: "/proofs/proof-004.jpg",
-    receiptUrl: "/receipts/receipt-004.pdf",
-  },
-]
+interface MonthlyPayment {
+  _id: string;
+  paymentPlanId: string;
+  propertyId: string;
+  tenantEmail: string;
+  monthNumber: number;
+  amount: number;
+  dueDate: string;
+  paidDate?: string;
+  status: "pending" | "paid" | "overdue" | "partial";
+  paymentMethod?: string;
+  paymentIntentId?: string;
+  receiptUrl?: string;
+  proofUrl?: string;
+  notes?: string;
+  created_at: string;
+}
 
-const PaymentsSection = () => {
-  const [paymentHistory] = useState<PaymentHistory[]>(mockPaymentHistory)
-  const [sendAmount, setSendAmount] = useState<number | string>("")
-  const [recipient, setRecipient] = useState("")
-  const [note, setNote] = useState("")
-  const [paymentMethod, setPaymentMethod] = useState("gcash")
-  const [selectedPayment, setSelectedPayment] = useState<PaymentHistory | null>(null)
-  const [receiptModalOpen, setReceiptModalOpen] = useState(false)
-  const [proofFile, setProofFile] = useState<File | null>(null)
-  const [filterStatus, setFilterStatus] = useState<string>("all")
+interface PaymentWithPlan extends MonthlyPayment {
+  paymentPlan?: PaymentPlan;
+}
+
+const PaymentsTrackingPage = () => {
+  const [payments, setPayments] = useState<PaymentWithPlan[]>([]);
+  const [paymentPlans, setPaymentPlans] = useState<PaymentPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<
+    "all" | "paid" | "pending" | "overdue" | "partial"
+  >("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedPayment, setSelectedPayment] =
+    useState<PaymentWithPlan | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  // Fetch payment plans and monthly payments
+  const fetchPaymentData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch payment plans
+      const plansResponse = await fetch("/api/payment-plans/all");
+      const plansData = await plansResponse.json();
+
+      // Fetch monthly payments
+      const paymentsResponse = await fetch("/api/monthly-payments");
+      const paymentsData = await paymentsResponse.json();
+
+      if (plansData.success) {
+        setPaymentPlans(plansData.paymentPlans);
+      }
+
+      if (paymentsData.success) {
+        // Combine payments with their payment plans
+        const paymentsWithPlans = paymentsData.payments.map(
+          (payment: MonthlyPayment) => {
+            const plan = plansData.paymentPlans?.find(
+              (p: PaymentPlan) => p._id === payment.paymentPlanId
+            );
+            return { ...payment, paymentPlan: plan };
+          }
+        );
+        setPayments(paymentsWithPlans);
+      }
+    } catch (error) {
+      console.error("Error fetching payment data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPaymentData();
+  }, []);
+
+  // Calculate overdue payments
+  const updateOverduePayments = () => {
+    const today = new Date();
+    return payments.map((payment) => {
+      if (payment.status === "pending" && new Date(payment.dueDate) < today) {
+        return { ...payment, status: "overdue" as const };
+      }
+      return payment;
+    });
+  };
+
+  // Get filtered payments
+  const getFilteredPayments = () => {
+    let filtered = updateOverduePayments();
+
+    if (filter !== "all") {
+      filtered = filtered.filter((p) => p.status === filter);
+    }
+
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (p) =>
+          p.paymentPlan?.tenant.fullName
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          p.paymentPlan?.propertyTitle
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          p.tenantEmail.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    return filtered.sort(
+      (a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime()
+    );
+  };
+
+  // Calculate statistics
+  const stats = {
+    totalCollected: payments
+      .filter((p) => p.status === "paid")
+      .reduce((sum, p) => sum + p.amount, 0),
+    pendingAmount: payments
+      .filter((p) => p.status === "pending" || p.status === "overdue")
+      .reduce((sum, p) => sum + p.amount, 0),
+    overdueCount: updateOverduePayments().filter((p) => p.status === "overdue")
+      .length,
+    totalPayments: payments.length,
+  };
+
+  const getStatusBadge = (status: string) => {
+    const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
+    switch (status) {
+      case "paid":
+        return `${baseClasses} bg-green-100 text-green-800`;
+      case "pending":
+        return `${baseClasses} bg-yellow-100 text-yellow-800`;
+      case "overdue":
+        return `${baseClasses} bg-red-100 text-red-800`;
+      case "partial":
+        return `${baseClasses} bg-orange-100 text-orange-800`;
+      default:
+        return `${baseClasses} bg-gray-100 text-gray-800`;
+    }
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-PH", {
       style: "currency",
       currency: "PHP",
-    }).format(amount)
-  }
+    }).format(amount);
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-PH", {
+      year: "numeric",
       month: "short",
       day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading payment data...</p>
+        </div>
+      </div>
+    );
   }
 
-  const handleSendPayment = () => {
-    console.log("Sending payment:", { sendAmount, recipient, note, paymentMethod })
-  }
-
-  const generateReceipt = (payment: PaymentHistory) => {
-    console.log("Generating receipt for payment:", payment.id)
-    // Receipt generation logic would go here
-  }
-
-  const handleProofUpload = (paymentId: string, file: File) => {
-    console.log("Uploading proof for payment:", paymentId, file)
-    // Proof upload logic would go here
-  }
-
-  const getOverdueCount = () => {
-    return paymentHistory.filter((p) => p.status === "overdue").length
-  }
-
-  const getFilteredPayments = () => {
-    if (filterStatus === "all") return paymentHistory
-    return paymentHistory.filter((p) => p.status === filterStatus)
-  }
+  const filteredPayments = getFilteredPayments();
 
   return (
-    <Stack gap="lg">
-      {/* GCash Balance Card */}
-      <Card
-        shadow="sm"
-        padding="lg"
-        radius="md"
-        style={{
-          background: "linear-gradient(135deg, #1c7ed6 0%, #1864ab 100%)",
-          color: "white",
-        }}
-      >
-        <Group justify="space-between" mb="md">
-          <Group gap="xs">
-            <IconHome size={24} />
-            <Title order={3} c="white">
-              Rental Payments
-            </Title>
-          </Group>
-          {getOverdueCount() > 0 && (
-            <Badge variant="light" color="red">
-              {getOverdueCount()} Overdue
-            </Badge>
-          )}
-        </Group>
-        <Group justify="space-between">
-          <div>
-            <Text size="xl" fw={700} mb="xs">
-              ₱
-              {paymentHistory
-                .filter((p) => p.status === "paid")
-                .reduce((sum, p) => sum + p.amount, 0)
-                .toLocaleString()}
-            </Text>
-            <Text size="sm" style={{ opacity: 0.8 }}>
-              Total Collected This Month
-            </Text>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <Text size="lg" fw={600}>
-              ₱
-              {paymentHistory
-                .filter((p) => p.status === "pending" || p.status === "overdue")
-                .reduce((sum, p) => sum + p.amount, 0)
-                .toLocaleString()}
-            </Text>
-            <Text size="sm" style={{ opacity: 0.8 }}>
-              Pending Collection
-            </Text>
-          </div>
-        </Group>
-      </Card>
-
-      {/* Overdue Payments Alert */}
-      {getOverdueCount() > 0 && (
-        <Alert icon={<IconAlertTriangle size={16} />} title="Overdue Payments" color="red" variant="light">
-          You have {getOverdueCount()} overdue payment{getOverdueCount() > 1 ? "s" : ""} that require immediate
-          attention.
-        </Alert>
-      )}
-
-      {/* Payment Actions */}
-      <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Stack gap="md">
-          <div>
-            <Title order={3}>Payment Management</Title>
-            <Text size="sm" c="dimmed">
-              Track and manage rental payments from tenants
-            </Text>
-          </div>
-
-          <Tabs defaultValue="track">
-            <Tabs.List>
-              <Tabs.Tab value="track" leftSection={<IconCalendar size={16} />}>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
                 Payment Tracking
-              </Tabs.Tab>
-              <Tabs.Tab value="methods" leftSection={<IconCreditCard size={16} />}>
-                Payment Methods
-              </Tabs.Tab>
-              <Tabs.Tab value="receipts" leftSection={<IconReceipt size={16} />}>
-                Receipts
-              </Tabs.Tab>
-            </Tabs.List>
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Monitor and manage rental payments from all tenants
+              </p>
+            </div>
+            <button
+              onClick={fetchPaymentData}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+          </div>
+        </div>
 
-            <Tabs.Panel value="track" pt="md">
-              <Stack gap="md">
-                <Group justify="space-between">
-                  <Select
-                    placeholder="Filter by status"
-                    value={filterStatus}
-                    onChange={(value) => setFilterStatus(value || "all")}
-                    data={[
-                      { value: "all", label: "All Payments" },
-                      { value: "paid", label: "Paid" },
-                      { value: "pending", label: "Pending" },
-                      { value: "overdue", label: "Overdue" },
-                      { value: "partial", label: "Partial" },
-                    ]}
-                    style={{ width: 200 }}
-                  />
-                  <Button leftSection={<IconSend size={16} />}>Send Reminder</Button>
-                </Group>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-sm p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-100">
+                  Total Collected
+                </p>
+                <p className="text-2xl font-bold">
+                  {formatCurrency(stats.totalCollected)}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-green-400 bg-opacity-30 rounded-lg flex items-center justify-center">
+                <DollarSign className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
 
-                <Stack gap="xs">
-                  {getFilteredPayments().map((payment) => (
-                    <Paper key={payment.id} p="md" radius="md" withBorder style={{ cursor: "pointer" }}>
-                      <Group justify="space-between">
-                        <Group gap="md">
-                          <Paper
-                            p="xs"
-                            radius="xl"
-                            bg={
-                              payment.status === "paid"
-                                ? "green.1"
-                                : payment.status === "overdue"
-                                  ? "red.1"
-                                  : "yellow.1"
-                            }
-                          >
-                            <IconHome
-                              size={16}
-                              color={
-                                payment.status === "paid" ? "green" : payment.status === "overdue" ? "red" : "orange"
-                              }
-                            />
-                          </Paper>
-                          <div>
-                            <Text fw={500}>{payment.tenant}</Text>
-                            <Text size="sm" c="dimmed">
-                              {payment.property}
-                            </Text>
-                            <Group gap="xs">
-                              <Text size="sm" c="dimmed">
-                                Due: {new Date(payment.dueDate).toLocaleDateString()}
-                              </Text>
-                              {payment.paidDate && (
-                                <Text size="sm" c="dimmed">
-                                  • Paid: {new Date(payment.paidDate).toLocaleDateString()}
-                                </Text>
-                              )}
-                            </Group>
+          <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow-sm p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-yellow-100">
+                  Pending Collection
+                </p>
+                <p className="text-2xl font-bold">
+                  {formatCurrency(stats.pendingAmount)}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-yellow-400 bg-opacity-30 rounded-lg flex items-center justify-center">
+                <Clock className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-sm p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-red-100">
+                  Overdue Payments
+                </p>
+                <p className="text-2xl font-bold">{stats.overdueCount}</p>
+              </div>
+              <div className="h-12 w-12 bg-red-400 bg-opacity-30 rounded-lg flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-sm p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-100">
+                  Total Payments
+                </p>
+                <p className="text-2xl font-bold">{stats.totalPayments}</p>
+              </div>
+              <div className="h-12 w-12 bg-blue-400 bg-opacity-30 rounded-lg flex items-center justify-center">
+                <FileText className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Overdue Alert */}
+        {stats.overdueCount > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <div>
+                <h3 className="text-sm font-medium text-red-800">
+                  Overdue Payments Alert
+                </h3>
+                <p className="text-sm text-red-700">
+                  You have {stats.overdueCount} overdue payment
+                  {stats.overdueCount > 1 ? "s" : ""} requiring immediate
+                  attention.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Filters and Search */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between">
+            <div className="flex gap-4">
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value as any)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Payments</option>
+                <option value="paid">Paid</option>
+                <option value="pending">Pending</option>
+                <option value="overdue">Overdue</option>
+                <option value="partial">Partial</option>
+              </select>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search tenants or properties..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 w-64"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Payments List */}
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tenant & Property
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Payment Details
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Due Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredPayments.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-6 py-8 text-center text-gray-500"
+                    >
+                      No payments found
+                    </td>
+                  </tr>
+                ) : (
+                  filteredPayments.map((payment) => (
+                    <tr key={payment._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <User className="h-5 w-5 text-blue-600" />
                           </div>
-                        </Group>
-                        <Group gap="md">
-                          <div style={{ textAlign: "right" }}>
-                            <Text fw={600} size="lg">
-                              ₱{payment.amount.toLocaleString()}
-                            </Text>
-                            <Badge
-                              size="sm"
-                              color={
-                                payment.status === "paid"
-                                  ? "green"
-                                  : payment.status === "overdue"
-                                    ? "red"
-                                    : payment.status === "partial"
-                                      ? "orange"
-                                      : "yellow"
-                              }
-                              variant="light"
-                              leftSection={payment.status === "paid" ? <IconCheck size={12} /> : undefined}
-                            >
-                              {payment.status}
-                            </Badge>
-                          </div>
-                          <Menu>
-                            <Menu.Target>
-                              <ActionIcon variant="subtle">
-                                <IconDots size={16} />
-                              </ActionIcon>
-                            </Menu.Target>
-                            <Menu.Dropdown>
-                              <Menu.Item leftSection={<IconEye size={14} />}>View Details</Menu.Item>
-                              {payment.receiptUrl && (
-                                <Menu.Item leftSection={<IconDownload size={14} />}>Download Receipt</Menu.Item>
-                              )}
-                              <Menu.Item leftSection={<IconReceipt size={14} />}>Generate Receipt</Menu.Item>
-                              <Menu.Item leftSection={<IconSend size={14} />}>Send Reminder</Menu.Item>
-                            </Menu.Dropdown>
-                          </Menu>
-                        </Group>
-                      </Group>
-                    </Paper>
-                  ))}
-                </Stack>
-              </Stack>
-            </Tabs.Panel>
-
-            <Tabs.Panel value="methods" pt="md">
-              <Stack gap="md">
-                <Text size="sm" c="dimmed" mb="md">
-                  Supported payment methods for tenants
-                </Text>
-
-                <Paper p="md" withBorder radius="md">
-                  <Group justify="space-between">
-                    <Group gap="md">
-                      <IconDeviceMobile size={24} color="blue" />
-                      <div>
-                        <Text fw={500}>GCash</Text>
-                        <Text size="sm" c="dimmed">
-                          Digital wallet payments
-                        </Text>
-                      </div>
-                    </Group>
-                    <Badge color="green" variant="light">
-                      Active
-                    </Badge>
-                  </Group>
-                </Paper>
-
-                <Paper p="md" withBorder radius="md">
-                  <Group justify="space-between">
-                    <Group gap="md">
-                      <IconBrandPaypal size={24} color="blue" />
-                      <div>
-                        <Text fw={500}>PayPal</Text>
-                        <Text size="sm" c="dimmed">
-                          International payments
-                        </Text>
-                      </div>
-                    </Group>
-                    <Badge color="green" variant="light">
-                      Active
-                    </Badge>
-                  </Group>
-                </Paper>
-
-                <Paper p="md" withBorder radius="md">
-                  <Group justify="space-between">
-                    <Group gap="md">
-                      <IconUpload size={24} color="gray" />
-                      <div>
-                        <Text fw={500}>Manual Upload</Text>
-                        <Text size="sm" c="dimmed">
-                          Upload payment proof
-                        </Text>
-                      </div>
-                    </Group>
-                    <Badge color="green" variant="light">
-                      Active
-                    </Badge>
-                  </Group>
-                </Paper>
-
-                <Divider my="md" />
-
-                <FileInput
-                  label="Upload Payment Proof"
-                  placeholder="Select payment proof file"
-                  leftSection={<IconUpload size={16} />}
-                  value={proofFile}
-                  onChange={setProofFile}
-                  accept="image/*,application/pdf"
-                />
-
-                {proofFile && (
-                  <Button onClick={() => handleProofUpload("manual", proofFile)} leftSection={<IconUpload size={16} />}>
-                    Upload Proof
-                  </Button>
-                )}
-              </Stack>
-            </Tabs.Panel>
-
-            <Tabs.Panel value="receipts" pt="md">
-              <Stack gap="md">
-                <Group justify="space-between">
-                  <Text size="sm" c="dimmed">
-                    Generate and manage payment receipts
-                  </Text>
-                  <Button
-                    variant="outline"
-                    leftSection={<IconReceipt size={16} />}
-                    onClick={() => setReceiptModalOpen(true)}
-                  >
-                    Generate Receipt
-                  </Button>
-                </Group>
-
-                <Stack gap="xs">
-                  {paymentHistory
-                    .filter((p) => p.receiptUrl)
-                    .map((payment) => (
-                      <Paper key={payment.id} p="md" withBorder radius="md">
-                        <Group justify="space-between">
-                          <Group gap="md">
-                            <IconReceipt size={20} color="blue" />
-                            <div>
-                              <Text fw={500}>Receipt #{payment.id}</Text>
-                              <Text size="sm" c="dimmed">
-                                {payment.tenant} - ₱{payment.amount.toLocaleString()}
-                              </Text>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {payment.paymentPlan?.tenant.fullName ||
+                                "Unknown Tenant"}
                             </div>
-                          </Group>
-                          <Group gap="xs">
-                            <ActionIcon variant="subtle">
-                              <IconEye size={16} />
-                            </ActionIcon>
-                            <ActionIcon variant="subtle">
-                              <IconDownload size={16} />
-                            </ActionIcon>
-                          </Group>
-                        </Group>
-                      </Paper>
-                    ))}
-                </Stack>
-              </Stack>
-            </Tabs.Panel>
-          </Tabs>
-        </Stack>
-      </Card>
+                            <div className="text-sm text-gray-500 flex items-center gap-1">
+                              <Home className="h-3 w-3" />
+                              {payment.paymentPlan?.propertyTitle ||
+                                "Property Not Found"}
+                            </div>
+                            <div className="text-sm text-gray-500 flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              {payment.tenantEmail}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {formatCurrency(payment.amount)}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Month {payment.monthNumber} of{" "}
+                          {payment.paymentPlan?.leaseDuration || "N/A"}
+                        </div>
+                        {payment.paymentMethod && (
+                          <div className="text-sm text-gray-500 flex items-center gap-1">
+                            <CreditCard className="h-3 w-3" />
+                            {payment.paymentMethod}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {formatDate(payment.dueDate)}
+                        </div>
+                        {payment.paidDate && (
+                          <div className="text-sm text-gray-500">
+                            Paid: {formatDate(payment.paidDate)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={getStatusBadge(payment.status)}>
+                          {payment.status.charAt(0).toUpperCase() +
+                            payment.status.slice(1)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedPayment(payment);
+                              setShowDetailsModal(true);
+                            }}
+                            className="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 flex items-center gap-1"
+                          >
+                            <Eye className="h-4 w-4" />
+                            View
+                          </button>
+                          {payment.status === "pending" && (
+                            <button className="bg-yellow-600 text-white px-3 py-1 rounded-md hover:bg-yellow-700 flex items-center gap-1">
+                              <Send className="h-4 w-4" />
+                              Remind
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-      {/* Receipt Generation Modal */}
-      <Modal opened={receiptModalOpen} onClose={() => setReceiptModalOpen(false)} title="Generate Receipt" size="md">
-        <Stack gap="md">
-          <Select
-            label="Select Payment"
-            placeholder="Choose a payment to generate receipt"
-            data={paymentHistory
-              .filter((p) => p.status === "paid")
-              .map((p) => ({
-                value: p.id,
-                label: `${p.tenant} - ₱${p.amount.toLocaleString()}`,
-              }))}
-          />
-          <Group justify="flex-end">
-            <Button variant="outline" onClick={() => setReceiptModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button leftSection={<IconReceipt size={16} />}>Generate</Button>
-          </Group>
-        </Stack>
-      </Modal>
-    </Stack>
-  )
-}
+        {/* Payment Details Modal */}
+        {showDetailsModal && selectedPayment && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                Payment Details
+              </h3>
 
-export default PaymentsSection
+              {/* Payment Status */}
+              <div className="mb-6">
+                <span
+                  className={`${getStatusBadge(
+                    selectedPayment.status
+                  )} text-sm`}
+                >
+                  {selectedPayment.status.charAt(0).toUpperCase() +
+                    selectedPayment.status.slice(1)}
+                </span>
+              </div>
+
+              {/* Payment Information */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Payment Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Amount</p>
+                    <p className="font-medium text-gray-900">
+                      {formatCurrency(selectedPayment.amount)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Month Number</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedPayment.monthNumber} of{" "}
+                      {selectedPayment.paymentPlan?.leaseDuration || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Due Date</p>
+                    <p className="font-medium text-gray-900">
+                      {formatDate(selectedPayment.dueDate)}
+                    </p>
+                  </div>
+                  {selectedPayment.paidDate && (
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Paid Date</p>
+                      <p className="font-medium text-gray-900">
+                        {formatDate(selectedPayment.paidDate)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Tenant Information */}
+              {selectedPayment.paymentPlan && (
+                <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Tenant Information
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Full Name</p>
+                      <p className="font-medium text-gray-900">
+                        {selectedPayment.paymentPlan.tenant.fullName}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Email</p>
+                      <p className="font-medium text-gray-900">
+                        {selectedPayment.paymentPlan.tenant.email}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Phone</p>
+                      <p className="font-medium text-gray-900">
+                        {selectedPayment.paymentPlan.tenant.phone}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Property</p>
+                      <p className="font-medium text-gray-900">
+                        {selectedPayment.paymentPlan.propertyTitle}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Payment Plan Summary */}
+              {selectedPayment.paymentPlan && (
+                <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                  <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Payment Plan Summary
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-blue-600 mb-1">
+                        Monthly Payment
+                      </p>
+                      <p className="font-medium text-blue-900">
+                        {formatCurrency(
+                          selectedPayment.paymentPlan.monthlyPayment
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-blue-600 mb-1">
+                        Total Duration
+                      </p>
+                      <p className="font-medium text-blue-900">
+                        {selectedPayment.paymentPlan.leaseDuration} months
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-blue-600 mb-1">Progress</p>
+                      <p className="font-medium text-blue-900">
+                        {Math.round(
+                          (selectedPayment.monthNumber /
+                            selectedPayment.paymentPlan.leaseDuration) *
+                            100
+                        )}
+                        % Complete
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-blue-600 mb-1">
+                        Remaining Balance
+                      </p>
+                      <p className="font-medium text-blue-900">
+                        {formatCurrency(
+                          selectedPayment.paymentPlan.remainingBalance
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    setSelectedPayment(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default PaymentsTrackingPage;

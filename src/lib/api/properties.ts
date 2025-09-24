@@ -6,8 +6,14 @@ interface PropertyOwner {
   email?: string;
   phone?: string;
   address?: string;
-  paymentStatus?: "paid" | "partial" | "pending";
-  paymentMethod?: string;
+  paymentStatus?: "paid" | "partial" | "pending" | "overdue" | "defaulted";
+  paymentMethod?: "cash" | "bank_transfer" | "check" | "online";
+  monthlyRent?: number;
+  leaseStartDate?: string; // ISO date string
+  leaseEndDate?: string; // ISO date string
+  paymentDueDay?: number; // Day of month (1-31)
+  lastPaymentDate?: string; // ISO date string
+  nextPaymentDue?: string; // ISO date string
 }
 
 export interface Property {
@@ -15,9 +21,9 @@ export interface Property {
   title: string;
   location: string;
   size: string;
-  price: string;
+  price: number;
   type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
-  status: "available" | "reserved" | "sold" | "rented";
+  status: "CREATED" | "UNDER_INQUIRY" | "APPROVED" | "REJECTED" | "LEASED";
   images?: string[];
   amenities: string[];
   description?: string;
@@ -25,41 +31,87 @@ export interface Property {
   bathrooms?: number;
   sqft?: number;
   created_by?: string;
-  created_at: string; // Use this instead of createdAt
+  created_at: string;
   updated_at?: string;
-  availability_status?: string;
-  owner?: PropertyOwner; // Add this property
+  owner?: PropertyOwner;
 }
 
 export interface CreatePropertyRequest {
   title: string;
   location: string;
-  price: string;
-  type: string;
-  size?: string;
+  size: string;
+  price: string; // String in request, converted to number on server
+  type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
+  status: "CREATED" | "UNDER_INQUIRY" | "APPROVED" | "REJECTED" | "LEASED";
   images?: string[];
   amenities?: string[];
   description?: string;
   bedrooms?: number;
   bathrooms?: number;
   sqft?: number;
-  status: "available" | "reserved" | "sold" | "rented" | "owned";
-  availability_status?: string;
   owner_details?: {
     fullName: string;
     email: string;
-    phone: string;
-    address: string;
+    phone?: string;
+    address?: string;
+    paymentStatus?: "paid" | "partial" | "pending" | "overdue" | "defaulted";
+    paymentMethod?: "cash" | "bank_transfer" | "check" | "online";
+    monthlyRent?: number;
+    leaseStartDate?: string;
+    leaseEndDate?: string;
+    paymentDueDay?: number;
+    lastPaymentDate?: string;
+    nextPaymentDue?: string;
   };
 }
-const baseUrl = "/api/property-inquiries";
+
+interface Pagination {
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+interface PropertiesResponse {
+  success: boolean;
+  properties: Property[];
+  pagination?: Pagination;
+  error?: string;
+}
+
+const baseUrl = "/api/properties";
+
 export const propertiesApi = {
-  getAll: async (params?: { status?: string }) => {
+  getAll: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    type?: string;
+  }): Promise<PropertiesResponse> => {
     try {
-      const response = await axios.get("/api/properties", { params });
+      const response: AxiosResponse<PropertiesResponse> = await axios.get(
+        baseUrl,
+        { params }
+      );
       return response.data;
     } catch (error) {
-      throw error;
+      if (axios.isAxiosError(error)) {
+        return {
+          success: false,
+          properties: [],
+          error:
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to fetch properties",
+        };
+      }
+      console.error("Error fetching properties:", error);
+      return {
+        success: false,
+        properties: [],
+        error: "Network error occurred while fetching properties",
+      };
     }
   },
 
@@ -89,22 +141,40 @@ export const propertiesApi = {
     }
   },
 
-  create: async (data: CreatePropertyRequest) => {
+  create: async (
+    data: CreatePropertyRequest
+  ): Promise<ApiResponse<Property>> => {
     try {
-      const response = await axios.post("/api/properties", data);
-      return response.data;
+      const response: AxiosResponse = await axios.post(baseUrl, data);
+      return {
+        success: true,
+        data: response.data.property,
+        message: response.data.message || "Property created successfully",
+      };
     } catch (error) {
-      throw error;
+      if (axios.isAxiosError(error)) {
+        return {
+          success: false,
+          error:
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to create property",
+        };
+      }
+      console.error("Error creating property:", error);
+      return {
+        success: false,
+        error: "Network error occurred while creating property",
+      };
     }
   },
 
-  async update(
+  update: async (
     id: string,
     data: Partial<CreatePropertyRequest>
-  ): Promise<ApiResponse<Property>> {
+  ): Promise<ApiResponse<Property>> => {
     try {
       const response: AxiosResponse = await axios.put(`${baseUrl}/${id}`, data);
-
       return {
         success: true,
         data: response.data.property,
@@ -124,6 +194,60 @@ export const propertiesApi = {
       return {
         success: false,
         error: "Network error occurred while updating property",
+      };
+    }
+  },
+
+  delete: async (id: string): Promise<ApiResponse<null>> => {
+    try {
+      const response: AxiosResponse = await axios.delete(`${baseUrl}/${id}`);
+      return {
+        success: true,
+        data: null,
+        message: response.data.message || "Property deleted successfully",
+      };
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        return {
+          success: false,
+          error:
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to delete property",
+        };
+      }
+      console.error("Error deleting property:", error);
+      return {
+        success: false,
+        error: "Network error occurred while deleting property",
+      };
+    }
+  },
+
+  makePayment: async (transactionId: string): Promise<ApiResponse<null>> => {
+    try {
+      const response: AxiosResponse = await axios.post(
+        `/api/transactions/${transactionId}/pay`
+      );
+      return {
+        success: true,
+        data: null,
+        message: response.data.message || "Payment processed successfully",
+      };
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        return {
+          success: false,
+          error:
+            error.response?.data?.error ||
+            error.message ||
+            "Failed to process payment",
+        };
+      }
+      console.error("Error processing payment:", error);
+      return {
+        success: false,
+        error: "Network error occurred while processing payment",
       };
     }
   },

@@ -13,8 +13,6 @@ export interface CreatePropertyRequest {
   images?: string[];
   amenities?: string[];
   description?: string;
-  bedrooms?: number;
-  bathrooms?: number;
   sqft?: number;
 }
 
@@ -43,14 +41,19 @@ export interface Property {
     paymentStatus: "paid" | "partial" | "pending";
     paymentMethod?: string;
   };
+  inquiries?: {
+    fullName: string;
+    email: string;
+    phone: string;
+    reason: string;
+    submittedAt: string;
+    status: "pending" | "approved" | "rejected";
+  }[];
 }
 
 // GET - Fetch all properties
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession();
-
-    // Allow public access for single property fetch, but restrict list to authenticated users
     await connectDB();
     const propertiesCollection = db.collection("properties");
 
@@ -60,8 +63,9 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type");
     const limit = parseInt(searchParams.get("limit") || "50");
     const page = parseInt(searchParams.get("page") || "1");
+    const publicAccess = searchParams.get("public") === "true";
 
-    // Fetch a single property by ID
+    // Fetch a single property by ID (public access allowed)
     if (id) {
       if (!ObjectId.isValid(id)) {
         return NextResponse.json(
@@ -81,13 +85,13 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // Convert ObjectId to string and ensure price is a number
       const enrichedProperty = {
         ...property,
         _id: property._id.toString(),
-        price: parseFloat(property.price.toString()), // Ensure price is a number
+        price: parseFloat(property.price.toString()),
         amenities: property.amenities || [],
         images: property.images || [],
+        inquiries: property.inquiries || [],
         created_at: property.created_at.toISOString(),
         updated_at: property.updated_at
           ? property.updated_at.toISOString()
@@ -100,7 +104,47 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Fetch multiple properties (requires authentication)
+    // For public access, only show CREATED properties without authentication
+    if (publicAccess) {
+      const query = { status: "CREATED" };
+      const skip = (page - 1) * limit;
+
+      const properties = await propertiesCollection
+        .find(query)
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+
+      const totalCount = await propertiesCollection.countDocuments(query);
+
+      const enrichedProperties = properties.map((property) => ({
+        ...property,
+        _id: property._id.toString(),
+        price: parseFloat(property.price.toString()),
+        amenities: property.amenities || [],
+        images: property.images || [],
+        inquiries: property.inquiries || [],
+        created_at: property.created_at.toISOString(),
+        updated_at: property.updated_at
+          ? property.updated_at.toISOString()
+          : undefined,
+      }));
+
+      return NextResponse.json({
+        success: true,
+        properties: enrichedProperties,
+        pagination: {
+          total: totalCount,
+          page,
+          limit,
+          pages: Math.ceil(totalCount / limit),
+        },
+      });
+    }
+
+    // Regular authenticated access
+    const session = await getServerSession();
     if (!session) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
@@ -110,13 +154,21 @@ export async function GET(request: NextRequest) {
 
     const query: Record<string, unknown> = {};
 
-    if (session.user.role !== "admin") {
+    // Modified logic to handle different user roles
+    if (session.user.role === "admin") {
+      // Admin can see all properties
+      if (status && status !== "all") {
+        query.status = status;
+      }
+    } else if (session.user.role === "tenant") {
+      // Tenants can see all CREATED properties (available for inquiry)
       query.status = "CREATED";
+    } else {
+      // Property owners/creators can only see their own properties
       query.created_by = session.user.id;
-    }
-
-    if (status && status !== "all") {
-      query.status = status;
+      if (status && status !== "all") {
+        query.status = status;
+      }
     }
 
     if (type && type !== "all") {
@@ -137,9 +189,10 @@ export async function GET(request: NextRequest) {
     const enrichedProperties = properties.map((property) => ({
       ...property,
       _id: property._id.toString(),
-      price: parseFloat(property.price.toString()), // Ensure price is a number
+      price: parseFloat(property.price.toString()),
       amenities: property.amenities || [],
       images: property.images || [],
+      inquiries: property.inquiries || [],
       created_at: property.created_at.toISOString(),
       updated_at: property.updated_at
         ? property.updated_at.toISOString()
@@ -164,6 +217,7 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
 // POST - Create new property
 export async function POST(request: NextRequest) {
   try {
@@ -250,9 +304,8 @@ export async function POST(request: NextRequest) {
       images: Array.isArray(body.images) ? body.images : [],
       amenities: Array.isArray(body.amenities) ? body.amenities : [],
       description: body.description?.trim() || "",
-      bedrooms: body.bedrooms || 0,
-      bathrooms: body.bathrooms || 0,
       sqft: body.sqft || 0,
+      inquiries: [], // Initialize empty inquiries array
       created_by: session.user.id,
       created_at: new Date(),
     };
@@ -280,6 +333,7 @@ export async function POST(request: NextRequest) {
           price: parseFloat(createdProperty!.price),
           amenities: createdProperty!.amenities || [],
           images: createdProperty!.images || [],
+          inquiries: createdProperty!.inquiries || [],
           created_at: createdProperty!.created_at,
           updated_at: createdProperty!.updated_at,
         },
@@ -407,8 +461,6 @@ export async function PUT(request: NextRequest) {
       images: Array.isArray(body.images) ? body.images : [],
       amenities: Array.isArray(body.amenities) ? body.amenities : [],
       description: body.description?.trim() || "",
-      bedrooms: body.bedrooms || 0,
-      bathrooms: body.bathrooms || 0,
       sqft: body.sqft || 0,
       updated_at: new Date(),
     };
@@ -439,6 +491,7 @@ export async function PUT(request: NextRequest) {
           price: parseFloat(updatedProperty!.price),
           amenities: updatedProperty!.amenities || [],
           images: updatedProperty!.images || [],
+          inquiries: updatedProperty!.inquiries || [],
           created_at: updatedProperty!.created_at,
           updated_at: updatedProperty!.updated_at,
         },
@@ -480,6 +533,13 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid property ID" },
+        { status: 400 }
+      );
+    }
+
     // Check if property exists and user has permission
     const existingProperty = await propertiesCollection.findOne({
       _id: new ObjectId(id),
@@ -502,6 +562,22 @@ export async function DELETE(request: NextRequest) {
           error: "Unauthorized - No permission to delete this property",
         },
         { status: 403 }
+      );
+    }
+
+    // Check for pending inquiries
+    const pendingInquiries =
+      existingProperty.inquiries?.filter(
+        (inq: any) => inq.status === "pending"
+      ) || [];
+
+    if (pendingInquiries.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Cannot delete property with pending inquiries",
+        },
+        { status: 400 }
       );
     }
 
