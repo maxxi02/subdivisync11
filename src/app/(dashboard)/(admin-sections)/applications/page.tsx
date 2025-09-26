@@ -1,9 +1,7 @@
-// src/components/ApplicationsPage.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
 import {
-  Calendar,
   DollarSign,
   Eye,
   Check,
@@ -16,6 +14,8 @@ import {
   Clock,
   CreditCard,
   User,
+  Search,
+  RefreshCw,
 } from "lucide-react";
 import Image from "next/image";
 import { getServerSession } from "@/better-auth/action";
@@ -97,6 +97,7 @@ const ApplicationsPage = () => {
   const [filter, setFilter] = useState<
     "all" | "pending" | "approved" | "rejected"
   >("all");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const [session, setSession] = useState<Session | null>(null);
   useEffect(() => {
@@ -107,7 +108,6 @@ const ApplicationsPage = () => {
     getSession();
   }, []);
 
-  // Payments data
   const [paymentPlanData, setPaymentPlanData] = useState<PaymentPlan | null>(
     null
   );
@@ -127,7 +127,6 @@ const ApplicationsPage = () => {
     }
   };
 
-  // Fetch all properties with inquiries
   const fetchInquiries = async () => {
     try {
       setLoading(true);
@@ -163,23 +162,34 @@ const ApplicationsPage = () => {
     fetchInquiries();
   }, []);
 
-  // Filter inquiries based on selected filter
-  const filteredInquiries = inquiries.filter((inquiry) => {
-    if (filter === "all") return true;
-    if (filter === "approved") {
-      return (
-        inquiry.status === "approved" || inquiry.propertyStatus === "LEASED"
-      );
-    }
-    if (filter === "pending") {
-      return (
-        inquiry.status === "pending" && inquiry.propertyStatus !== "LEASED"
-      );
-    }
-    return inquiry.status === filter;
-  });
+  const filteredInquiries = inquiries
+    .filter((inquiry) => {
+      if (filter === "all") return true;
+      if (filter === "approved") {
+        return (
+          inquiry.status === "approved" || inquiry.propertyStatus === "LEASED"
+        );
+      }
+      if (filter === "pending") {
+        return (
+          inquiry.status === "pending" && inquiry.propertyStatus !== "LEASED"
+        );
+      }
+      return inquiry.status === filter;
+    })
+    .filter(
+      (inquiry) =>
+        inquiry.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        inquiry.propertyTitle
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        inquiry.email.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+    );
 
-  // Calculate lease terms based on payment details
   const calculateLeaseTerms = () => {
     if (!selectedInquiry || !monthlyPayment || !interestRate) return;
 
@@ -230,7 +240,6 @@ const ApplicationsPage = () => {
     calculateLeaseTerms,
   ]);
 
-  // Handle inquiry approval with payment setup
   const handleApprove = async (inquiry: InquiryWithProperty) => {
     if (!monthlyPayment || leaseDuration === 0) {
       alert("Please enter valid payment details");
@@ -362,7 +371,6 @@ const ApplicationsPage = () => {
     setTotalAmount(0);
   };
 
-  // Handle inquiry rejection
   const handleReject = async () => {
     if (!selectedInquiry || !rejectionReason.trim()) {
       alert("Please provide a rejection reason");
@@ -406,7 +414,6 @@ const ApplicationsPage = () => {
     }
   };
 
-  // Clear all rejected inquiries
   const clearRejectedInquiries = async () => {
     if (
       !confirm(
@@ -446,11 +453,9 @@ const ApplicationsPage = () => {
 
   const getStatusBadge = (status: string, propertyStatus?: string) => {
     const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
-
     if (propertyStatus === "LEASED") {
       return `${baseClasses} bg-blue-100 text-blue-800`;
     }
-
     switch (status) {
       case "pending":
         return `${baseClasses} bg-yellow-100 text-yellow-800`;
@@ -461,6 +466,21 @@ const ApplicationsPage = () => {
       default:
         return `${baseClasses} bg-gray-100 text-gray-800`;
     }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+    }).format(amount);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-PH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   };
 
   if (loading) {
@@ -474,6 +494,18 @@ const ApplicationsPage = () => {
     );
   }
 
+  const stats = {
+    totalApplications: inquiries.length,
+    pendingApplications: inquiries.filter(
+      (inq) => inq.status === "pending" && inq.propertyStatus !== "LEASED"
+    ).length,
+    approvedApplications: inquiries.filter(
+      (inq) => inq.status === "approved" || inq.propertyStatus === "LEASED"
+    ).length,
+    rejectedApplications: inquiries.filter((inq) => inq.status === "rejected")
+      .length,
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -485,9 +517,98 @@ const ApplicationsPage = () => {
                 Property Applications
               </h1>
               <p className="text-gray-600 mt-2">
-                Manage and review property inquiries
+                Monitor and manage property inquiries
               </p>
             </div>
+            <button
+              onClick={fetchInquiries}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-sm p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-100">
+                  Total Applications
+                </p>
+                <p className="text-2xl font-bold">{stats.totalApplications}</p>
+              </div>
+              <div className="h-12 w-12 bg-blue-400 bg-opacity-30 rounded-lg flex items-center justify-center">
+                <User className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow-sm p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-yellow-100">Pending</p>
+                <p className="text-2xl font-bold">
+                  {stats.pendingApplications}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-yellow-400 bg-opacity-30 rounded-lg flex items-center justify-center">
+                <Clock className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-sm p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-100">
+                  Approved/Leased
+                </p>
+                <p className="text-2xl font-bold">
+                  {stats.approvedApplications}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-green-400 bg-opacity-30 rounded-lg flex items-center justify-center">
+                <Check className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-sm p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-red-100">Rejected</p>
+                <p className="text-2xl font-bold">
+                  {stats.rejectedApplications}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-red-400 bg-opacity-30 rounded-lg flex items-center justify-center">
+                <X className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Pending Alert */}
+        {stats.pendingApplications > 0 && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-yellow-600" />
+              <div>
+                <h3 className="text-sm font-medium text-yellow-800">
+                  Pending Applications Alert
+                </h3>
+                <p className="text-sm text-yellow-700">
+                  You have {stats.pendingApplications} pending application
+                  {stats.pendingApplications > 1 ? "s" : ""} requiring review.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Filters and Search */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between">
             <div className="flex gap-4">
               <select
                 value={filter}
@@ -516,77 +637,15 @@ const ApplicationsPage = () => {
                 Clear Rejected
               </button>
             </div>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">
-                  Total Applications
-                </p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {inquiries.length}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <User className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-yellow-600">
-                  {
-                    inquiries.filter(
-                      (inq) =>
-                        inq.status === "pending" &&
-                        inq.propertyStatus !== "LEASED"
-                    ).length
-                  }
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <Clock className="h-6 w-6 text-yellow-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">
-                  Approved/Leased
-                </p>
-                <p className="text-2xl font-bold text-green-600">
-                  {
-                    inquiries.filter(
-                      (inq) =>
-                        inq.status === "approved" ||
-                        inq.propertyStatus === "LEASED"
-                    ).length
-                  }
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <Check className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Rejected</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {inquiries.filter((inq) => inq.status === "rejected").length}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
-                <X className="h-6 w-6 text-red-600" />
-              </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search applicants or properties..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 w-64"
+              />
             </div>
           </div>
         </div>
@@ -635,10 +694,10 @@ const ApplicationsPage = () => {
                           <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
                             <Image
                               className="h-10 w-10 rounded-full object-cover"
-                              src={session?.user.image || ""}
+                              src={session?.user.image || "/placeholder.png"}
                               alt="User Image"
-                              width={20}
-                              height={20}
+                              width={40}
+                              height={40}
                             />
                           </div>
                           <div className="ml-4">
@@ -665,14 +724,13 @@ const ApplicationsPage = () => {
                           {inquiry.propertyLocation}
                         </div>
                         <div className="text-sm text-gray-500 flex items-center gap-1">
-                          <DollarSign className="h-3 w-3" />₱
-                          {inquiry.propertyPrice.toLocaleString()}
+                          <DollarSign className="h-3 w-3" />
+                          {formatCurrency(inquiry.propertyPrice)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4 text-gray-400" />
-                          {new Date(inquiry.submittedAt).toLocaleDateString()}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {formatDate(inquiry.submittedAt)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -740,21 +798,10 @@ const ApplicationsPage = () => {
                               Reject
                             </button>
                           )}
-                          {inquiry.status === "approved" && (
-                            <button
-                              disabled
-                              className="bg-gray-400 text-white px-3 py-1 rounded-md cursor-not-allowed flex items-center gap-1 opacity-50"
-                            >
-                              <X className="h-4 w-4" />
-                              Reject
-                            </button>
-                          )}
                           <button
                             onClick={async () => {
                               setSelectedInquiry(inquiry);
                               setShowViewModal(true);
-
-                              // Fetch payment plan if property is leased or inquiry is approved
                               if (
                                 inquiry.propertyStatus === "LEASED" ||
                                 inquiry.status === "approved"
@@ -788,7 +835,6 @@ const ApplicationsPage = () => {
                 Application Details
               </h3>
 
-              {/* Status Badge */}
               <div className="mb-6">
                 <span
                   className={`${getStatusBadge(
@@ -803,16 +849,10 @@ const ApplicationsPage = () => {
                 </span>
               </div>
 
-              {/* Applicant Information */}
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <Image
-                    className="h-10 w-10 rounded-full object-cover"
-                    src={session?.user.image || ""}
-                    alt="User Image"
-                    width={20}
-                    height={20}
-                  />
+                  <User className="h-5 w-5" />
+                  Applicant Information
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -822,13 +862,13 @@ const ApplicationsPage = () => {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Email Address</p>
+                    <p className="text-sm text-gray-600 mb-1">Email</p>
                     <p className="font-medium text-gray-900">
                       {selectedInquiry.email}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Phone Number</p>
+                    <p className="text-sm text-gray-600 mb-1">Phone</p>
                     <p className="font-medium text-gray-900">
                       {selectedInquiry.phone}
                     </p>
@@ -838,22 +878,12 @@ const ApplicationsPage = () => {
                       Application Date
                     </p>
                     <p className="font-medium text-gray-900">
-                      {new Date(selectedInquiry.submittedAt).toLocaleDateString(
-                        "en-US",
-                        {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }
-                      )}
+                      {formatDate(selectedInquiry.submittedAt)}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Property Information */}
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                   <MapPin className="h-5 w-5" />
@@ -875,13 +905,12 @@ const ApplicationsPage = () => {
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Price</p>
                     <p className="font-medium text-gray-900">
-                      ₱{selectedInquiry.propertyPrice.toLocaleString()}
+                      {formatCurrency(selectedInquiry.propertyPrice)}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Application Reason */}
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <h4 className="font-semibold text-gray-900 mb-3">
                   Reason for Application
@@ -889,7 +918,6 @@ const ApplicationsPage = () => {
                 <p className="text-gray-700">{selectedInquiry.reason}</p>
               </div>
 
-              {/* Rejection Reason (if rejected) */}
               {selectedInquiry.status === "rejected" &&
                 selectedInquiry.rejectionReason && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
@@ -903,97 +931,75 @@ const ApplicationsPage = () => {
                   </div>
                 )}
 
-              {/* Approval Status (if approved) */}
-              {selectedInquiry.status === "approved" && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                  <h4 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
-                    <Check className="h-5 w-5" />
-                    Application Status
-                  </h4>
-                  <p className="text-green-700">
-                    This application has been approved and a payment plan has
-                    been created.
-                  </p>
-                </div>
-              )}
-
-              {(selectedInquiry.propertyStatus === "LEASED" ||
-                selectedInquiry.status === "approved") &&
+              {(selectedInquiry.status === "approved" ||
+                selectedInquiry.propertyStatus === "LEASED") &&
                 paymentPlanData && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                    <h4 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
+                  <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                    <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
                       <CreditCard className="h-5 w-5" />
-                      Payment Plan Details
+                      Payment Plan Summary
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        <p className="text-sm text-blue-600 mb-1">
                           Property Price
                         </p>
-                        <p className="font-medium text-green-900">
-                          ₱{paymentPlanData.propertyPrice?.toLocaleString()}
+                        <p className="font-medium text-blue-900">
+                          {formatCurrency(paymentPlanData.propertyPrice)}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        <p className="text-sm text-blue-600 mb-1">
                           Down Payment
                         </p>
-                        <p className="font-medium text-green-900">
-                          ₱{paymentPlanData.downPayment?.toLocaleString()}
+                        <p className="font-medium text-blue-900">
+                          {formatCurrency(paymentPlanData.downPayment)}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        <p className="text-sm text-blue-600 mb-1">
                           Monthly Payment
                         </p>
-                        <p className="font-medium text-green-900">
-                          ₱{paymentPlanData.monthlyPayment?.toLocaleString()}
+                        <p className="font-medium text-blue-900">
+                          {formatCurrency(paymentPlanData.monthlyPayment)}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        <p className="text-sm text-blue-600 mb-1">
                           Interest Rate
                         </p>
-                        <p className="font-medium text-green-900">
+                        <p className="font-medium text-blue-900">
                           {paymentPlanData.interestRate}% per annum
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        <p className="text-sm text-blue-600 mb-1">
                           Lease Duration
                         </p>
-                        <p className="font-medium text-green-900">
+                        <p className="font-medium text-blue-900">
                           {paymentPlanData.leaseDuration} months
-                          <span className="text-sm text-green-600">
+                          <span className="text-sm text-blue-600">
                             ({Math.floor(paymentPlanData.leaseDuration / 12)}{" "}
                             years {paymentPlanData.leaseDuration % 12} months)
                           </span>
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        <p className="text-sm text-blue-600 mb-1">
                           Total Amount
                         </p>
-                        <p className="font-medium text-green-900">
-                          ₱{paymentPlanData.totalAmount?.toLocaleString()}
+                        <p className="font-medium text-blue-900">
+                          {formatCurrency(paymentPlanData.totalAmount)}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-green-600 mb-1">
-                          Start Date
-                        </p>
-                        <p className="font-medium text-green-900">
-                          {new Date(
-                            paymentPlanData.startDate
-                          ).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })}
+                        <p className="text-sm text-blue-600 mb-1">Start Date</p>
+                        <p className="font-medium text-blue-900">
+                          {formatDate(paymentPlanData.startDate)}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        <p className="text-sm text-blue-600 mb-1">
                           Plan Status
                         </p>
                         <span
@@ -1003,68 +1009,49 @@ const ApplicationsPage = () => {
                               : "bg-gray-100 text-gray-800"
                           }`}
                         >
-                          {paymentPlanData.status?.charAt(0).toUpperCase() +
-                            paymentPlanData.status?.slice(1)}
+                          {paymentPlanData.status.charAt(0).toUpperCase() +
+                            paymentPlanData.status.slice(1)}
                         </span>
                       </div>
                       <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        <p className="text-sm text-blue-600 mb-1">
                           Current Month
                         </p>
-                        <p className="font-medium text-green-900">
+                        <p className="font-medium text-blue-900">
                           {paymentPlanData.currentMonth} of{" "}
                           {paymentPlanData.leaseDuration}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        <p className="text-sm text-blue-600 mb-1">
                           Remaining Balance
                         </p>
-                        <p className="font-medium text-green-900">
-                          ₱{paymentPlanData.remainingBalance?.toLocaleString()}
+                        <p className="font-medium text-blue-900">
+                          {formatCurrency(paymentPlanData.remainingBalance)}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        <p className="text-sm text-blue-600 mb-1">
                           Next Payment Date
                         </p>
-                        <p className="font-medium text-green-900">
-                          {new Date(
-                            paymentPlanData.nextPaymentDate
-                          ).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })}
+                        <p className="font-medium text-blue-900">
+                          {formatDate(paymentPlanData.nextPaymentDate)}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        <p className="text-sm text-blue-600 mb-1">
                           Total Interest
                         </p>
                         <p className="font-medium text-orange-600">
-                          ₱
-                          {(
+                          {formatCurrency(
                             paymentPlanData.totalAmount -
-                            paymentPlanData.propertyPrice
-                          )?.toLocaleString()}
+                              paymentPlanData.propertyPrice
+                          )}
                         </p>
                       </div>
                     </div>
                   </div>
                 )}
-
-              {selectedInquiry.propertyStatus === "LEASED" && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                  <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                    <Check className="h-5 w-5" />
-                    Property Status
-                  </h4>
-                  <p className="text-blue-700">
-                    This property has been leased and a payment plan is active.
-                  </p>
-                </div>
-              )}
 
               <div className="flex justify-end">
                 <button
@@ -1082,7 +1069,7 @@ const ApplicationsPage = () => {
           </div>
         )}
 
-        {/* Enhanced Payment Modal */}
+        {/* Payment Modal */}
         {showPaymentModal && selectedInquiry && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
@@ -1090,43 +1077,43 @@ const ApplicationsPage = () => {
                 Create Payment Plan
               </h3>
 
-              {/* Property & Applicant Info */}
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Property & Applicant Info
+                </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-2">
-                      Property Details
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      <strong>Title:</strong> {selectedInquiry.propertyTitle}
+                    <p className="text-sm text-gray-600 mb-1">Property Title</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedInquiry.propertyTitle}
                     </p>
-                    <p className="text-sm text-gray-600">
-                      <strong>Location:</strong>{" "}
+                    <p className="text-sm text-gray-600 mb-1">Location</p>
+                    <p className="font-medium text-gray-900">
                       {selectedInquiry.propertyLocation}
                     </p>
-                    <p className="text-sm text-gray-600">
-                      <strong>Price:</strong> ₱
-                      {selectedInquiry.propertyPrice.toLocaleString()}
+                    <p className="text-sm text-gray-600 mb-1">Price</p>
+                    <p className="font-medium text-gray-900">
+                      {formatCurrency(selectedInquiry.propertyPrice)}
                     </p>
                   </div>
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-2">
-                      Applicant Details
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      <strong>Name:</strong> {selectedInquiry.fullName}
+                    <p className="text-sm text-gray-600 mb-1">Applicant Name</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedInquiry.fullName}
                     </p>
-                    <p className="text-sm text-gray-600">
-                      <strong>Email:</strong> {selectedInquiry.email}
+                    <p className="text-sm text-gray-600 mb-1">Email</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedInquiry.email}
                     </p>
-                    <p className="text-sm text-gray-600">
-                      <strong>Phone:</strong> {selectedInquiry.phone}
+                    <p className="text-sm text-gray-600 mb-1">Phone</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedInquiry.phone}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Payment Configuration */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div className="space-y-4">
                   <h4 className="font-medium text-gray-900">
@@ -1193,7 +1180,7 @@ const ApplicationsPage = () => {
                         Property Price:
                       </span>
                       <span className="text-sm font-medium">
-                        ₱{selectedInquiry.propertyPrice.toLocaleString()}
+                        {formatCurrency(selectedInquiry.propertyPrice)}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -1201,7 +1188,7 @@ const ApplicationsPage = () => {
                         Down Payment:
                       </span>
                       <span className="text-sm font-medium">
-                        ₱{(parseFloat(downPayment) || 0).toLocaleString()}
+                        {formatCurrency(parseFloat(downPayment) || 0)}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -1209,11 +1196,10 @@ const ApplicationsPage = () => {
                         Principal Amount:
                       </span>
                       <span className="text-sm font-medium">
-                        ₱
-                        {(
+                        {formatCurrency(
                           selectedInquiry.propertyPrice -
-                          (parseFloat(downPayment) || 0)
-                        ).toLocaleString()}
+                            (parseFloat(downPayment) || 0)
+                        )}
                       </span>
                     </div>
                     <hr className="border-blue-200" />
@@ -1240,7 +1226,7 @@ const ApplicationsPage = () => {
                         Monthly Payment:
                       </span>
                       <span className="text-sm font-medium text-blue-600">
-                        ₱{(parseFloat(monthlyPayment) || 0).toLocaleString()}
+                        {formatCurrency(parseFloat(monthlyPayment) || 0)}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -1248,7 +1234,7 @@ const ApplicationsPage = () => {
                         Total Amount:
                       </span>
                       <span className="text-sm font-medium text-blue-600">
-                        ₱{totalAmount.toLocaleString()}
+                        {formatCurrency(totalAmount)}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -1256,10 +1242,9 @@ const ApplicationsPage = () => {
                         Total Interest:
                       </span>
                       <span className="text-sm font-medium text-orange-600">
-                        ₱
-                        {(
+                        {formatCurrency(
                           totalAmount - selectedInquiry.propertyPrice
-                        ).toLocaleString()}
+                        )}
                       </span>
                     </div>
                   </div>
@@ -1285,7 +1270,6 @@ const ApplicationsPage = () => {
                 </div>
               </div>
 
-              {/* Quick Payment Suggestions */}
               {selectedInquiry && (
                 <div className="mb-6">
                   <h4 className="font-medium text-gray-900 mb-3">
@@ -1325,7 +1309,7 @@ const ApplicationsPage = () => {
                             {option.label}
                           </div>
                           <div className="text-xs text-gray-500">
-                            ₱{suggestedPayment.toLocaleString()} / month
+                            {formatCurrency(suggestedPayment)} / month
                           </div>
                         </button>
                       );

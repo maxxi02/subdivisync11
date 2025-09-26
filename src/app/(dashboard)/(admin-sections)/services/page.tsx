@@ -2,40 +2,40 @@
 
 import { useState, useEffect } from "react";
 import {
+  Container,
   Title,
   Group,
-  Card,
-  Stack,
   Button,
   Text,
   Badge,
-  Container,
   SimpleGrid,
   Modal,
   TextInput,
   NumberInput,
   LoadingOverlay,
   Notification,
-  Tabs,
-  Textarea,
-  Grid,
   Box,
+  Stack,
+  Grid,
+  Textarea,
+  Image as MantineImage,
+  Divider,
 } from "@mantine/core";
 import {
   IconSettings,
   IconExclamationMark,
-  IconCash,
-  IconUser,
-  IconCalendar,
   IconCheck,
-  IconPhoto,
+  IconCalendar,
+  IconSearch,
+  IconRefresh,
+  IconEye,
 } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import axios from "axios";
 import Image from "next/image";
 import { Session } from "@/better-auth/auth-types";
 import { getServerSession } from "@/better-auth/action";
-
+import { useRouter } from "next/navigation";
 interface ServiceRequest {
   _id?: string;
   id: string;
@@ -65,7 +65,6 @@ interface ServiceRequest {
 }
 
 const ServicesSection = () => {
-  const [activeTab, setActiveTab] = useState<string | null>("dashboard");
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -77,6 +76,8 @@ const ServicesSection = () => {
     useDisclosure(false);
   const [completeModalOpened, { open: openComplete, close: closeComplete }] =
     useDisclosure(false);
+  const [viewModalOpened, { open: openView, close: closeView }] =
+    useDisclosure(false);
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(
     null
   );
@@ -87,18 +88,22 @@ const ServicesSection = () => {
   const [finalCost, setFinalCost] = useState<number | string>("");
   const [completionNotes, setCompletionNotes] = useState("");
   const [assignmentMessage, setAssignmentMessage] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [session, setSession] = useState<Session | null>(null);
+  const router = useRouter();
+
   useEffect(() => {
     const getSession = async () => {
       const session = await getServerSession();
       setSession(session);
+
+      if (session?.user?.role !== "admin") {
+        router.push("/");
+      }
     };
     getSession();
   }, []);
 
-  //payments
-  // const [paymentLoading, setPaymentLoading] = useState(false);
-  // Fetch service requests on component mount
   useEffect(() => {
     fetchServiceRequests();
   }, []);
@@ -107,7 +112,6 @@ const ServicesSection = () => {
     try {
       setLoading(true);
       const response = await axios.get("/api/service-requests");
-
       if (response.data.success && response.data.serviceRequests) {
         const transformedRequests = response.data.serviceRequests.map(
           (request: ServiceRequest) => ({
@@ -119,16 +123,18 @@ const ServicesSection = () => {
             amount: request.final_cost || request.estimated_cost,
           })
         );
-
         setRequests(transformedRequests);
       } else {
-        setError(response.data.error || "Failed to fetch service requests");
+        showNotification(
+          response.data.error || "Failed to fetch service requests",
+          true
+        );
       }
     } catch (err) {
       const errorMessage = axios.isAxiosError(err)
         ? err.message
         : "An error occurred";
-      setError(errorMessage);
+      showNotification(errorMessage, true);
     } finally {
       setLoading(false);
     }
@@ -140,8 +146,6 @@ const ServicesSection = () => {
     } else {
       setSuccessMessage(message);
     }
-
-    // Clear notifications after 5 seconds
     setTimeout(() => {
       setError(null);
       setSuccessMessage(null);
@@ -158,10 +162,8 @@ const ServicesSection = () => {
       showNotification("Please fill all required fields", true);
       return;
     }
-
     try {
       setSubmitting(true);
-
       const response = await axios.put("/api/service-requests", {
         requestId: selectedRequest.id,
         status: "in-progress",
@@ -169,9 +171,7 @@ const ServicesSection = () => {
         scheduled_date: scheduledDate,
         assignment_message: assignmentMessage,
       });
-
       if (response.data.success) {
-        // Update the request locally
         const updatedRequests = requests.map((request) =>
           request.id === selectedRequest.id
             ? {
@@ -183,7 +183,6 @@ const ServicesSection = () => {
               }
             : request
         );
-
         setRequests(updatedRequests);
         showNotification(
           `Technician assigned successfully. ${
@@ -213,18 +212,14 @@ const ServicesSection = () => {
       showNotification("Please provide an estimated cost", true);
       return;
     }
-
     try {
       setSubmitting(true);
-
       const response = await axios.put("/api/service-requests", {
         requestId: selectedRequest.id,
         estimated_cost: Number(estimatedCost),
         technician_notes: estimateNotes,
       });
-
       if (response.data.success) {
-        // Update the request locally
         const updatedRequests = requests.map((request) =>
           request.id === selectedRequest.id
             ? {
@@ -235,7 +230,6 @@ const ServicesSection = () => {
               }
             : request
         );
-
         setRequests(updatedRequests);
         showNotification(
           `Estimate provided successfully. ${
@@ -265,19 +259,15 @@ const ServicesSection = () => {
       showNotification("Please provide a final cost", true);
       return;
     }
-
     try {
       setSubmitting(true);
-
       const response = await axios.put("/api/service-requests", {
         requestId: selectedRequest.id,
         status: "completed",
         final_cost: Number(finalCost),
         completion_notes: completionNotes,
       });
-
       if (response.data.success) {
-        // Update the request locally
         const updatedRequests = requests.map((request) =>
           request.id === selectedRequest.id
             ? {
@@ -289,7 +279,6 @@ const ServicesSection = () => {
               }
             : request
         );
-
         setRequests(updatedRequests);
         showNotification(
           `Request marked as completed. ${
@@ -338,399 +327,341 @@ const ServicesSection = () => {
     }
   };
 
-  const getPendingRequests = () => {
-    return requests
-      .filter((req) => req.status === "pending")
-      .sort((a, b) => {
-        const priorityOrder = { high: 3, medium: 2, low: 1 };
-        return priorityOrder[b.priority] - priorityOrder[a.priority];
-      });
+  const formatCurrency = (amount?: number) => {
+    if (!amount) return "Not set";
+    return new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+    }).format(amount);
   };
 
-  // Format date for display
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Not set";
-    return new Date(dateString).toLocaleDateString("en-US", {
+    return new Date(dateString).toLocaleDateString("en-PH", {
       year: "numeric",
       month: "short",
       day: "numeric",
     });
   };
 
-  // const handlePayment = async (request: ServiceRequest) => {
-  //   if (!request.final_cost) return;
+  const filteredRequests = requests
+    .filter(
+      (request) =>
+        request.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        request.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        request.user_email?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      const priorityOrder = { high: 3, medium: 2, low: 1 };
+      return priorityOrder[b.priority] - priorityOrder[a.priority];
+    });
 
-  //   try {
-  //     setPaymentLoading(true);
-
-  //     // Create PayMongo payment method
-  //     const paymentResponse = await axios.post("/api/create-payment", {
-  //       amount: request.final_cost * 100, // Convert to centavos
-  //       description: `Payment for ${request.category} service`,
-  //       requestId: request.id,
-  //     });
-
-  //     if (paymentResponse.data.success) {
-  //       // Redirect to PayMongo checkout or handle payment flow
-  //       window.location.href = paymentResponse.data.checkout_url;
-  //     } else {
-  //       showNotification("Failed to create payment", true);
-  //     }
-  //   } catch (error) {
-  //     console.error("Payment error:", error);
-  //     showNotification("Payment failed. Please try again.", true);
-  //   } finally {
-  //     setPaymentLoading(false);
-  //   }
-  // };
-
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const paymentStatus = urlParams.get("payment");
-
-    if (paymentStatus === "success") {
-      showNotification("Payment completed successfully!");
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-      // Refresh data to get updated payment status
-      fetchServiceRequests();
-    } else if (paymentStatus === "cancelled") {
-      showNotification("Payment was cancelled", true);
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, []);
+  const stats = {
+    pending: requests.filter((r) => r.status === "pending").length,
+    inProgress: requests.filter((r) => r.status === "in-progress").length,
+    completed: requests.filter((r) => r.status === "completed").length,
+    highPriority: requests.filter((r) => r.priority === "high").length,
+  };
 
   return (
-    <Container size="xl" py="md">
-      <Stack gap="xl">
-        {/* Notifications */}
-        {error && (
-          <Notification
-            icon={<IconExclamationMark size={18} />}
-            color="red"
-            title="Error"
-            onClose={() => setError(null)}
-          >
-            {error}
-          </Notification>
-        )}
+    <div className="min-h-screen bg-gray-50 p-6">
+      <Container size="xl" py="md">
+        <LoadingOverlay visible={loading} />
+        <Stack gap="xl">
+          {/* Notifications */}
+          {error && (
+            <Notification
+              icon={<IconExclamationMark size={18} />}
+              color="red"
+              title="Error"
+              onClose={() => setError(null)}
+            >
+              {error}
+            </Notification>
+          )}
+          {successMessage && (
+            <Notification
+              icon={<IconCheck size={18} />}
+              color="green"
+              title="Success"
+              onClose={() => setSuccessMessage(null)}
+            >
+              {successMessage}
+            </Notification>
+          )}
 
-        {successMessage && (
-          <Notification
-            icon={<IconCheck size={18} />}
-            color="green"
-            title="Success"
-            onClose={() => setSuccessMessage(null)}
-          >
-            {successMessage}
-          </Notification>
-        )}
-
-        {/* Header */}
-        <Group justify="space-between">
-          <Group>
-            <IconSettings size={32} color="var(--mantine-color-blue-6)" />
-            <Title order={1} size="h2">
-              Service Management
-            </Title>
-          </Group>
-          <Button
-            variant="outline"
-            onClick={fetchServiceRequests}
-            loading={loading}
-          >
-            Refresh
-          </Button>
-        </Group>
-
-        {/* Tabs for different views */}
-        <Tabs value={activeTab} onChange={setActiveTab}>
-          <Tabs.List>
-            <Tabs.Tab value="dashboard">Requests Dashboard</Tabs.Tab>
-          </Tabs.List>
-
-          <Tabs.Panel value="dashboard" pt="md">
-            <Card withBorder p="md" radius="md" pos="relative">
-              <LoadingOverlay visible={loading} />
-
-              {/* Quick Stats Cards */}
-              <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md" mb="xl">
-                <Card withBorder p="md" radius="md">
-                  <Text size="lg" fw={700} c="orange">
-                    {requests.filter((r) => r.status === "pending").length}
-                  </Text>
+          {/* Header */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <Group justify="space-between" align="center">
+              <Group>
+                <IconSettings size={32} color="var(--mantine-color-blue-6)" />
+                <Stack gap={4}>
+                  <Title order={1} size="h2">
+                    Service Management
+                  </Title>
                   <Text size="sm" c="dimmed">
-                    Pending
+                    Manage and track service requests
                   </Text>
-                </Card>
-                <Card withBorder p="md" radius="md">
-                  <Text size="lg" fw={700} c="blue">
-                    {requests.filter((r) => r.status === "in-progress").length}
+                </Stack>
+              </Group>
+              <Button
+                variant="filled"
+                color="blue"
+                onClick={fetchServiceRequests}
+                leftSection={<IconRefresh size={16} />}
+              >
+                Refresh
+              </Button>
+            </Group>
+          </div>
+
+          {/* Stats Cards */}
+          <SimpleGrid cols={{ base: 1, sm: 4 }} spacing="md">
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg shadow-sm p-6 text-white">
+              <Group justify="space-between">
+                <Stack gap={4}>
+                  <Text size="sm" c="orange.1">
+                    Pending Requests
                   </Text>
-                  <Text size="sm" c="dimmed">
+                  <Text size="xl" fw={700}>
+                    {stats.pending}
+                  </Text>
+                </Stack>
+                <div className="h-12 w-12 bg-orange-400 bg-opacity-30 rounded-lg flex items-center justify-center">
+                  <IconCalendar size={24} />
+                </div>
+              </Group>
+            </div>
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-sm p-6 text-white">
+              <Group justify="space-between">
+                <Stack gap={4}>
+                  <Text size="sm" c="blue.1">
                     In Progress
                   </Text>
-                </Card>
-                <Card withBorder p="md" radius="md">
-                  <Text size="lg" fw={700} c="green">
-                    {requests.filter((r) => r.status === "completed").length}
+                  <Text size="xl" fw={700}>
+                    {stats.inProgress}
                   </Text>
-                  <Text size="sm" c="dimmed">
+                </Stack>
+                <div className="h-12 w-12 bg-blue-400 bg-opacity-30 rounded-lg flex items-center justify-center">
+                  <IconSettings size={24} />
+                </div>
+              </Group>
+            </div>
+            <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-sm p-6 text-white">
+              <Group justify="space-between">
+                <Stack gap={4}>
+                  <Text size="sm" c="green.1">
                     Completed
                   </Text>
-                </Card>
-                <Card withBorder p="md" radius="md">
-                  <Text size="lg" fw={700} c="red">
-                    {requests.filter((r) => r.priority === "high").length}
+                  <Text size="xl" fw={700}>
+                    {stats.completed}
                   </Text>
-                  <Text size="sm" c="dimmed">
+                </Stack>
+                <div className="h-12 w-12 bg-green-400 bg-opacity-30 rounded-lg flex items-center justify-center">
+                  <IconCheck size={24} />
+                </div>
+              </Group>
+            </div>
+            <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-sm p-6 text-white">
+              <Group justify="space-between">
+                <Stack gap={4}>
+                  <Text size="sm" c="red.1">
                     High Priority
                   </Text>
-                </Card>
-              </SimpleGrid>
+                  <Text size="xl" fw={700}>
+                    {stats.highPriority}
+                  </Text>
+                </Stack>
+                <div className="h-12 w-12 bg-red-400 bg-opacity-30 rounded-lg flex items-center justify-center">
+                  <IconExclamationMark size={24} />
+                </div>
+              </Group>
+            </div>
+          </SimpleGrid>
 
-              {/* Priority Queue - Pending Requests */}
-              <Box mb="xl">
-                <Title order={2} size="h3" mb="md" c="orange">
-                  🚨 Priority Queue (Pending Requests)
-                </Title>
+          {/* Priority Alert */}
+          {stats.highPriority > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <Group gap={8}>
+                <IconExclamationMark
+                  size={20}
+                  color="var(--mantine-color-red-6)"
+                />
+                <Stack gap={0}>
+                  <Text size="sm" fw={500} c="red.8">
+                    High Priority Alert
+                  </Text>
+                  <Text size="sm" c="red.7">
+                    You have {stats.highPriority} high-priority request
+                    {stats.highPriority > 1 ? "s" : ""} requiring immediate
+                    attention.
+                  </Text>
+                </Stack>
+              </Group>
+            </div>
+          )}
 
-                {getPendingRequests().length === 0 ? (
-                  <Card withBorder p="xl">
-                    <Text c="dimmed" ta="center">
-                      No pending requests
-                    </Text>
-                  </Card>
-                ) : (
-                  getPendingRequests().map((request) => (
-                    <Card
-                      key={request.id}
-                      shadow="sm"
-                      radius="md"
-                      p="lg"
-                      withBorder
-                      mb="md"
-                      style={{
-                        borderLeft: `4px solid ${
-                          request.priority === "high"
-                            ? "var(--mantine-color-red-6)"
-                            : request.priority === "medium"
-                            ? "var(--mantine-color-yellow-6)"
-                            : "var(--mantine-color-green-6)"
-                        }`,
-                      }}
+          {/* Search Bar */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="relative">
+              <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <TextInput
+                placeholder="Search requests by tenant, category, or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          {/* Requests Table */}
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tenant
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Priority
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredRequests.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-6 py-8 text-center text-gray-500"
                     >
-                      <Grid>
-                        <Grid.Col span={{ base: 12, md: 8 }}>
-                          <Stack gap="sm">
-                            <Group>
-                              <Badge
-                                color={getPriorityColor(request.priority)}
-                                variant="filled"
-                              >
-                                {request.priority.toUpperCase()} PRIORITY
-                              </Badge>
-                              <Badge variant="outline">
-                                {request.category}
-                              </Badge>
-                              <Text size="sm" c="dimmed">
-                                Submitted: {request.date}
-                              </Text>
-                            </Group>
-
-                            <div>
-                              <Text fw={500}>
-                                <IconUser
-                                  size={14}
-                                  style={{ marginRight: 4 }}
-                                />
-                                {request.user_name}
-                              </Text>
-                              <Text size="sm" c="dimmed">
-                                {request.user_email}
-                              </Text>
-                            </div>
-
-                            <div>
-                              <Text fw={500} size="sm">
-                                Issue Description:
-                              </Text>
-                              <Text
-                                size="sm"
-                                style={{ whiteSpace: "pre-wrap" }}
-                              >
-                                {request.description}
-                              </Text>
-                            </div>
-
-                            {/* Display images if they exist */}
-                            {request.images && request.images.length > 0 && (
-                              <div>
-                                <Text size="sm" fw={500} mb="xs">
-                                  <IconPhoto
-                                    size={14}
-                                    style={{ marginRight: 4 }}
-                                  />
-                                  Attached Images ({request.images.length}):
-                                </Text>
-                                <SimpleGrid
-                                  cols={{ base: 2, sm: 3 }}
-                                  spacing="xs"
-                                >
-                                  {request.images.map((imageUrl, index) => (
-                                    <Card key={index} withBorder p="xs">
-                                      <Card.Section>
-                                        <Image
-                                          width={200}
-                                          height={150}
-                                          src={imageUrl}
-                                          alt={`Request image ${index + 1}`}
-                                          style={{
-                                            width: "100%",
-                                            height: 80,
-                                            objectFit: "cover",
-                                          }}
-                                        />
-                                      </Card.Section>
-                                    </Card>
-                                  ))}
-                                </SimpleGrid>
-                              </div>
-                            )}
-                          </Stack>
-                        </Grid.Col>
-
-                        <Grid.Col span={{ base: 12, md: 4 }}>
-                          <Stack gap="xs" align="flex-end">
-                            <Button
-                              size="sm"
-                              variant="filled"
-                              onClick={() => {
-                                setSelectedRequest(request);
-                                openAssign();
-                              }}
-                              disabled={submitting}
-                            >
-                              Assign Technician
-                            </Button>
-
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedRequest(request);
-                                openEstimate();
-                              }}
-                              disabled={submitting}
-                            >
-                              Provide Estimate
-                            </Button>
-                          </Stack>
-                        </Grid.Col>
-                      </Grid>
-                    </Card>
-                  ))
-                )}
-              </Box>
-
-              {/* In Progress Requests */}
-              <Box mb="xl">
-                <Title order={2} size="h3" mb="md" c="blue">
-                  🔧 Active Work Orders
-                </Title>
-
-                {requests.filter((r) => r.status === "in-progress").length ===
-                0 ? (
-                  <Card withBorder p="xl">
-                    <Text c="dimmed" ta="center">
-                      No active work orders
-                    </Text>
-                  </Card>
+                      No service requests found
+                    </td>
+                  </tr>
                 ) : (
-                  requests
-                    .filter((r) => r.status === "in-progress")
-                    .map((request) => (
-                      <Card
-                        key={request.id}
-                        shadow="sm"
-                        radius="md"
-                        p="lg"
-                        withBorder
-                        mb="md"
-                      >
-                        <Grid>
-                          <Grid.Col span={{ base: 12, md: 8 }}>
-                            <Stack gap="sm">
-                              <Group>
-                                <Badge color="blue" variant="filled">
-                                  IN PROGRESS
-                                </Badge>
-                                <Text fw={500}>{request.category}</Text>
-                                <Text size="sm">
-                                  Tenant: {request.user_name}
-                                </Text>
-                              </Group>
-
-                              <Text size="sm">
-                                <strong>Assigned to:</strong>{" "}
-                                {request.assigned_technician}
-                              </Text>
-
-                              {request.scheduled_date && (
-                                <Text size="sm">
-                                  <IconCalendar
-                                    size={14}
-                                    style={{ marginRight: 4 }}
-                                  />
-                                  <strong>Scheduled:</strong>{" "}
-                                  {formatDate(request.scheduled_date)}
-                                </Text>
-                              )}
-
-                              {request.estimated_cost && (
-                                <Text size="sm">
-                                  <IconCash
-                                    size={14}
-                                    style={{ marginRight: 4 }}
-                                  />
-                                  <strong>Estimated Cost:</strong> ₱
-                                  {request.estimated_cost}
-                                </Text>
-                              )}
-
-                              {request.assignment_message && (
-                                <div>
-                                  <Text size="sm" fw={500}>
-                                    Assignment Message:
-                                  </Text>
-                                  <Text
-                                    size="sm"
-                                    style={{ whiteSpace: "pre-wrap" }}
-                                  >
-                                    {request.assignment_message}
-                                  </Text>
-                                </div>
-                              )}
-                            </Stack>
-                          </Grid.Col>
-
-                          <Grid.Col span={{ base: 12, md: 4 }}>
-                            <Stack gap="xs" align="flex-end">
+                  filteredRequests.map((request) => (
+                    <tr key={request.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Group>
+                          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <Image
+                              src={session?.user.image || "/placeholder.png"}
+                              alt="User Image"
+                              width={40}
+                              height={40}
+                              className="rounded-full object-cover"
+                            />
+                          </div>
+                          <Stack gap={0}>
+                            <Text size="sm" fw={500}>
+                              {request.user_name}
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                              {request.user_email}
+                            </Text>
+                          </Stack>
+                        </Group>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Text size="sm">{request.category}</Text>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Text size="sm">{request.date}</Text>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge
+                          color={getPriorityColor(request.priority)}
+                          variant="filled"
+                        >
+                          {request.priority.toUpperCase()}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge
+                          color={
+                            request.status === "pending"
+                              ? "yellow"
+                              : request.status === "in-progress"
+                              ? "blue"
+                              : request.status === "completed"
+                              ? "green"
+                              : "red"
+                          }
+                          variant="filled"
+                        >
+                          {request.status.toUpperCase()}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Group gap="xs">
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            color="gray"
+                            leftSection={<IconEye size={12} />}
+                            onClick={() => {
+                              setSelectedRequest(request);
+                              openView();
+                            }}
+                            disabled={submitting}
+                          >
+                            View
+                          </Button>
+                          {request.status === "pending" && (
+                            <>
                               <Button
-                                size="sm"
+                                size="xs"
+                                variant="filled"
+                                color="blue"
+                                onClick={() => {
+                                  setSelectedRequest(request);
+                                  openAssign();
+                                }}
+                                disabled={submitting}
+                              >
+                                Assign
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedRequest(request);
+                                  openEstimate();
+                                }}
+                                disabled={submitting}
+                              >
+                                Estimate
+                              </Button>
+                            </>
+                          )}
+                          {request.status === "in-progress" && (
+                            <>
+                              <Button
+                                size="xs"
+                                variant="filled"
+                                color="green"
                                 onClick={() => {
                                   setSelectedRequest(request);
                                   openComplete();
                                 }}
                                 disabled={submitting}
                               >
-                                Mark as Completed
+                                Complete
                               </Button>
-
                               {!request.estimated_cost && (
                                 <Button
-                                  size="sm"
+                                  size="xs"
                                   variant="outline"
                                   onClick={() => {
                                     setSelectedRequest(request);
@@ -738,283 +669,415 @@ const ServicesSection = () => {
                                   }}
                                   disabled={submitting}
                                 >
-                                  Provide Estimate
+                                  Estimate
                                 </Button>
                               )}
-                            </Stack>
-                          </Grid.Col>
-                        </Grid>
-                      </Card>
-                    ))
+                            </>
+                          )}
+                        </Group>
+                      </td>
+                    </tr>
+                  ))
                 )}
-              </Box>
+              </tbody>
+            </table>
+          </div>
 
-              {/* Completed Requests */}
-              <Box>
-                <Title order={2} size="h3" mb="md" c="green">
-                  ✅ Completed Requests
-                </Title>
-
-                {requests.filter((r) => r.status === "completed").length ===
-                0 ? (
-                  <Card withBorder p="xl">
-                    <Text c="dimmed" ta="center">
-                      No completed requests
+          {/* View Details Modal */}
+          <Modal
+            opened={viewModalOpened}
+            onClose={closeView}
+            title="Service Request Details"
+            centered
+            size="lg"
+          >
+            <Stack gap="md">
+              <Box className="bg-gray-50 rounded-lg p-4">
+                <Text size="sm" fw={500} mb="sm">
+                  Request Overview
+                </Text>
+                <Grid>
+                  <Grid.Col span={6}>
+                    <Text size="xs" c="dimmed">
+                      Tenant
                     </Text>
-                  </Card>
-                ) : (
-                  requests
-                    .filter((r) => r.status === "completed")
-                    .map((request) => (
-                      <Card
-                        key={request.id}
-                        shadow="sm"
-                        radius="md"
-                        p="lg"
-                        withBorder
-                        mb="md"
-                      >
-                        <Grid>
-                          <Grid.Col span={{ base: 12, md: 8 }}>
-                            <Stack gap="sm">
-                              <Group>
-                                <Badge color="green" variant="filled">
-                                  COMPLETED
-                                </Badge>
-                                <Text fw={500}>{request.category}</Text>
-                                <Text size="sm">
-                                  Tenant: {request.user_name}
-                                </Text>
-                                {/* Add payment status badge */}
-                                {request.payment_status && (
-                                  <Badge
-                                    color={
-                                      request.payment_status === "paid"
-                                        ? "blue"
-                                        : "orange"
-                                    }
-                                    variant="outline"
-                                  >
-                                    {request.payment_status.toUpperCase()}
-                                  </Badge>
-                                )}
-                              </Group>
-
-                              <Text size="sm">
-                                <strong>Assigned to:</strong>{" "}
-                                {request.assigned_technician}
-                              </Text>
-
-                              {request.final_cost && (
-                                <Text size="sm">
-                                  <IconCash
-                                    size={14}
-                                    style={{ marginRight: 4 }}
-                                  />
-                                  <strong>Final Cost:</strong> ₱
-                                  {request.final_cost}
-                                </Text>
-                              )}
-
-                              {request.completion_notes && (
-                                <div>
-                                  <Text size="sm" fw={500}>
-                                    Completion Notes:
-                                  </Text>
-                                  <Text
-                                    size="sm"
-                                    style={{ whiteSpace: "pre-wrap" }}
-                                  >
-                                    {request.completion_notes}
-                                  </Text>
-                                </div>
-                              )}
-                            </Stack>
-                          </Grid.Col>
-
-                          <Grid.Col span={{ base: 12, md: 4 }}>
-                            <Stack gap="xs" align="flex-end">
-                              {/* Payment status display for admins */}
-                              {request.payment_status === "paid" ? (
-                                <Badge color="green" variant="filled" size="sm">
-                                  ✓ Payment Completed
-                                </Badge>
-                              ) : request.payment_status === "pending" ? (
-                                <Badge
-                                  color="orange"
-                                  variant="outline"
-                                  size="sm"
-                                >
-                                  Payment Pending
-                                </Badge>
-                              ) : request.final_cost ? (
-                                <Badge color="red" variant="outline" size="sm">
-                                  Payment Required: ${request.final_cost}
-                                </Badge>
-                              ) : (
-                                <Text size="sm" c="dimmed">
-                                  No payment required
-                                </Text>
-                              )}
-
-                              {/* Show payment date if available */}
-                              {request.paid_at && (
-                                <Text size="xs" c="green">
-                                  Paid:{" "}
-                                  {new Date(
-                                    request.paid_at
-                                  ).toLocaleDateString()}
-                                </Text>
-                              )}
-                            </Stack>
-                          </Grid.Col>
-                        </Grid>
-                      </Card>
-                    ))
-                )}
+                    <Text size="sm" fw={500}>
+                      {selectedRequest?.user_name}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {selectedRequest?.user_email}
+                    </Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="xs" c="dimmed">
+                      Category
+                    </Text>
+                    <Text size="sm">{selectedRequest?.category}</Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="xs" c="dimmed">
+                      Created Date
+                    </Text>
+                    <Text size="sm">
+                      {formatDate(selectedRequest?.created_at)}
+                    </Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="xs" c="dimmed">
+                      Priority
+                    </Text>
+                    <Badge
+                      color={getPriorityColor(
+                        selectedRequest?.priority || "low"
+                      )}
+                      variant="filled"
+                    >
+                      {(selectedRequest?.priority || "low").toUpperCase()}
+                    </Badge>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="xs" c="dimmed">
+                      Status
+                    </Text>
+                    <Badge
+                      color={
+                        selectedRequest?.status === "pending"
+                          ? "yellow"
+                          : selectedRequest?.status === "in-progress"
+                          ? "blue"
+                          : selectedRequest?.status === "completed"
+                          ? "green"
+                          : "red"
+                      }
+                      variant="filled"
+                    >
+                      {selectedRequest?.status?.toUpperCase()}
+                    </Badge>
+                  </Grid.Col>
+                  {selectedRequest?.scheduled_date && (
+                    <Grid.Col span={6}>
+                      <Text size="xs" c="dimmed">
+                        Scheduled Date
+                      </Text>
+                      <Text size="sm">
+                        {formatDate(selectedRequest.scheduled_date)}
+                      </Text>
+                    </Grid.Col>
+                  )}
+                  {selectedRequest?.assigned_technician && (
+                    <Grid.Col span={6}>
+                      <Text size="xs" c="dimmed">
+                        Assigned Technician
+                      </Text>
+                      <Text size="sm">
+                        {selectedRequest.assigned_technician}
+                      </Text>
+                    </Grid.Col>
+                  )}
+                </Grid>
               </Box>
-            </Card>
-          </Tabs.Panel>
-        </Tabs>
-      </Stack>
 
-      {/* Assign Technician Modal */}
-      <Modal
-        opened={assignModalOpened}
-        onClose={closeAssign}
-        title="Assign Technician"
-        centered
-      >
-        <LoadingOverlay visible={submitting} />
-        <Stack>
-          <TextInput
-            label="Technician Name"
-            placeholder="Enter technician name"
-            value={technician}
-            onChange={(e) => setTechnician(e.currentTarget.value)}
-            required
-          />
+              <Divider />
 
-          <TextInput
-            label="Scheduled Date"
-            type="date"
-            placeholder="Select date"
-            value={scheduledDate}
-            onChange={(e) => setScheduledDate(e.currentTarget.value)}
-            required
-          />
+              <Box>
+                <Text size="sm" fw={500} mb="sm">
+                  Issue Description
+                </Text>
+                <Text size="sm">{selectedRequest?.description}</Text>
+              </Box>
 
-          <Textarea
-            label="Assignment Message"
-            placeholder="e.g., Please bear with it, I already sent a technician"
-            value={assignmentMessage}
-            onChange={(e) => setAssignmentMessage(e.currentTarget.value)}
-            autosize
-            minRows={2}
-            required
-          />
+              {selectedRequest?.images && selectedRequest.images.length > 0 && (
+                <Box>
+                  <Text size="sm" fw={500} mb="sm">
+                    Attached Images
+                  </Text>
+                  <SimpleGrid cols={2} spacing="md">
+                    {selectedRequest.images.map((imageUrl, index) => (
+                      <MantineImage
+                        key={index}
+                        src={imageUrl}
+                        alt={`Issue image ${index + 1}`}
+                        height={200}
+                        fit="cover"
+                        radius="md"
+                      />
+                    ))}
+                  </SimpleGrid>
+                </Box>
+              )}
 
-          <Group justify="right">
-            <Button
-              variant="outline"
-              onClick={closeAssign}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-            <Button onClick={assignTechnician} loading={submitting}>
-              Assign Technician
-            </Button>
-          </Group>
+              {selectedRequest?.assignment_message && (
+                <Box>
+                  <Text size="sm" fw={500} mb="sm">
+                    Assignment Message
+                  </Text>
+                  <Text size="sm" c="dimmed">
+                    {selectedRequest.assignment_message}
+                  </Text>
+                </Box>
+              )}
+
+              {selectedRequest?.technician_notes && (
+                <Box>
+                  <Text size="sm" fw={500} mb="sm">
+                    Technician Notes
+                  </Text>
+                  <Text size="sm" c="dimmed">
+                    {selectedRequest.technician_notes}
+                  </Text>
+                </Box>
+              )}
+
+              {selectedRequest?.estimated_cost && (
+                <Box>
+                  <Text size="sm" fw={500} mb="sm">
+                    Estimated Cost
+                  </Text>
+                  <Text size="sm">
+                    {formatCurrency(selectedRequest.estimated_cost)}
+                  </Text>
+                </Box>
+              )}
+
+              {selectedRequest?.completion_notes && (
+                <Box>
+                  <Text size="sm" fw={500} mb="sm">
+                    Completion Notes
+                  </Text>
+                  <Text size="sm" c="dimmed">
+                    {selectedRequest.completion_notes}
+                  </Text>
+                </Box>
+              )}
+
+              {selectedRequest?.final_cost && (
+                <Box>
+                  <Text size="sm" fw={500} mb="sm">
+                    Final Cost
+                  </Text>
+                  <Text size="sm">
+                    {formatCurrency(selectedRequest.final_cost)}
+                  </Text>
+                </Box>
+              )}
+
+              {selectedRequest?.payment_status && (
+                <Box>
+                  <Text size="sm" fw={500} mb="sm">
+                    Payment Status
+                  </Text>
+                  <Badge
+                    color={
+                      selectedRequest.payment_status === "paid"
+                        ? "green"
+                        : selectedRequest.payment_status === "failed"
+                        ? "red"
+                        : "yellow"
+                    }
+                    variant="filled"
+                  >
+                    {selectedRequest.payment_status.toUpperCase()}
+                  </Badge>
+                </Box>
+              )}
+
+              <Group justify="right">
+                <Button variant="outline" onClick={closeView}>
+                  Close
+                </Button>
+              </Group>
+            </Stack>
+          </Modal>
+
+          {/* Assign Technician Modal */}
+          <Modal
+            opened={assignModalOpened}
+            onClose={closeAssign}
+            title="Assign Technician"
+            centered
+          >
+            <LoadingOverlay visible={submitting} />
+            <Stack>
+              <Box className="bg-gray-50 rounded-lg p-4">
+                <Text size="sm" fw={500} mb="sm">
+                  Request Details
+                </Text>
+                <Grid>
+                  <Grid.Col span={6}>
+                    <Text size="xs" c="dimmed">
+                      Tenant
+                    </Text>
+                    <Text size="sm">{selectedRequest?.user_name}</Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="xs" c="dimmed">
+                      Category
+                    </Text>
+                    <Text size="sm">{selectedRequest?.category}</Text>
+                  </Grid.Col>
+                </Grid>
+              </Box>
+              <TextInput
+                label="Technician Name"
+                placeholder="Enter technician name"
+                value={technician}
+                onChange={(e) => setTechnician(e.currentTarget.value)}
+                required
+              />
+              <TextInput
+                label="Scheduled Date"
+                type="date"
+                placeholder="Select date"
+                value={scheduledDate}
+                onChange={(e) => setScheduledDate(e.currentTarget.value)}
+                required
+              />
+              <Textarea
+                label="Assignment Message"
+                placeholder="e.g., Please bear with it, I already sent a technician"
+                value={assignmentMessage}
+                onChange={(e) => setAssignmentMessage(e.currentTarget.value)}
+                autosize
+                minRows={2}
+                required
+              />
+              <Group justify="right">
+                <Button
+                  variant="outline"
+                  onClick={closeAssign}
+                  disabled={submitting}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={assignTechnician} loading={submitting}>
+                  Assign Technician
+                </Button>
+              </Group>
+            </Stack>
+          </Modal>
+
+          {/* Provide Estimate Modal */}
+          <Modal
+            opened={estimateModalOpened}
+            onClose={closeEstimate}
+            title="Provide Cost Estimate"
+            centered
+          >
+            <LoadingOverlay visible={submitting} />
+            <Stack>
+              <Box className="bg-gray-50 rounded-lg p-4">
+                <Text size="sm" fw={500} mb="sm">
+                  Request Details
+                </Text>
+                <Grid>
+                  <Grid.Col span={6}>
+                    <Text size="xs" c="dimmed">
+                      Tenant
+                    </Text>
+                    <Text size="sm">{selectedRequest?.user_name}</Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="xs" c="dimmed">
+                      Category
+                    </Text>
+                    <Text size="sm">{selectedRequest?.category}</Text>
+                  </Grid.Col>
+                </Grid>
+              </Box>
+              <NumberInput
+                label="Estimated Cost (₱)"
+                placeholder="Enter estimated cost"
+                value={estimatedCost}
+                onChange={setEstimatedCost}
+                min={0}
+                decimalScale={2}
+                required
+              />
+              <Textarea
+                label="Estimate Notes"
+                placeholder="Explanation of costs, parts needed, etc."
+                value={estimateNotes}
+                onChange={(e) => setEstimateNotes(e.currentTarget.value)}
+                autosize
+                minRows={3}
+              />
+              <Group justify="right">
+                <Button
+                  variant="outline"
+                  onClick={closeEstimate}
+                  disabled={submitting}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={provideEstimate} loading={submitting}>
+                  Send Estimate
+                </Button>
+              </Group>
+            </Stack>
+          </Modal>
+
+          {/* Complete Request Modal */}
+          <Modal
+            opened={completeModalOpened}
+            onClose={closeComplete}
+            title="Complete Service Request"
+            centered
+          >
+            <LoadingOverlay visible={submitting} />
+            <Stack>
+              <Box className="bg-gray-50 rounded-lg p-4">
+                <Text size="sm" fw={500} mb="sm">
+                  Request Details
+                </Text>
+                <Grid>
+                  <Grid.Col span={6}>
+                    <Text size="xs" c="dimmed">
+                      Tenant
+                    </Text>
+                    <Text size="sm">{selectedRequest?.user_name}</Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="xs" c="dimmed">
+                      Category
+                    </Text>
+                    <Text size="sm">{selectedRequest?.category}</Text>
+                  </Grid.Col>
+                </Grid>
+              </Box>
+              <NumberInput
+                label="Final Cost (₱)"
+                placeholder="Enter final cost"
+                value={finalCost}
+                onChange={setFinalCost}
+                min={0}
+                decimalScale={2}
+                required
+              />
+              <Textarea
+                label="Completion Notes"
+                placeholder="Describe work completed, parts used, etc."
+                value={completionNotes}
+                onChange={(e) => setCompletionNotes(e.currentTarget.value)}
+                autosize
+                minRows={3}
+              />
+              <Group justify="right">
+                <Button
+                  variant="outline"
+                  onClick={closeComplete}
+                  disabled={submitting}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={completeRequest} loading={submitting}>
+                  Mark as Completed
+                </Button>
+              </Group>
+            </Stack>
+          </Modal>
         </Stack>
-      </Modal>
-
-      {/* Provide Estimate Modal */}
-      <Modal
-        opened={estimateModalOpened}
-        onClose={closeEstimate}
-        title="Provide Cost Estimate"
-        centered
-      >
-        <LoadingOverlay visible={submitting} />
-        <Stack>
-          <NumberInput
-            label="Estimated Cost (₱)"
-            placeholder="Enter estimated cost"
-            value={estimatedCost}
-            onChange={setEstimatedCost}
-            min={0}
-            decimalScale={2}
-            required
-          />
-
-          <Textarea
-            label="Estimate Notes"
-            placeholder="Explanation of costs, parts needed, etc."
-            value={estimateNotes}
-            onChange={(e) => setEstimateNotes(e.currentTarget.value)}
-            autosize
-            minRows={3}
-          />
-
-          <Group justify="right">
-            <Button
-              variant="outline"
-              onClick={closeEstimate}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-            <Button onClick={provideEstimate} loading={submitting}>
-              Send Estimate
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-
-      {/* Complete Request Modal */}
-      <Modal
-        opened={completeModalOpened}
-        onClose={closeComplete}
-        title="Complete Service Request"
-        centered
-      >
-        <LoadingOverlay visible={submitting} />
-        <Stack>
-          <NumberInput
-            label="Final Cost (₱)"
-            placeholder="Enter final cost"
-            value={finalCost}
-            onChange={setFinalCost}
-            min={0}
-            decimalScale={2}
-            required
-          />
-
-          <Textarea
-            label="Completion Notes"
-            placeholder="Describe work completed, parts used, etc."
-            value={completionNotes}
-            onChange={(e) => setCompletionNotes(e.currentTarget.value)}
-            autosize
-            minRows={3}
-          />
-
-          <Group justify="right">
-            <Button
-              variant="outline"
-              onClick={closeComplete}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-            <Button onClick={completeRequest} loading={submitting}>
-              Mark as Completed
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-    </Container>
+      </Container>
+    </div>
   );
 };
 

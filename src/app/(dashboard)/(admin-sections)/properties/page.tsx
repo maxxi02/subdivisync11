@@ -3,13 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,6 +52,8 @@ import {
   Users,
   Mail,
   Phone,
+  RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import { uploadImageToServer, validateImageFile } from "@/lib/upload";
 import CustomCarousel from "./_components/carousel";
@@ -185,6 +181,7 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
             type="button"
             variant="outline"
             onClick={() => document.getElementById(inputId)?.click()}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
           >
             <Upload className="w-4 h-4 mr-2" />
             Select Images
@@ -205,7 +202,7 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
                   <Image
                     src={image}
                     alt={`Property ${index + 1}`}
-                    className="w-full h-24 object-cover rounded border"
+                    className="w-full h-24 object-cover rounded-lg border"
                     height={500}
                     width={500}
                   />
@@ -213,7 +210,7 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
                     type="button"
                     variant="destructive"
                     size="sm"
-                    className="absolute top-1 right-1 h-6 w-6 p-0"
+                    className="absolute top-1 right-1 h-6 w-6 p-0 bg-red-600 hover:bg-red-700"
                     onClick={() => handleRemoveClick(index, "existing")}
                   >
                     ×
@@ -237,13 +234,13 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
                     height={500}
                     src={URL.createObjectURL(file)}
                     alt={`New ${index + 1}`}
-                    className="w-full h-24 object-cover rounded border"
+                    className="w-full h-24 object-cover rounded-lg border"
                   />
                   <Button
                     type="button"
                     variant="destructive"
                     size="sm"
-                    className="absolute top-1 right-1 h-6 w-6 p-0"
+                    className="absolute top-1 right-1 h-6 w-6 p-0 bg-red-600 hover:bg-red-700"
                     onClick={() => handleRemoveClick(index, "new")}
                   >
                     ×
@@ -270,10 +267,10 @@ const PropertyManagement = () => {
     null
   );
   const [loading, setLoading] = useState(true);
+  const [createLoading, setCreateLoading] = useState(false); // New loading state for create button
   const [searchQuery, setSearchQuery] = useState("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [inquiryModalOpen, setInquiryModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [pagination, setPagination] = useState<Pagination>({
     total: 0,
@@ -325,7 +322,7 @@ const PropertyManagement = () => {
 
   const fetchProperties = async (page: number = 1) => {
     try {
-      setLoading(true);
+      // setLoading(true);
       setError(null);
       const params = new URLSearchParams({
         page: page.toString(),
@@ -382,6 +379,7 @@ const PropertyManagement = () => {
 
   const handleCreateProperty = async (): Promise<void> => {
     try {
+      setCreateLoading(true); // Set loading state
       setError(null);
 
       let imageUrls: string[] = [];
@@ -459,6 +457,8 @@ const PropertyManagement = () => {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to create property";
       setError(errorMessage);
+    } finally {
+      setCreateLoading(false); // Reset loading state
     }
   };
 
@@ -584,17 +584,17 @@ const PropertyManagement = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "CREATED":
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "bg-gray-100 text-gray-800";
       case "UNDER_INQUIRY":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        return "bg-yellow-100 text-yellow-800";
       case "APPROVED":
-        return "bg-green-100 text-green-800 border-green-200";
+        return "bg-green-100 text-green-800";
       case "REJECTED":
-        return "bg-red-100 text-red-800 border-red-200";
+        return "bg-red-100 text-red-800";
       case "LEASED":
-        return "bg-blue-100 text-blue-800 border-blue-200";
+        return "bg-blue-100 text-blue-800";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -675,11 +675,18 @@ const PropertyManagement = () => {
     setEditModalOpen(true);
   };
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+    }).format(amount);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading properties...</p>
         </div>
       </div>
@@ -687,497 +694,535 @@ const PropertyManagement = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <h1 className="text-2xl font-bold">Property Management</h1>
-            <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-black hover:bg-gray-800 text-white">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Property
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Add New Property</DialogTitle>
-                  <DialogDescription>
-                    Create a new property listing
-                  </DialogDescription>
-                </DialogHeader>
-                {error && <p className="text-red-500">{error}</p>}
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="title">Property Title *</Label>
-                    <Input
-                      id="title"
-                      value={formData.title}
-                      onChange={(e) =>
-                        setFormData({ ...formData, title: e.target.value })
-                      }
-                      placeholder="Enter property title"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="location">Location/Address *</Label>
-                    <Input
-                      id="location"
-                      value={formData.location}
-                      onChange={(e) =>
-                        setFormData({ ...formData, location: e.target.value })
-                      }
-                      placeholder="Enter property location"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="size">Size *</Label>
-                    <Input
-                      id="size"
-                      value={formData.size}
-                      onChange={(e) =>
-                        setFormData({ ...formData, size: e.target.value })
-                      }
-                      placeholder="e.g., 300 sqm"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="price">Price *</Label>
-                    <Input
-                      id="price"
-                      value={formData.price}
-                      onChange={(e) =>
-                        setFormData({ ...formData, price: e.target.value })
-                      }
-                      placeholder="e.g., ₱2,500,000"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="type">Property Type *</Label>
-                    <Select
-                      value={formData.type}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, type: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="residential-lot">
-                          Residential Lot
-                        </SelectItem>
-                        <SelectItem value="commercial">Commercial</SelectItem>
-                        <SelectItem value="house-and-lot">
-                          House and Lot
-                        </SelectItem>
-                        <SelectItem value="condo">Condominium</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="status">Status</Label>
-                    <Select
-                      value={formData.status}
-                      onValueChange={(value) =>
-                        setFormData({
-                          ...formData,
-                          status: value as
-                            | "CREATED"
-                            | "UNDER_INQUIRY"
-                            | "APPROVED"
-                            | "REJECTED"
-                            | "LEASED",
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CREATED">Available</SelectItem>
-                        <SelectItem value="UNDER_INQUIRY">
-                          Under Inquiry
-                        </SelectItem>
-                        <SelectItem value="APPROVED">Approved</SelectItem>
-                        <SelectItem value="REJECTED">Rejected</SelectItem>
-                        <SelectItem value="LEASED">Leased</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <ImageUploadPreview
-                    images={formData.images}
-                    selectedImages={selectedImages}
-                    onImageChange={handleImageChange}
-                    onRemoveImage={handleRemoveImage}
-                  />
-                  <div>
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          description: e.target.value,
-                        })
-                      }
-                      placeholder="Enter property description"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="amenities">Amenities</Label>
-                    <Select
-                      onValueChange={(value) => handleAmenitiesChange(value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select amenities" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[
-                          "parking",
-                          "gym",
-                          "security",
-                          "internet-ready",
-                          "garden",
-                        ].map((amenity) => (
-                          <SelectItem key={amenity} value={amenity}>
-                            <div className="flex items-center space-x-2">
-                              {getAmenityIcon(amenity)}
-                              <span>
-                                {amenity
-                                  .replace("-", " ")
-                                  .replace(/\b\w/g, (l) => l.toUpperCase())}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {formData.amenities?.map((amenity) => (
-                        <Badge key={amenity} variant="secondary">
-                          {amenity
-                            .replace("-", " ")
-                            .replace(/\b\w/g, (l) => l.toUpperCase())}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  {(formData.type === "house-and-lot" ||
-                    formData.type === "condo") && (
-                    <>
-                      <div>
-                        <Label htmlFor="bedrooms">Bedrooms</Label>
-                        <Input
-                          id="bedrooms"
-                          type="number"
-                          value={formData.bedrooms || ""}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              bedrooms: parseInt(e.target.value) || 0,
-                            })
-                          }
-                          placeholder="e.g., 3"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="bathrooms">Bathrooms</Label>
-                        <Input
-                          id="bathrooms"
-                          type="number"
-                          value={formData.bathrooms || ""}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              bathrooms: parseInt(e.target.value) || 0,
-                            })
-                          }
-                          placeholder="e.g., 2"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="sqft">Square Footage</Label>
-                        <Input
-                          id="sqft"
-                          type="number"
-                          value={formData.sqft || ""}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              sqft: parseInt(e.target.value) || 0,
-                            })
-                          }
-                          placeholder="e.g., 2500"
-                        />
-                      </div>
-                    </>
-                  )}
-                  <Button onClick={handleCreateProperty}>
-                    Create Property
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Property Management
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Manage your property listings and inquiries
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <Button
+                onClick={() => fetchProperties()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Refresh
+              </Button>
+              <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+                <DialogTrigger asChild>
+                  <Button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Add Property
                   </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-lg">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl font-semibold">
+                      Add New Property
+                    </DialogTitle>
+                    <DialogDescription>
+                      Create a new property listing
+                    </DialogDescription>
+                  </DialogHeader>
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                      <div className="flex items-center gap-3">
+                        <AlertTriangle className="h-5 w-5 text-red-600" />
+                        <p className="text-sm text-red-700">{error}</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="title">Property Title *</Label>
+                      <Input
+                        id="title"
+                        value={formData.title}
+                        onChange={(e) =>
+                          setFormData({ ...formData, title: e.target.value })
+                        }
+                        placeholder="Enter property title"
+                        required
+                        className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="location">Location/Address *</Label>
+                      <Input
+                        id="location"
+                        value={formData.location}
+                        onChange={(e) =>
+                          setFormData({ ...formData, location: e.target.value })
+                        }
+                        placeholder="Enter property location"
+                        required
+                        className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="size">Size *</Label>
+                      <Input
+                        id="size"
+                        value={formData.size}
+                        onChange={(e) =>
+                          setFormData({ ...formData, size: e.target.value })
+                        }
+                        placeholder="e.g., 300 sqm"
+                        required
+                        className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="price">Price *</Label>
+                      <Input
+                        id="price"
+                        value={formData.price}
+                        onChange={(e) =>
+                          setFormData({ ...formData, price: e.target.value })
+                        }
+                        placeholder="e.g., ₱2,500,000"
+                        required
+                        className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="type">Property Type *</Label>
+                      <Select
+                        value={formData.type}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, type: value })
+                        }
+                      >
+                        <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="residential-lot">
+                            Residential Lot
+                          </SelectItem>
+                          <SelectItem value="commercial">Commercial</SelectItem>
+                          <SelectItem value="house-and-lot">
+                            House and Lot
+                          </SelectItem>
+                          <SelectItem value="condo">Condominium</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="status">Status</Label>
+                      <Select
+                        value={formData.status}
+                        onValueChange={(value) =>
+                          setFormData({
+                            ...formData,
+                            status: value as
+                              | "CREATED"
+                              | "UNDER_INQUIRY"
+                              | "APPROVED"
+                              | "REJECTED"
+                              | "LEASED",
+                          })
+                        }
+                      >
+                        <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CREATED">Available</SelectItem>
+                          <SelectItem value="UNDER_INQUIRY">
+                            Under Inquiry
+                          </SelectItem>
+                          <SelectItem value="APPROVED">Approved</SelectItem>
+                          <SelectItem value="REJECTED">Rejected</SelectItem>
+                          <SelectItem value="LEASED">Leased</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <ImageUploadPreview
+                      images={formData.images}
+                      selectedImages={selectedImages}
+                      onImageChange={handleImageChange}
+                      onRemoveImage={handleRemoveImage}
+                    />
+                    <div>
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea
+                        id="description"
+                        value={formData.description}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            description: e.target.value,
+                          })
+                        }
+                        placeholder="Enter property description"
+                        className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="amenities">Amenities</Label>
+                      <Select
+                        onValueChange={(value) => handleAmenitiesChange(value)}
+                      >
+                        <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                          <SelectValue placeholder="Select amenities" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[
+                            "parking",
+                            "gym",
+                            "security",
+                            "internet-ready",
+                            "garden",
+                          ].map((amenity) => (
+                            <SelectItem key={amenity} value={amenity}>
+                              <div className="flex items-center space-x-2">
+                                {getAmenityIcon(amenity)}
+                                <span>
+                                  {amenity
+                                    .replace("-", " ")
+                                    .replace(/\b\w/g, (l) => l.toUpperCase())}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {formData.amenities?.map((amenity) => (
+                          <Badge key={amenity} variant="secondary">
+                            {amenity
+                              .replace("-", " ")
+                              .replace(/\b\w/g, (l) => l.toUpperCase())}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                    {(formData.type === "house-and-lot" ||
+                      formData.type === "condo") && (
+                      <>
+                        <div>
+                          <Label htmlFor="bedrooms">Bedrooms</Label>
+                          <Input
+                            id="bedrooms"
+                            type="number"
+                            value={formData.bedrooms || ""}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                bedrooms: parseInt(e.target.value) || 0,
+                              })
+                            }
+                            placeholder="e.g., 3"
+                            className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="bathrooms">Bathrooms</Label>
+                          <Input
+                            id="bathrooms"
+                            type="number"
+                            value={formData.bathrooms || ""}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                bathrooms: parseInt(e.target.value) || 0,
+                              })
+                            }
+                            placeholder="e.g., 2"
+                            className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </>
+                    )}
+                    <Button
+                      onClick={handleCreateProperty}
+                      disabled={createLoading}
+                      className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 ${
+                        createLoading ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
+                    >
+                      {createLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4" />
+                          Create Property
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">
-                    Total Listed
-                  </p>
-                  <p className="text-3xl font-bold text-gray-900">
-                    {stats.total}
-                  </p>
-                </div>
-                <div className="bg-blue-100 p-3 rounded-full">
-                  <Building2 className="w-6 h-6 text-blue-600" />
-                </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-sm p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-100">
+                  Total Listed
+                </p>
+                <p className="text-2xl font-bold">{stats.total}</p>
               </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">
-                    Under Inquiry
-                  </p>
-                  <p className="text-3xl font-bold text-gray-900">
-                    {stats.underInquiry}
-                  </p>
-                </div>
-                <div className="bg-yellow-100 p-3 rounded-full">
-                  <FileText className="w-6 h-6 text-yellow-600" />
-                </div>
+              <div className="h-12 w-12 bg-blue-400 bg-opacity-30 rounded-lg flex items-center justify-center">
+                <Building2 className="h-6 w-6" />
               </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Leased</p>
-                  <p className="text-3xl font-bold text-purple-600">
-                    {stats.leased}
-                  </p>
-                </div>
-                <div className="bg-purple-100 p-3 rounded-full">
-                  <Users className="w-6 h-6 text-purple-600" />
-                </div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow-sm p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-yellow-100">
+                  Under Inquiry
+                </p>
+                <p className="text-2xl font-bold">{stats.underInquiry}</p>
               </div>
-            </CardContent>
-          </Card>
+              <div className="h-12 w-12 bg-yellow-400 bg-opacity-30 rounded-lg flex items-center justify-center">
+                <FileText className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-sm p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-100">Leased</p>
+                <p className="text-2xl font-bold">{stats.leased}</p>
+              </div>
+              <div className="h-12 w-12 bg-purple-400 bg-opacity-30 rounded-lg flex items-center justify-center">
+                <Users className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
         </div>
 
+        {/* Error Alert */}
         {error && (
-          <div className="mb-4 p-4 bg-red-100 text-red-700 rounded">
-            {error}
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <div>
+                <h3 className="text-sm font-medium text-red-800">
+                  Error Occurred
+                </h3>
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
           </div>
         )}
 
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="border-b border-gray-100">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <CardTitle className="text-xl font-semibold">
-                  My Properties
-                </CardTitle>
-                <CardDescription>
-                  Manage your property listings and inquiries
-                </CardDescription>
-              </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Search properties..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-64"
-                />
-              </div>
+        {/* Properties List */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">
+                Manage Properties
+              </h2>
             </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {filteredProperties.length === 0 ? (
-              <div className="text-center py-12">
-                <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  No properties found
-                </h3>
-                <p className="text-gray-500">
-                  Create a new property to get started
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gray-50">
-                      <TableHead className="font-semibold">Property</TableHead>
-                      <TableHead className="font-semibold">Location</TableHead>
-                      <TableHead className="font-semibold">Type</TableHead>
-                      <TableHead className="font-semibold">Size</TableHead>
-                      <TableHead className="font-semibold">Price</TableHead>
-                      <TableHead className="font-semibold">Status</TableHead>
-                      <TableHead className="font-semibold">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredProperties.map((property) => (
-                      <TableRow key={property._id} className="hover:bg-gray-50">
-                        <TableCell>
-                          <div className="flex items-center space-x-3">
-                            <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                              {property.images && property.images.length > 0 ? (
-                                <Image
-                                  src={property.images[0] || "/placeholder.svg"}
-                                  alt={property.title}
-                                  className="w-full h-full object-cover"
-                                  height={500}
-                                  width={500}
-                                />
-                              ) : (
-                                <Building2 className="w-6 h-6 text-gray-400" />
-                              )}
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900 text-sm">
-                                {property.title}
-                              </p>
-                            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search properties..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 w-64"
+              />
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50">
+                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Property
+                  </TableHead>
+                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Location
+                  </TableHead>
+                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </TableHead>
+                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Size
+                  </TableHead>
+                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Price
+                  </TableHead>
+                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </TableHead>
+                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredProperties.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={7}
+                      className="px-6 py-8 text-center text-gray-500"
+                    >
+                      <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        No properties found
+                      </h3>
+                      <p className="text-gray-500">
+                        Create a new property to get started
+                      </p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredProperties.map((property) => (
+                    <TableRow key={property._id} className="hover:bg-gray-50">
+                      <TableCell className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
+                            {property.images && property.images.length > 0 ? (
+                              <Image
+                                src={property.images[0] || "/placeholder.svg"}
+                                alt={property.title}
+                                className="w-full h-full object-cover"
+                                height={500}
+                                width={500}
+                              />
+                            ) : (
+                              <Building2 className="h-5 w-5 text-blue-600" />
+                            )}
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-1">
-                            <MapPin className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm text-gray-600">
-                              {property.location}
-                            </span>
+                          <div className="ml-4">
+                            <p className="text-sm font-medium text-gray-900">
+                              {property.title}
+                            </p>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className="text-xs">
-                            {property.type.replace("-", " ").toUpperCase()}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm font-medium">
-                          {property.size}
-                        </TableCell>
-                        <TableCell className="text-sm font-bold text-green-600">
-                          ${property.price.toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            className={`text-xs ${getStatusColor(
-                              property.status
-                            )}`}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center space-x-1">
+                          <MapPin className="h-3 w-3 text-gray-400" />
+                          <span className="text-sm text-gray-600">
+                            {property.location}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap">
+                        <Badge variant="secondary" className="text-xs">
+                          {property.type.replace("-", " ").toUpperCase()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        {property.size}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
+                        {formatCurrency(property.price)}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap">
+                        <Badge
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                            property.status
+                          )}`}
+                        >
+                          {property.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedProperty(property);
+                              setViewModalOpen(true);
+                            }}
+                            className="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 flex items-center gap-1"
                           >
-                            {property.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedProperty(property);
-                                setViewModalOpen(true);
-                              }}
+                            <Eye className="h-4 w-4" />
+                            View
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditModal(property)}
+                            className="bg-yellow-600 text-white px-3 py-1 rounded-md hover:bg-yellow-700 flex items-center gap-1"
+                          >
+                            <Edit className="h-4 w-4" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteProperty(property._id)}
+                            className="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 flex items-center gap-1"
+                          >
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
                             >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditModal(property)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteProperty(property._id)}
-                            >
-                              <svg
-                                className="w-4 h-4 text-red-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M6 18L18 6M6 6l12 12"
-                                />
-                              </svg>
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setInquiryForm({
-                                  ...inquiryForm,
-                                  propertyId: property._id,
-                                });
-                                setInquiryModalOpen(true);
-                              }}
-                            >
-                              <FileText className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {pagination.pages > 1 && (
-                  <div className="flex justify-between items-center mt-4 px-4">
-                    <Button
-                      disabled={pagination.page === 1}
-                      onClick={() => fetchProperties(pagination.page - 1)}
-                    >
-                      Previous
-                    </Button>
-                    <span>
-                      Page {pagination.page} of {pagination.pages}
-                    </span>
-                    <Button
-                      disabled={pagination.page === pagination.pages}
-                      onClick={() => fetchProperties(pagination.page + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                            Delete
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
+              </TableBody>
+            </Table>
+            {pagination.pages > 1 && (
+              <div className="flex justify-between items-center mt-4 px-4">
+                <Button
+                  disabled={pagination.page === 1}
+                  onClick={() => fetchProperties(pagination.page - 1)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-gray-600">
+                  Page {pagination.page} of {pagination.pages}
+                </span>
+                <Button
+                  disabled={pagination.page === pagination.pages}
+                  onClick={() => fetchProperties(pagination.page + 1)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Next
+                </Button>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white rounded-lg">
             {selectedProperty && (
               <>
                 <DialogHeader>
-                  <DialogTitle className="text-2xl font-bold">
+                  <DialogTitle className="text-xl font-semibold text-gray-900">
                     {selectedProperty.title}
                   </DialogTitle>
-                  <DialogDescription className="flex items-center space-x-2">
+                  <DialogDescription className="flex items-center space-x-2 text-gray-600">
                     <MapPin className="w-4 h-4" />
                     <span>{selectedProperty.location}</span>
                   </DialogDescription>
@@ -1203,11 +1248,11 @@ const PropertyManagement = () => {
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 space-y-6">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-3xl font-bold text-green-600">
-                          ${selectedProperty.price.toLocaleString()}
+                        <h3 className="text-2xl font-bold text-green-600">
+                          {formatCurrency(selectedProperty.price)}
                         </h3>
                         <Badge
-                          className={`${getStatusColor(
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
                             selectedProperty.status
                           )}`}
                         >
@@ -1265,8 +1310,9 @@ const PropertyManagement = () => {
                         </div>
                       )}
                       {selectedProperty.description && (
-                        <div>
-                          <h4 className="font-semibold text-gray-900 mb-2">
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                            <FileText className="h-5 w-5" />
                             Description
                           </h4>
                           <p className="text-gray-600 leading-relaxed">
@@ -1276,8 +1322,9 @@ const PropertyManagement = () => {
                       )}
                       {selectedProperty.amenities &&
                         selectedProperty.amenities.length > 0 && (
-                          <div>
-                            <h4 className="font-semibold text-gray-900 mb-3">
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                              <Home className="h-5 w-5" />
                               Amenities & Features
                             </h4>
                             <div className="grid grid-cols-2 gap-2">
@@ -1302,20 +1349,21 @@ const PropertyManagement = () => {
                           </div>
                         )}
                       {selectedProperty.inquiry && (
-                        <div>
-                          <h4 className="font-semibold text-gray-900 mb-3">
+                        <div className="bg-blue-50 rounded-lg p-4">
+                          <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                            <FileText className="h-5 w-5" />
                             Inquiry Status
                           </h4>
                           <div className="space-y-2">
-                            <p className="text-sm text-gray-600">
+                            <p className="text-sm text-blue-600">
                               <strong>Reason:</strong>{" "}
                               {selectedProperty.inquiry.reason}
                             </p>
-                            <p className="text-sm text-gray-600">
+                            <p className="text-sm text-blue-600">
                               <strong>Duration:</strong>{" "}
                               {selectedProperty.inquiry.duration}
                             </p>
-                            <p className="text-sm text-gray-600">
+                            <p className="text-sm text-blue-600">
                               <strong>Status:</strong>{" "}
                               {selectedProperty.inquiry.status}
                             </p>
@@ -1331,42 +1379,47 @@ const PropertyManagement = () => {
                       )}
                     </div>
                     <div className="lg:col-span-1">
-                      <Card className="border-0 shadow-sm">
-                        <CardHeader>
-                          <CardTitle className="text-lg">
-                            Owner Information
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {selectedProperty.owner ? (
-                            <>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                          <Users className="h-5 w-5" />
+                          Owner Information
+                        </h4>
+                        {selectedProperty.owner ? (
+                          <div className="space-y-4">
+                            <div className="flex items-center space-x-2">
+                              <Users className="w-4 h-4 text-gray-400" />
+                              <span className="font-medium text-gray-900">
+                                {selectedProperty.owner.fullName}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Mail className="w-4 h-4 text-gray-400" />
+                              <span className="text-sm text-gray-600">
+                                {selectedProperty.owner.email}
+                              </span>
+                            </div>
+                            {selectedProperty.owner.phone && (
                               <div className="flex items-center space-x-2">
-                                <Users className="w-4 h-4 text-gray-400" />
-                                <span className="font-medium">
-                                  {selectedProperty.owner.fullName}
-                                </span>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Mail className="w-4 h-4 text-gray-400" />
+                                <Phone className="w-4 h-4 text-gray-400" />
                                 <span className="text-sm text-gray-600">
-                                  {selectedProperty.owner.email}
+                                  {selectedProperty.owner.phone}
                                 </span>
                               </div>
-                              {selectedProperty.owner.phone && (
-                                <div className="flex items-center space-x-2">
-                                  <Phone className="w-4 h-4 text-gray-400" />
-                                  <span className="text-sm text-gray-600">
-                                    {selectedProperty.owner.phone}
-                                  </span>
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <p className="text-gray-500">No owner assigned</p>
-                          )}
-                        </CardContent>
-                      </Card>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-gray-500">No owner assigned</p>
+                        )}
+                      </div>
                     </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={() => setViewModalOpen(false)}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                    >
+                      Close
+                    </Button>
                   </div>
                 </div>
               </>
@@ -1375,12 +1428,21 @@ const PropertyManagement = () => {
         </Dialog>
 
         <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-lg">
             <DialogHeader>
-              <DialogTitle>Edit Property</DialogTitle>
+              <DialogTitle className="text-xl font-semibold">
+                Edit Property
+              </DialogTitle>
               <DialogDescription>Update the property listing</DialogDescription>
             </DialogHeader>
-            {error && <p className="text-red-500">{error}</p>}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            )}
             <div className="space-y-4">
               <div>
                 <Label htmlFor="edit-title">Property Title *</Label>
@@ -1392,6 +1454,7 @@ const PropertyManagement = () => {
                   }
                   placeholder="Enter property title"
                   required
+                  className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -1407,6 +1470,7 @@ const PropertyManagement = () => {
                   }
                   placeholder="Enter property location"
                   required
+                  className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -1419,6 +1483,7 @@ const PropertyManagement = () => {
                   }
                   placeholder="e.g., 300 sqm"
                   required
+                  className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -1431,6 +1496,7 @@ const PropertyManagement = () => {
                   }
                   placeholder="e.g., ₱2,500,000"
                   required
+                  className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -1441,7 +1507,7 @@ const PropertyManagement = () => {
                     setEditFormData({ ...editFormData, type: value })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1470,7 +1536,7 @@ const PropertyManagement = () => {
                     })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1485,7 +1551,7 @@ const PropertyManagement = () => {
 
               {editFormData.status === "LEASED" && (
                 <div className="space-y-4 border-t pt-4">
-                  <h4 className="font-semibold">Owner Details</h4>
+                  <h4 className="font-semibold text-gray-900">Owner Details</h4>
                   <div>
                     <Label htmlFor="owner-name">Full Name *</Label>
                     <Input
@@ -1499,6 +1565,7 @@ const PropertyManagement = () => {
                       }
                       placeholder="Enter owner's full name"
                       required
+                      className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -1515,6 +1582,7 @@ const PropertyManagement = () => {
                       }
                       placeholder="Enter owner's email"
                       required
+                      className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -1529,6 +1597,7 @@ const PropertyManagement = () => {
                         })
                       }
                       placeholder="Enter owner's phone"
+                      className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -1553,6 +1622,7 @@ const PropertyManagement = () => {
                     })
                   }
                   placeholder="Enter property description"
+                  className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -1560,7 +1630,7 @@ const PropertyManagement = () => {
                 <Select
                   onValueChange={(value) => handleAmenitiesChange(value, true)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                     <SelectValue placeholder="Select amenities" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1610,6 +1680,7 @@ const PropertyManagement = () => {
                         })
                       }
                       placeholder="e.g., 3"
+                      className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -1625,95 +1696,16 @@ const PropertyManagement = () => {
                         })
                       }
                       placeholder="e.g., 2"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-sqft">Square Footage</Label>
-                    <Input
-                      id="edit-sqft"
-                      type="number"
-                      value={editFormData.sqft || ""}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          sqft: parseInt(e.target.value) || 0,
-                        })
-                      }
-                      placeholder="e.g., 2500"
+                      className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </>
               )}
-              <Button onClick={handleEditProperty}>Update Property</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={inquiryModalOpen} onOpenChange={setInquiryModalOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Make an Inquiry</DialogTitle>
-              <DialogDescription>
-                Submit an inquiry for the selected property
-              </DialogDescription>
-            </DialogHeader>
-            {error && <p className="text-red-500">{error}</p>}
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="reason">Reason for Inquiry *</Label>
-                <Textarea
-                  id="reason"
-                  value={inquiryForm.reason}
-                  onChange={(e) =>
-                    setInquiryForm({ ...inquiryForm, reason: e.target.value })
-                  }
-                  placeholder="Enter your reason for inquiry"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="duration">Preferred Lease Duration *</Label>
-                <Input
-                  id="duration"
-                  value={inquiryForm.duration}
-                  onChange={(e) =>
-                    setInquiryForm({ ...inquiryForm, duration: e.target.value })
-                  }
-                  placeholder="e.g., 1 year"
-                  required
-                />
-              </div>
               <Button
-                onClick={async () => {
-                  try {
-                    setError(null);
-                    const response = await fetch("/api/inquiries", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify(inquiryForm),
-                    });
-                    const data = await response.json();
-                    if (!data.success) {
-                      throw new Error(data.error || "Failed to submit inquiry");
-                    }
-                    setInquiryModalOpen(false);
-                    setInquiryForm({
-                      propertyId: "",
-                      reason: "",
-                      duration: "",
-                    });
-                    fetchProperties();
-                  } catch (error) {
-                    console.error("Error submitting inquiry:", error);
-                    setError(
-                      (error as Error).message || "Failed to submit inquiry"
-                    );
-                  }
-                }}
+                onClick={handleEditProperty}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
-                Submit Inquiry
+                Update Property
               </Button>
             </div>
           </DialogContent>
