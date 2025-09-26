@@ -447,10 +447,7 @@ class PaymentsApi {
   }
 
   // Verify single payment (Admin only)
-  async verifyPayment(
-    paymentId: string,
-    rejectionReason?: string
-  ): Promise<ApiResponse<PaymentRecord>> {
+  async verifyPayment(paymentId: string): Promise<ApiResponse<PaymentRecord>> {
     return this.updatePayment(paymentId, {
       status: "verified",
     });

@@ -22,11 +22,21 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { getServerSession } from "@/better-auth/action";
 import { useSession } from "@/lib/auth-client";
+import Image from "next/image";
 
 // Alert component inline implementation
-const Alert = ({ children, variant = "default", className = "" }: any) => {
+interface AlertProps {
+  children: React.ReactNode;
+  variant?: "default" | "destructive";
+  className?: string;
+}
+
+const Alert = ({
+  children,
+  variant = "default",
+  className = "",
+}: AlertProps) => {
   const variantStyles =
     variant === "destructive"
       ? "border-red-200 bg-red-50"
@@ -38,11 +48,24 @@ const Alert = ({ children, variant = "default", className = "" }: any) => {
   );
 };
 
-const AlertDescription = ({ children, className = "" }: any) => {
+interface AlertDescriptionProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+const AlertDescription = ({
+  children,
+  className = "",
+}: AlertDescriptionProps) => {
   return <div className={`text-sm ${className}`}>{children}</div>;
 };
 
-const CustomCarousel = ({ images, alt }: any) => {
+interface CustomCarouselProps {
+  images: string[];
+  alt: string;
+}
+
+const CustomCarousel = ({ images, alt }: CustomCarouselProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const nextImage = () => {
@@ -67,7 +90,9 @@ const CustomCarousel = ({ images, alt }: any) => {
 
   return (
     <div className="relative w-full aspect-video bg-gray-100 rounded-lg overflow-hidden group">
-      <img
+      <Image
+        width={500}
+        height={500}
         src={images[currentIndex] || "/placeholder.svg"}
         alt={alt}
         className="w-full h-full object-cover transition-opacity duration-300"
@@ -94,7 +119,7 @@ const CustomCarousel = ({ images, alt }: any) => {
 
       {images.length > 1 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
-          {images.map((_: any, index: number) => (
+          {images.map((_, index: number) => (
             <button
               key={index}
               className={`w-2 h-2 rounded-full transition-all duration-200 ${

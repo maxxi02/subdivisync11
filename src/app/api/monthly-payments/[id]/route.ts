@@ -1,121 +1,119 @@
-// src/app/api/monthly-payments/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB, db } from "@/database/mongodb";
 import { getServerSession } from "@/better-auth/action";
 import { ObjectId } from "mongodb";
 
+// Define the expected shape of the request body
+interface UpdatePaymentRequest {
+  status: "pending" | "paid" | "overdue";
+  paidDate?: string;
+  paymentMethod?: string;
+  paymentIntentId?: string;
+}
+
+// Define the MonthlyPayment type to match TransactionPage.tsx
+interface MonthlyPayment {
+  _id: ObjectId;
+  paymentPlanId: string;
+  propertyId: string;
+  tenantEmail: string;
+  monthNumber: number;
+  amount: number;
+  dueDate: string;
+  status: "pending" | "paid" | "overdue";
+  paymentIntentId?: string;
+  paidDate?: string;
+  paymentMethod?: string;
+  notes?: string;
+  receiptUrl?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Get session and validate
     const session = await getServerSession();
-    if (!session || session.user.role !== "admin") {
+    if (!session || !session.user.email) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const { id } = params;
-    const body = await request.json();
-    const { status, paidDate, paymentMethod, notes, receiptUrl } = body;
+    const tenantEmail = session.user.email;
 
-    if (!ObjectId.isValid(id)) {
+    // Connect to database
+    await connectDB();
+    const monthlyPaymentsCollection =
+      db.collection<MonthlyPayment>("monthly_payments");
+
+    // Parse and validate request body
+    const body = (await request.json()) as UpdatePaymentRequest;
+    const { status, paidDate, paymentMethod, paymentIntentId } = body;
+
+    // Validate required fields
+    if (!status) {
+      return NextResponse.json(
+        { success: false, error: "Status is required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate status value
+    if (!["pending", "paid", "overdue"].includes(status)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid status value" },
+        { status: 400 }
+      );
+    }
+
+    // Find the payment to verify ownership
+    const paymentId = (await params).id;
+    if (!ObjectId.isValid(paymentId)) {
       return NextResponse.json(
         { success: false, error: "Invalid payment ID" },
         { status: 400 }
       );
     }
 
-    await connectDB();
-    const monthlyPaymentsCollection = db.collection("monthly_payments");
+    const payment = await monthlyPaymentsCollection.findOne({
+      _id: new ObjectId(paymentId),
+    });
 
-    const updateData: any = {
-      status,
-      updated_at: new Date(),
-    };
-
-    if (paidDate) updateData.paidDate = paidDate;
-    if (paymentMethod) updateData.paymentMethod = paymentMethod;
-    if (notes) updateData.notes = notes;
-    if (receiptUrl) updateData.receiptUrl = receiptUrl;
-
-    const result = await monthlyPaymentsCollection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: updateData }
-    );
-
-    if (result.matchedCount === 0) {
+    if (!payment || payment.tenantEmail !== tenantEmail) {
       return NextResponse.json(
-        { success: false, error: "Payment not found" },
+        { success: false, error: "Payment not found or unauthorized" },
         { status: 404 }
       );
     }
 
-    // If payment is marked as paid, update the payment plan
-    if (status === "paid") {
-      const payment = await monthlyPaymentsCollection.findOne({
-        _id: new ObjectId(id),
-      });
+    // Prepare update fields
+    const updateFields: Partial<MonthlyPayment> = {
+      status,
+      updated_at: new Date().toISOString(),
+    };
+    if (paidDate) updateFields.paidDate = paidDate;
+    if (paymentMethod) updateFields.paymentMethod = paymentMethod;
+    if (paymentIntentId) updateFields.paymentIntentId = paymentIntentId;
 
-      if (payment) {
-        const paymentPlansCollection = db.collection("payment_plans");
-        const paymentPlan = await paymentPlansCollection.findOne({
-          _id: new ObjectId(payment.paymentPlanId),
-        });
+    // Perform update
+    const result = await monthlyPaymentsCollection.updateOne(
+      { _id: new ObjectId(paymentId) },
+      { $set: updateFields }
+    );
 
-        if (paymentPlan) {
-          const newRemainingBalance =
-            paymentPlan.remainingBalance - payment.amount;
-          const nextMonth = paymentPlan.currentMonth + 1;
-
-          // Calculate next payment date
-          const nextPaymentDate = new Date(paymentPlan.nextPaymentDate);
-          nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
-
-          await paymentPlansCollection.updateOne(
-            { _id: new ObjectId(payment.paymentPlanId) },
-            {
-              $set: {
-                currentMonth: nextMonth,
-                remainingBalance: Math.max(0, newRemainingBalance),
-                nextPaymentDate:
-                  nextMonth <= paymentPlan.leaseDuration
-                    ? nextPaymentDate.toISOString()
-                    : paymentPlan.nextPaymentDate,
-                status: newRemainingBalance <= 0 ? "completed" : "active",
-                updated_at: new Date(),
-              },
-            }
-          );
-
-          // Create next month's payment record if not completed
-          if (
-            nextMonth <= paymentPlan.leaseDuration &&
-            newRemainingBalance > 0
-          ) {
-            const nextDueDate = new Date(nextPaymentDate);
-
-            await monthlyPaymentsCollection.insertOne({
-              paymentPlanId: payment.paymentPlanId,
-              propertyId: payment.propertyId,
-              tenantEmail: payment.tenantEmail,
-              monthNumber: nextMonth,
-              amount: paymentPlan.monthlyPayment,
-              dueDate: nextDueDate.toISOString(),
-              status: "pending",
-              created_at: new Date(),
-            });
-          }
-        }
-      }
+    if (result.modifiedCount === 1) {
+      return NextResponse.json({ success: true });
+    } else {
+      return NextResponse.json(
+        { success: false, error: "Failed to update payment" },
+        { status: 500 }
+      );
     }
-
-    return NextResponse.json({
-      success: true,
-      message: "Payment updated successfully",
-    });
   } catch (error) {
     console.error("Error updating payment:", error);
     return NextResponse.json(

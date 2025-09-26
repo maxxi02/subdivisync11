@@ -1,10 +1,45 @@
+// src/app/api/properties/[id]/route.ts
 import { getServerSession } from "@/better-auth/action";
 import { NextRequest, NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
+import { ObjectId, Collection } from "mongodb";
 import { connectDB, db } from "@/database/mongodb";
+import { Session } from "@/better-auth/auth-types";
 
 export interface Property {
   _id: string;
+  title: string;
+  location: string;
+  size: string;
+  price: number;
+  type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
+  status: "CREATED" | "UNDER_INQUIRY" | "APPROVED" | "REJECTED" | "LEASED";
+  images?: string[];
+  amenities: string[];
+  description?: string;
+  sqft?: number;
+  created_by: string;
+  created_at: Date;
+  updated_at?: Date;
+  owner?: {
+    fullName: string;
+    email: string;
+    phone?: string;
+    address?: string;
+    paymentStatus: "paid" | "partial" | "pending";
+    paymentMethod?: string;
+  };
+  inquiries?: {
+    fullName: string;
+    email: string;
+    phone: string;
+    reason: string;
+    submittedAt: string;
+    status: "pending" | "approved" | "rejected";
+  }[];
+}
+
+interface DBProperty {
+  _id: ObjectId;
   title: string;
   location: string;
   size: string;
@@ -64,7 +99,8 @@ export async function GET(
 ) {
   try {
     await connectDB();
-    const propertiesCollection = db.collection("properties");
+    const propertiesCollection: Collection<DBProperty> =
+      db.collection("properties");
     const { id } = await params;
 
     if (!ObjectId.isValid(id)) {
@@ -89,7 +125,7 @@ export async function GET(
     const enrichedProperty: Property = {
       ...property,
       _id: property._id.toString(),
-      price: parseFloat(property.price.toString()),
+      price: Number(property.price),
       amenities: property.amenities || [],
       images: property.images || [],
       created_at: property.created_at,
@@ -126,7 +162,8 @@ export async function PUT(
 ) {
   try {
     await connectDB();
-    const propertiesCollection = db.collection("properties");
+    const propertiesCollection: Collection<DBProperty> =
+      db.collection("properties");
     const { id } = await params;
 
     if (!ObjectId.isValid(id)) {
@@ -164,14 +201,23 @@ export async function PUT(
 
 // Handle inquiry submission (public endpoint)
 async function handleInquirySubmission(
-  propertiesCollection: any,
+  propertiesCollection: Collection<DBProperty>,
   propertyId: string,
-  inquiry: any
+  inquiry: {
+    fullName: string;
+    email: string;
+    phone: string;
+    reason: string;
+    submittedAt: string;
+    status: "pending" | "approved" | "rejected";
+  }
 ) {
   try {
     // Validate required fields
     const requiredFields = ["fullName", "email", "phone", "reason"];
-    const missingFields = requiredFields.filter((field) => !inquiry[field]);
+    const missingFields = requiredFields.filter(
+      (field) => !inquiry[field as keyof typeof inquiry]
+    );
 
     if (missingFields.length > 0) {
       return NextResponse.json(
@@ -205,7 +251,7 @@ async function handleInquirySubmission(
     // Check for existing inquiry from same email
     const existingInquiries = existingProperty.inquiries || [];
     const hasExistingInquiry = existingInquiries.some(
-      (inq: any) =>
+      (inq) =>
         inq.email.toLowerCase() === inquiry.email.toLowerCase() &&
         (inq.status === "pending" || inq.status === "approved")
     );
@@ -256,7 +302,7 @@ async function handleInquirySubmission(
     const enrichedProperty: Property = {
       ...updatedProperty!,
       _id: updatedProperty!._id.toString(),
-      price: parseFloat(updatedProperty!.price.toString()),
+      price: Number(updatedProperty!.price),
       amenities: updatedProperty!.amenities || [],
       images: updatedProperty!.images || [],
       created_at: updatedProperty!.created_at,
@@ -268,8 +314,6 @@ async function handleInquirySubmission(
       type: updatedProperty!.type,
       status: updatedProperty!.status,
       description: updatedProperty!.description,
-      bedrooms: updatedProperty!.bedrooms,
-      bathrooms: updatedProperty!.bathrooms,
       sqft: updatedProperty!.sqft,
       owner: updatedProperty!.owner,
       inquiries: updatedProperty!.inquiries || [],
@@ -291,10 +335,10 @@ async function handleInquirySubmission(
 
 // Handle regular property update (authenticated endpoint)
 async function handlePropertyUpdate(
-  propertiesCollection: any,
+  propertiesCollection: Collection<DBProperty>,
   propertyId: string,
   body: UpdatePropertyRequest,
-  session: any
+  session: Session
 ) {
   try {
     // Validate required fields for property update
@@ -350,7 +394,7 @@ async function handlePropertyUpdate(
     }
 
     // Validate price
-    if (isNaN(parseFloat(body.price!.toString()))) {
+    if (isNaN(Number(body.price))) {
       return NextResponse.json(
         { success: false, error: "Invalid price format" },
         { status: 400 }
@@ -383,11 +427,11 @@ async function handlePropertyUpdate(
     }
 
     // Handle owner details
-    const updateData: Partial<Property> = {
+    const updateData: Partial<DBProperty> = {
       title: body.title!.trim(),
       location: body.location!.trim(),
       size: body.size!.trim(),
-      price: parseFloat(body.price!.toString()),
+      price: Number(body.price),
       type: body.type!,
       status: body.status!,
       updated_at: new Date(),
@@ -433,7 +477,7 @@ async function handlePropertyUpdate(
     const enrichedProperty: Property = {
       ...updatedProperty!,
       _id: updatedProperty!._id.toString(),
-      price: parseFloat(updatedProperty!.price.toString()),
+      price: Number(updatedProperty!.price),
       amenities: updatedProperty!.amenities || [],
       images: updatedProperty!.images || [],
       created_at: updatedProperty!.created_at,
@@ -445,8 +489,6 @@ async function handlePropertyUpdate(
       type: updatedProperty!.type,
       status: updatedProperty!.status,
       description: updatedProperty!.description,
-      bedrooms: updatedProperty!.bedrooms,
-      bathrooms: updatedProperty!.bathrooms,
       sqft: updatedProperty!.sqft,
       owner: updatedProperty!.owner,
       inquiries: updatedProperty!.inquiries || [],
@@ -482,7 +524,8 @@ export async function DELETE(
     }
 
     await connectDB();
-    const propertiesCollection = db.collection("properties");
+    const propertiesCollection: Collection<DBProperty> =
+      db.collection("properties");
     const { id } = await params;
 
     if (!ObjectId.isValid(id)) {
@@ -518,9 +561,8 @@ export async function DELETE(
 
     // Check for pending inquiries
     const pendingInquiries =
-      existingProperty.inquiries?.filter(
-        (inq: any) => inq.status === "pending"
-      ) || [];
+      existingProperty.inquiries?.filter((inq) => inq.status === "pending") ||
+      [];
 
     if (pendingInquiries.length > 0) {
       return NextResponse.json(

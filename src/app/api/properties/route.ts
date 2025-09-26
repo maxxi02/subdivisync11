@@ -1,7 +1,8 @@
+// src/app/api/properties/route.ts
 import { getServerSession } from "@/better-auth/action";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB, db } from "@/database/mongodb";
-import { ObjectId } from "mongodb";
+import { ObjectId, Collection } from "mongodb";
 
 export interface CreatePropertyRequest {
   title: string;
@@ -41,29 +42,59 @@ export interface Property {
     paymentStatus: "paid" | "partial" | "pending";
     paymentMethod?: string;
   };
-  inquiries?: {
+  inquiries?: Inquiry[];
+}
+
+export interface Inquiry {
+  fullName: string;
+  email: string;
+  phone: string;
+  reason: string;
+  submittedAt: string;
+  status: "pending" | "approved" | "rejected";
+}
+
+interface DBProperty {
+  _id?: ObjectId;
+  title: string;
+  location: string;
+  size: string;
+  price: string;
+  type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
+  status: "CREATED" | "UNDER_INQUIRY" | "APPROVED" | "REJECTED" | "LEASED";
+  images?: string[];
+  amenities: string[];
+  description?: string;
+  sqft?: number;
+  created_by: string;
+  created_at: Date;
+  updated_at?: Date;
+  owner?: {
     fullName: string;
     email: string;
-    phone: string;
-    reason: string;
-    submittedAt: string;
-    status: "pending" | "approved" | "rejected";
-  }[];
+    phone?: string;
+    address?: string;
+    paymentStatus: "paid" | "partial" | "pending";
+    paymentMethod?: string;
+  };
+  inquiries?: Inquiry[];
 }
 
 // GET - Fetch all properties
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
-    const propertiesCollection = db.collection("properties");
+    const propertiesCollection: Collection<DBProperty> =
+      db.collection("properties");
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
-    const status = searchParams.get("status");
-    const type = searchParams.get("type");
+    const statusParam = searchParams.get("status");
+    const typeParam = searchParams.get("type");
     const limit = parseInt(searchParams.get("limit") || "50");
     const page = parseInt(searchParams.get("page") || "1");
     const publicAccess = searchParams.get("public") === "true";
+    const myInquiries = searchParams.get("myInquiries") === "true";
 
     // Fetch a single property by ID (public access allowed)
     if (id) {
@@ -85,17 +116,15 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const enrichedProperty = {
+      const enrichedProperty: Property = {
         ...property,
-        _id: property._id.toString(),
-        price: parseFloat(property.price.toString()),
+        _id: property._id!.toString(),
+        price: parseFloat(property.price),
         amenities: property.amenities || [],
         images: property.images || [],
         inquiries: property.inquiries || [],
-        created_at: property.created_at.toISOString(),
-        updated_at: property.updated_at
-          ? property.updated_at.toISOString()
-          : undefined,
+        created_at: property.created_at,
+        updated_at: property.updated_at,
       };
 
       return NextResponse.json({
@@ -106,7 +135,7 @@ export async function GET(request: NextRequest) {
 
     // For public access, only show CREATED properties without authentication
     if (publicAccess) {
-      const query = { status: "CREATED" };
+      const query = { status: "CREATED" } as const;
       const skip = (page - 1) * limit;
 
       const properties = await propertiesCollection
@@ -118,18 +147,18 @@ export async function GET(request: NextRequest) {
 
       const totalCount = await propertiesCollection.countDocuments(query);
 
-      const enrichedProperties = properties.map((property) => ({
-        ...property,
-        _id: property._id.toString(),
-        price: parseFloat(property.price.toString()),
-        amenities: property.amenities || [],
-        images: property.images || [],
-        inquiries: property.inquiries || [],
-        created_at: property.created_at.toISOString(),
-        updated_at: property.updated_at
-          ? property.updated_at.toISOString()
-          : undefined,
-      }));
+      const enrichedProperties = properties.map(
+        (property): Property => ({
+          ...property,
+          _id: property._id!.toString(),
+          price: parseFloat(property.price),
+          amenities: property.amenities || [],
+          images: property.images || [],
+          inquiries: property.inquiries || [],
+          created_at: property.created_at,
+          updated_at: property.updated_at,
+        })
+      );
 
       return NextResponse.json({
         success: true,
@@ -152,27 +181,70 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const validStatuses = [
+      "CREATED",
+      "UNDER_INQUIRY",
+      "APPROVED",
+      "REJECTED",
+      "LEASED",
+    ] as const;
+    type Status = (typeof validStatuses)[number];
+
+    const validTypes = [
+      "residential-lot",
+      "commercial",
+      "house-and-lot",
+      "condo",
+    ] as const;
+    type PropertyType = (typeof validTypes)[number];
+
     const query: Record<string, unknown> = {};
 
-    // Modified logic to handle different user roles
-    if (session.user.role === "admin") {
-      // Admin can see all properties
-      if (status && status !== "all") {
-        query.status = status;
+    if (myInquiries) {
+      if (session.user.role === "tenant") {
+        query["inquiries.email"] = session.user.email;
+      } else {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "myInquiries parameter is only for tenants",
+          },
+          { status: 403 }
+        );
       }
-    } else if (session.user.role === "tenant") {
-      // Tenants can see all CREATED properties (available for inquiry)
-      query.status = "CREATED";
     } else {
-      // Property owners/creators can only see their own properties
-      query.created_by = session.user.id;
-      if (status && status !== "all") {
-        query.status = status;
+      // Modified logic to handle different user roles
+      if (session.user.role === "admin") {
+        // Admin can see all properties
+        if (
+          statusParam &&
+          statusParam !== "all" &&
+          validStatuses.includes(statusParam as Status)
+        ) {
+          query.status = statusParam as Status;
+        }
+      } else if (session.user.role === "tenant") {
+        // Tenants can see all CREATED properties (available for inquiry)
+        query.status = "CREATED" as const;
+      } else {
+        // Property owners/creators can only see their own properties
+        query.created_by = session.user.id;
+        if (
+          statusParam &&
+          statusParam !== "all" &&
+          validStatuses.includes(statusParam as Status)
+        ) {
+          query.status = statusParam as Status;
+        }
       }
     }
 
-    if (type && type !== "all") {
-      query.type = type;
+    if (
+      typeParam &&
+      typeParam !== "all" &&
+      validTypes.includes(typeParam as PropertyType)
+    ) {
+      query.type = typeParam as PropertyType;
     }
 
     const skip = (page - 1) * limit;
@@ -186,18 +258,18 @@ export async function GET(request: NextRequest) {
 
     const totalCount = await propertiesCollection.countDocuments(query);
 
-    const enrichedProperties = properties.map((property) => ({
-      ...property,
-      _id: property._id.toString(),
-      price: parseFloat(property.price.toString()),
-      amenities: property.amenities || [],
-      images: property.images || [],
-      inquiries: property.inquiries || [],
-      created_at: property.created_at.toISOString(),
-      updated_at: property.updated_at
-        ? property.updated_at.toISOString()
-        : undefined,
-    }));
+    const enrichedProperties = properties.map(
+      (property): Property => ({
+        ...property,
+        _id: property._id!.toString(),
+        price: parseFloat(property.price),
+        amenities: property.amenities || [],
+        images: property.images || [],
+        inquiries: property.inquiries || [],
+        created_at: property.created_at,
+        updated_at: property.updated_at,
+      })
+    );
 
     return NextResponse.json({
       success: true,
@@ -231,7 +303,8 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
-    const propertiesCollection = db.collection("properties");
+    const propertiesCollection: Collection<DBProperty> =
+      db.collection("properties");
 
     const body: CreatePropertyRequest = await request.json();
 
@@ -262,7 +335,7 @@ export async function POST(request: NextRequest) {
       "commercial",
       "house-and-lot",
       "condo",
-    ];
+    ] as const;
     if (!validTypes.includes(body.type)) {
       return NextResponse.json(
         { success: false, error: "Invalid property type" },
@@ -277,7 +350,7 @@ export async function POST(request: NextRequest) {
       "APPROVED",
       "REJECTED",
       "LEASED",
-    ];
+    ] as const;
     if (!validStatuses.includes(body.status)) {
       return NextResponse.json(
         { success: false, error: "Invalid property status" },
@@ -294,7 +367,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create property document
-    const propertyDocument: Record<string, unknown> = {
+    const propertyDocument: DBProperty = {
       title: body.title.trim(),
       location: body.location.trim(),
       size: body.size.trim(),
@@ -324,19 +397,21 @@ export async function POST(request: NextRequest) {
       _id: result.insertedId,
     });
 
+    const enrichedProperty: Property = {
+      ...createdProperty!,
+      _id: createdProperty!._id!.toString(),
+      price: parseFloat(createdProperty!.price),
+      amenities: createdProperty!.amenities || [],
+      images: createdProperty!.images || [],
+      inquiries: createdProperty!.inquiries || [],
+      created_at: createdProperty!.created_at,
+      updated_at: createdProperty!.updated_at,
+    };
+
     return NextResponse.json(
       {
         success: true,
-        property: {
-          ...createdProperty,
-          _id: createdProperty!._id.toString(),
-          price: parseFloat(createdProperty!.price),
-          amenities: createdProperty!.amenities || [],
-          images: createdProperty!.images || [],
-          inquiries: createdProperty!.inquiries || [],
-          created_at: createdProperty!.created_at,
-          updated_at: createdProperty!.updated_at,
-        },
+        property: enrichedProperty,
         message: "Property created successfully",
       },
       { status: 201 }
@@ -363,7 +438,8 @@ export async function PUT(request: NextRequest) {
     }
 
     await connectDB();
-    const propertiesCollection = db.collection("properties");
+    const propertiesCollection: Collection<DBProperty> =
+      db.collection("properties");
 
     const body: CreatePropertyRequest & { _id: string } = await request.json();
 
@@ -394,7 +470,7 @@ export async function PUT(request: NextRequest) {
       "commercial",
       "house-and-lot",
       "condo",
-    ];
+    ] as const;
     if (!validTypes.includes(body.type)) {
       return NextResponse.json(
         { success: false, error: "Invalid property type" },
@@ -409,7 +485,7 @@ export async function PUT(request: NextRequest) {
       "APPROVED",
       "REJECTED",
       "LEASED",
-    ];
+    ] as const;
     if (!validStatuses.includes(body.status)) {
       return NextResponse.json(
         { success: false, error: "Invalid property status" },
@@ -451,7 +527,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update property document
-    const updateDocument: Record<string, unknown> = {
+    const updateDocument: Partial<DBProperty> = {
       title: body.title.trim(),
       location: body.location.trim(),
       size: body.size.trim(),
@@ -482,19 +558,21 @@ export async function PUT(request: NextRequest) {
       _id: new ObjectId(body._id),
     });
 
+    const enrichedProperty: Property = {
+      ...updatedProperty!,
+      _id: updatedProperty!._id!.toString(),
+      price: parseFloat(updatedProperty!.price),
+      amenities: updatedProperty!.amenities || [],
+      images: updatedProperty!.images || [],
+      inquiries: updatedProperty!.inquiries || [],
+      created_at: updatedProperty!.created_at,
+      updated_at: updatedProperty!.updated_at,
+    };
+
     return NextResponse.json(
       {
         success: true,
-        property: {
-          ...updatedProperty,
-          _id: updatedProperty!._id.toString(),
-          price: parseFloat(updatedProperty!.price),
-          amenities: updatedProperty!.amenities || [],
-          images: updatedProperty!.images || [],
-          inquiries: updatedProperty!.inquiries || [],
-          created_at: updatedProperty!.created_at,
-          updated_at: updatedProperty!.updated_at,
-        },
+        property: enrichedProperty,
         message: "Property updated successfully",
       },
       { status: 200 }
@@ -521,7 +599,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     await connectDB();
-    const propertiesCollection = db.collection("properties");
+    const propertiesCollection: Collection<DBProperty> =
+      db.collection("properties");
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
@@ -568,7 +647,7 @@ export async function DELETE(request: NextRequest) {
     // Check for pending inquiries
     const pendingInquiries =
       existingProperty.inquiries?.filter(
-        (inq: any) => inq.status === "pending"
+        (inq: Inquiry) => inq.status === "pending"
       ) || [];
 
     if (pendingInquiries.length > 0) {

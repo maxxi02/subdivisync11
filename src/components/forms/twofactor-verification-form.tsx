@@ -106,48 +106,48 @@ export function TwoFactorVerificationForm({
     }
   }
 
-  async function handleResendCode() {
-    if (!email || countdown > 0) return;
+  // async function handleResendCode() {
+  //   if (!email || countdown > 0) return;
 
-    try {
-      setIsResending(true);
-      setError(""); // Clear any existing errors
+  //   try {
+  //     setIsResending(true);
+  //     setError(""); // Clear any existing errors
 
-      // Resend the 2FA code
-      const { error } = await authClient.twoFactor.sendOtp();
-      if (error) {
-        setError("Failed to resend verification code");
-        notifications.show({
-          title: "Error",
-          message: "Failed to resend verification code",
-          color: "red",
-        });
-        return;
-      }
+  //     // Resend the 2FA code
+  //     const { error } = await authClient.twoFactor.sendOtp();
+  //     if (error) {
+  //       setError("Failed to resend verification code");
+  //       notifications.show({
+  //         title: "Error",
+  //         message: "Failed to resend verification code",
+  //         color: "red",
+  //       });
+  //       return;
+  //     }
 
-      notifications.show({
-        title: "Success",
-        message: "Verification code sent to your device",
-        color: "green",
-      });
+  //     notifications.show({
+  //       title: "Success",
+  //       message: "Verification code sent to your device",
+  //       color: "green",
+  //     });
 
-      // Start 60-second countdown
-      setCountdown(60);
-    } catch (error) {
-      const errorMessage =
-        (error as Error).message ||
-        "Failed to resend verification code. Please try again.";
-      setError(errorMessage);
-      notifications.show({
-        title: "Error",
-        message: errorMessage,
-        color: "red",
-      });
-      console.error("Resend 2FA error:", error);
-    } finally {
-      setIsResending(false);
-    }
-  }
+  //     // Start 60-second countdown
+  //     setCountdown(60);
+  //   } catch (error) {
+  //     const errorMessage =
+  //       (error as Error).message ||
+  //       "Failed to resend verification code. Please try again.";
+  //     setError(errorMessage);
+  //     notifications.show({
+  //       title: "Error",
+  //       message: errorMessage,
+  //       color: "red",
+  //     });
+  //     console.error("Resend 2FA error:", error);
+  //   } finally {
+  //     setIsResending(false);
+  //   }
+  // }
 
   const handleCodeChange = (value: string) => {
     setCode(value);
@@ -241,8 +241,8 @@ export function TwoFactorVerificationForm({
             {isResending
               ? "Sending..."
               : countdown > 0
-                ? `Resend code in ${countdown}s`
-                : "Resend verification code"}
+              ? `Resend code in ${countdown}s`
+              : "Resend verification code"}
           </Button>
         </Group>
 

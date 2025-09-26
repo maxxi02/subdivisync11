@@ -1,1712 +1,751 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  Container,
-  Title,
-  Card,
-  Text,
-  Badge,
-  Button,
-  Group,
-  Stack,
-  Grid,
-  TextInput,
-  Select,
-  Modal,
-  ActionIcon,
-  Alert,
-  Paper,
-  Skeleton,
-  Loader,
-  Table,
-  Textarea,
-  Divider,
-  Progress,
-} from "@mantine/core";
-import {
-  IconSearch,
-  IconFilter,
-  IconEdit,
-  IconTrash,
-  IconEye,
-  IconPhone,
-  IconMail,
-  IconMapPin,
-  IconClock,
-  IconInfoCircle,
-  IconPlus,
-  IconHome,
-  IconCurrencyPeso,
-  IconCalendar,
-  IconAlertCircle,
-  IconAlertTriangle,
-  IconCreditCard,
-  IconArrowRight,
-  IconReceipt,
-} from "@tabler/icons-react";
-import { notifications } from "@mantine/notifications";
-import { Check, X, XCircle } from "lucide-react";
-import { propertyInquiriesApi } from "@/lib/api/property-inquiries";
-import { useRouter } from "next/navigation";
+  Calendar,
+  DollarSign,
+  Eye,
+  AlertCircle,
+  MapPin,
+  Clock,
+  CreditCard,
+  User,
+} from "lucide-react";
+import Image from "next/image";
+import { getServerSession } from "@/better-auth/action";
+import { Session } from "@/better-auth/auth-types";
 
-interface LeasePlan {
-  id: string;
-  name: string;
-  duration: string;
-  monthlyRate: string;
-  totalAmount: string;
-  interestRate?: string;
-  features: string[];
-  recommended?: boolean;
-}
-
-interface PropertyInquiry {
-  _id: string;
-  id: string;
+// Types
+interface Inquiry {
   fullName: string;
-  primaryPhone: string;
-  secondaryPhone?: string;
   email: string;
-  currentAddress: string;
-  preferredContactMethod: "phone" | "email" | "text";
-  preferredContactTime: string;
-  selectedPropertyId?: string;
-  specificLotUnit?: string;
-  propertyType:
-    | "residential-lot"
-    | "commercial"
-    | "house-and-lot"
-    | "condo"
-    | "other";
-  budgetRange: string;
-  preferredLotSize?: string;
-  timeline:
-    | "immediate"
-    | "1-3-months"
-    | "3-6-months"
-    | "6-12-months"
-    | "flexible";
-  paymentMethod: "cash" | "financing" | "installment";
-  additionalRequirements?: string;
-  status: "pending" | "approved" | "rejected" | "owned";
+  phone: string;
+  reason: string;
+  submittedAt: string;
+  status: "pending" | "approved" | "rejected";
   rejectionReason?: string;
-  priority: "high" | "medium" | "low";
+}
+
+interface Property {
+  _id: string;
+  title: string;
+  location: string;
+  size: string;
+  price: number;
+  type: string;
+  status: string;
+  images?: string[];
+  amenities: string[];
+  description?: string;
+  sqft?: number;
   created_by: string;
-  created_at: string | Date;
-  updated_at?: string | Date;
-  submittedAt: string | Date;
-  approvedAt?: string;
-
-  // Enhanced property info
-  property?: {
-    _id: string;
-    title: string;
-    location: string;
-    price: string;
-    type: string;
-    size?: string;
-    images?: string[];
-    amenities?: string[];
-    description?: string;
-    bedrooms?: number;
-    bathrooms?: number;
-    sqft?: number;
-    status?: "available" | "reserved" | "sold" | "rented" | "owned";
-    availability_status?: string;
+  created_at: string;
+  updated_at?: string;
+  owner?: {
+    fullName: string;
+    email: string;
+    phone?: string;
+    address?: string;
+    paymentStatus: "paid" | "partial" | "pending";
+    paymentMethod?: string;
   };
-
-  // Payment plan information
-  selectedLeasePlan?: LeasePlan;
-
-  // UI display fields
-  propertyTitle?: string;
-  propertyPrice?: string;
-  propertyLocation?: string;
+  inquiries?: Inquiry[];
 }
 
-interface EditFormData {
-  fullName: string;
-  primaryPhone: string;
-  secondaryPhone: string;
-  email: string;
-  currentAddress: string;
-  preferredContactMethod: "phone" | "email" | "text";
-  preferredContactTime: string;
-  specificLotUnit: string;
-  budgetRange: string;
-  preferredLotSize: string;
-  timeline:
-    | "immediate"
-    | "1-3-months"
-    | "3-6-months"
-    | "6-12-months"
-    | "flexible";
-  paymentMethod: "cash" | "financing" | "installment";
-  additionalRequirements: string;
+interface InquiryWithProperty extends Inquiry {
+  propertyId: string;
+  propertyTitle: string;
+  propertyPrice: number;
+  propertyLocation: string;
+  propertyStatus: string;
 }
 
-interface PaymentInfo {
-  nextPaymentDate: Date;
-  daysUntilPayment: number;
-  paymentsPaid: number;
-  totalPayments: number;
-  monthlyAmount: number;
+interface PaymentPlan {
+  propertyPrice: number;
+  downPayment: number;
+  monthlyPayment: number;
+  interestRate: number;
+  leaseDuration: number;
+  totalAmount: number;
+  startDate: string;
+  status: "active" | "inactive" | "completed";
+  currentMonth: number;
   remainingBalance: number;
-  paymentStatus: "current" | "due-soon" | "overdue" | "due-week";
+  nextPaymentDate: string;
 }
 
-const MyApplicationsSection = () => {
-  const router = useRouter();
-  const [inquiries, setInquiries] = useState<PropertyInquiry[]>([]);
+const MyApplication = () => {
+  const [inquiries, setInquiries] = useState<InquiryWithProperty[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedInquiry, setSelectedInquiry] =
-    useState<PropertyInquiry | null>(null);
-  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [editFormData, setEditFormData] = useState<EditFormData>({
-    fullName: "",
-    primaryPhone: "",
-    secondaryPhone: "",
-    email: "",
-    currentAddress: "",
-    preferredContactMethod: "phone",
-    preferredContactTime: "",
-    specificLotUnit: "",
-    budgetRange: "",
-    preferredLotSize: "",
-    timeline: "immediate",
-    paymentMethod: "cash",
-    additionalRequirements: "",
-  });
+    useState<InquiryWithProperty | null>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [filter, setFilter] = useState<
+    "all" | "pending" | "approved" | "rejected"
+  >("all");
+  const [session, setSession] = useState<Session | null>(null);
+  const [paymentPlanData, setPaymentPlanData] = useState<PaymentPlan | null>(
+    null
+  );
 
-  // Helper function to calculate payment information
-  const calculatePaymentInfo = (
-    inquiry: PropertyInquiry
-  ): PaymentInfo | null => {
-    if (!inquiry.approvedAt || !inquiry.selectedLeasePlan) return null;
-
-    const approvalDate = new Date(inquiry.approvedAt);
-    const today = new Date();
-    const monthlyAmount = parseFloat(
-      inquiry.selectedLeasePlan.monthlyRate
-        .replace(/[₱,$]/g, "")
-        .replace(/,/g, "")
-    );
-    const totalAmount = parseFloat(
-      inquiry.selectedLeasePlan.totalAmount
-        .replace(/[₱,$]/g, "")
-        .replace(/,/g, "")
-    );
-    const durationInMonths = parseInt(
-      inquiry.selectedLeasePlan.duration.replace(" months", "")
-    );
-
-    // Calculate months elapsed since approval
-    const monthsElapsed = Math.floor(
-      (today.getTime() - approvalDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
-    );
-
-    // Calculate next payment date
-    const nextPaymentDate = new Date(approvalDate);
-    nextPaymentDate.setMonth(nextPaymentDate.getMonth() + monthsElapsed + 1);
-
-    // Calculate days until next payment
-    const daysUntilPayment = Math.ceil(
-      (nextPaymentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    // Determine payment status
-    let paymentStatus: PaymentInfo["paymentStatus"] = "current";
-    if (daysUntilPayment < 0) {
-      paymentStatus = "overdue";
-    } else if (daysUntilPayment <= 3) {
-      paymentStatus = "due-soon";
-    } else if (daysUntilPayment <= 7) {
-      paymentStatus = "due-week";
-    }
-
-    const paymentsPaid = Math.max(0, monthsElapsed);
-    const remainingBalance = Math.max(
-      0,
-      totalAmount - paymentsPaid * monthlyAmount
-    );
-
-    return {
-      nextPaymentDate,
-      daysUntilPayment,
-      paymentsPaid,
-      totalPayments: durationInMonths,
-      monthlyAmount,
-      remainingBalance,
-      paymentStatus,
+  // Fetch session
+  useEffect(() => {
+    const getSession = async () => {
+      const session = await getServerSession();
+      setSession(session);
     };
-  };
+    getSession();
+  }, []);
 
-  // Helper function to get payment status display
-  const getPaymentStatusDisplay = (
-    paymentStatus: PaymentInfo["paymentStatus"]
-  ) => {
-    switch (paymentStatus) {
-      case "overdue":
-        return {
-          color: "red",
-          label: "Overdue",
-          icon: <IconAlertCircle size={12} />,
-        };
-      case "due-soon":
-        return {
-          color: "orange",
-          label: "Due Soon",
-          icon: <IconAlertTriangle size={12} />,
-        };
-      case "due-week":
-        return {
-          color: "yellow",
-          label: "Due This Week",
-          icon: <IconClock size={12} />,
-        };
-      case "current":
-        return { color: "green", label: "Current", icon: <Check size={12} /> };
-      default:
-        return {
-          color: "gray",
-          label: "Unknown",
-          icon: <IconInfoCircle size={12} />,
-        };
-    }
-  };
-
-  // Format currency function
-  const formatCurrency = (amount: number | string) => {
-    const numAmount =
-      typeof amount === "string"
-        ? parseFloat(amount.replace(/[₱,$]/g, "").replace(/,/g, ""))
-        : amount;
-
-    if (isNaN(numAmount)) return "₱0";
-
-    return new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(numAmount);
-  };
-
-  // Map API status to display status and auto-own approved properties
-  const mapApiStatusToComponentStatus = async (
-    apiStatus:
-      | "new"
-      | "contacted"
-      | "viewing-scheduled"
-      | "negotiating"
-      | "closed"
-      | "rejected"
-      | "owned",
-    inquiryId?: string
-  ): Promise<"pending" | "approved" | "rejected" | "owned"> => {
-    switch (apiStatus) {
-      case "new":
-      case "contacted":
-      case "viewing-scheduled":
-        return "pending";
-      case "negotiating":
-        return "pending";
-      case "closed":
-        // Automatically set as owned when approved
-        if (inquiryId) {
-          try {
-            await propertyInquiriesApi.update(inquiryId, {
-              status: "owned" as const,
-            });
-            return "owned";
-          } catch (error) {
-            console.error("Error auto-setting property as owned:", error);
-            return "approved";
-          }
-        }
-        return "approved";
-      case "rejected":
-        return "rejected";
-      case "owned":
-        return "owned";
-      default:
-        return "pending";
-    }
-  };
-
-  // Fetch tenant's inquiries from API
-  const fetchMyInquiries = async () => {
+  // Fetch payment plan
+  const fetchPaymentPlan = async (propertyId: string, tenantEmail: string) => {
     try {
-      setLoading(true);
-      const response = await propertyInquiriesApi.getAll({
-        status: statusFilter !== "all" ? statusFilter : undefined,
-      });
+      const response = await fetch(
+        `/api/payments/create?propertyId=${propertyId}&tenantEmail=${tenantEmail}`
+      );
+      const data = await response.json();
 
-      if (response.success && response.data?.inquiries) {
-        const transformedInquiries = await Promise.all(
-          response.data.inquiries.map(
-            async (inquiry): Promise<PropertyInquiry> => {
-              const mappedStatus = await mapApiStatusToComponentStatus(
-                inquiry.status,
-                inquiry._id
-              );
-
-              return {
-                ...inquiry,
-                id: inquiry._id,
-                submittedAt: inquiry.created_at,
-                status: mappedStatus,
-                property: inquiry.property
-                  ? {
-                      ...inquiry.property,
-                      _id:
-                        inquiry.selectedPropertyId ||
-                        inquiry.property._id ||
-                        "",
-                      size: inquiry.property.size || "",
-                      images: inquiry.property.images || [],
-                      amenities: inquiry.property.amenities || [],
-                      description: inquiry.property.description || "",
-                      status: inquiry.property.status || "available",
-                    }
-                  : undefined,
-                propertyTitle:
-                  inquiry.property?.title ||
-                  inquiry.specificLotUnit ||
-                  getPropertyTitle(inquiry.propertyType),
-                propertyPrice:
-                  inquiry.property?.price || inquiry.budgetRange || "Price TBD",
-                propertyLocation:
-                  inquiry.property?.location ||
-                  inquiry.currentAddress ||
-                  "Location TBD",
-              };
-            }
-          )
-        );
-
-        setInquiries(transformedInquiries);
-      } else {
-        notifications.show({
-          title: "Error",
-          message: response.error || "Failed to fetch your applications",
-          color: "red",
-        });
+      if (data.success) {
+        setPaymentPlanData(data.paymentPlan);
       }
     } catch (error) {
-      console.error("Error fetching applications:", error);
-      notifications.show({
-        title: "Error",
-        message: "Failed to fetch your applications. Please try again.",
-        color: "red",
-        icon: <XCircle size={16} />,
-      });
+      console.error("Error fetching payment plan:", error);
+    }
+  };
+
+  // Fetch all properties with inquiries and filter for current user
+  const fetchInquiries = useCallback(async () => {
+    if (!session?.user.email) return;
+
+    try {
+      setLoading(true);
+      const response = await fetch("/api/properties?myInquiries=true");
+      const data = await response.json();
+
+      if (data.success) {
+        const userInquiries: InquiryWithProperty[] = [];
+        data.properties.forEach((property: Property) => {
+          if (property.inquiries && property.inquiries.length > 0) {
+            property.inquiries.forEach((inquiry: Inquiry) => {
+              if (inquiry.email === session.user.email) {
+                userInquiries.push({
+                  ...inquiry,
+                  propertyId: property._id,
+                  propertyTitle: property.title,
+                  propertyPrice: property.price,
+                  propertyLocation: property.location,
+                  propertyStatus: property.status,
+                });
+              }
+            });
+          }
+        });
+        setInquiries(userInquiries);
+      }
+    } catch (error) {
+      console.error("Error fetching inquiries:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [session]);
 
   useEffect(() => {
-    fetchMyInquiries();
-  }, [statusFilter]);
-
-  const handleEdit = (inquiry: PropertyInquiry) => {
-    setSelectedInquiry(inquiry);
-    setEditFormData({
-      fullName: inquiry.fullName,
-      primaryPhone: inquiry.primaryPhone,
-      secondaryPhone: inquiry.secondaryPhone || "",
-      email: inquiry.email,
-      currentAddress: inquiry.currentAddress,
-      preferredContactMethod: inquiry.preferredContactMethod,
-      preferredContactTime: inquiry.preferredContactTime,
-      specificLotUnit: inquiry.specificLotUnit || "",
-      budgetRange: inquiry.budgetRange,
-      preferredLotSize: inquiry.preferredLotSize || "",
-      timeline: inquiry.timeline,
-      paymentMethod: inquiry.paymentMethod,
-      additionalRequirements: inquiry.additionalRequirements || "",
-    });
-    setEditModalOpen(true);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!selectedInquiry) return;
-
-    try {
-      setActionLoading(selectedInquiry.id);
-      const response = await propertyInquiriesApi.update(
-        selectedInquiry.id,
-        editFormData
-      );
-
-      if (response.success) {
-        await fetchMyInquiries();
-        setEditModalOpen(false);
-        notifications.show({
-          title: "Application Updated",
-          message: "Your property application has been updated successfully.",
-          color: "green",
-        });
-      } else {
-        throw new Error(response.error);
-      }
-    } catch (error) {
-      notifications.show({
-        title: "Error",
-        message: (error as Error).message,
-        color: "red",
-        icon: <XCircle size={16} />,
-      });
-    } finally {
-      setActionLoading(null);
+    if (session) {
+      fetchInquiries();
     }
-  };
+  }, [session, fetchInquiries]);
 
-  const handleCancel = async (inquiryId: string) => {
-    try {
-      setActionLoading(inquiryId);
-      const response = await propertyInquiriesApi.delete(inquiryId);
-
-      if (response.success) {
-        await fetchMyInquiries();
-        notifications.show({
-          title: "Application Cancelled",
-          message: "Your property application has been cancelled.",
-          color: "orange",
-        });
-      } else {
-        throw new Error(response.error);
-      }
-    } catch (error) {
-      notifications.show({
-        title: "Error",
-        message: (error as Error).message,
-        color: "red",
-        icon: <XCircle size={16} />,
-      });
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleMakePayment = (inquiry: PropertyInquiry) => {
-    // Navigate to transactions page with inquiry data
-    const queryParams = new URLSearchParams({
-      propertyId: inquiry.selectedPropertyId || "",
-      inquiryId: inquiry.id,
-      type: "payment",
-      propertyTitle: inquiry.propertyTitle || "",
-      monthlyAmount: inquiry.selectedLeasePlan?.monthlyRate || "0",
-    });
-
-    router.push(`/transactions?${queryParams.toString()}`);
-  };
-
-  const getPropertyTitle = (type: string): string => {
-    switch (type) {
-      case "residential-lot":
-        return "Premium Residential Lot";
-      case "commercial":
-        return "Commercial Corner Lot";
-      case "house-and-lot":
-        return "Modern Family Home";
-      case "condo":
-        return "Luxury Condominium Unit";
-      default:
-        return "Property Listing";
-    }
-  };
-
+  // Filter inquiries based on selected filter
   const filteredInquiries = inquiries.filter((inquiry) => {
-    const matchesSearch =
-      inquiry.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inquiry.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (inquiry.propertyTitle || "")
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === "all" || inquiry.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
+    if (filter === "all") return true;
+    if (filter === "approved") {
+      return (
+        inquiry.status === "approved" || inquiry.propertyStatus === "LEASED"
+      );
+    }
+    if (filter === "pending") {
+      return (
+        inquiry.status === "pending" && inquiry.propertyStatus !== "LEASED"
+      );
+    }
+    return inquiry.status === filter;
   });
 
-  const getStatusColor = (status: string) => {
+  const getStatusBadge = (status: string, propertyStatus?: string) => {
+    const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
+
+    if (propertyStatus === "LEASED") {
+      return `${baseClasses} bg-blue-100 text-blue-800`;
+    }
+
     switch (status) {
       case "pending":
-        return "yellow";
+        return `${baseClasses} bg-yellow-100 text-yellow-800`;
       case "approved":
-        return "green";
+        return `${baseClasses} bg-green-100 text-green-800`;
       case "rejected":
-        return "red";
-      case "owned":
-        return "blue";
+        return `${baseClasses} bg-red-100 text-red-800`;
       default:
-        return "gray";
+        return `${baseClasses} bg-gray-100 text-gray-800`;
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const pendingCount = inquiries.filter((i) => i.status === "pending").length;
-  const approvedCount = inquiries.filter((i) => i.status === "approved").length;
-  const rejectedCount = inquiries.filter((i) => i.status === "rejected").length;
-  const ownedCount = inquiries.filter((i) => i.status === "owned").length;
+  if (loading || !session) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your applications...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <Container size="xl" py="xl">
-      <Stack gap="xl">
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div>
-          <Title order={1} size="h1" mb="sm">
-            My Property Applications
-          </Title>
-          <Text c="dimmed" size="lg">
-            View and manage your property inquiry applications
-          </Text>
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                My Applications
+              </h1>
+              <p className="text-gray-600 mt-2">
+                View your submitted property inquiries
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <select
+                value={filter}
+                onChange={(e) =>
+                  setFilter(
+                    e.target.value as
+                      | "all"
+                      | "pending"
+                      | "approved"
+                      | "rejected"
+                  )
+                }
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Applications</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         {/* Stats Cards */}
-        <Grid>
-          <Grid.Col span={{ base: 12, sm: 3 }}>
-            <Paper p="md" radius="md" withBorder>
-              <Group justify="space-between">
-                <div>
-                  <Text c="dimmed" size="sm" tt="uppercase" fw={700}>
-                    Pending
-                  </Text>
-                  <Text fw={700} size="xl">
-                    {loading ? <Loader size="xs" /> : pendingCount}
-                  </Text>
-                </div>
-                <ActionIcon
-                  variant="light"
-                  color="yellow"
-                  size="xl"
-                  radius="md"
-                >
-                  <IconClock size={20} />
-                </ActionIcon>
-              </Group>
-            </Paper>
-          </Grid.Col>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">
+                  Total Applications
+                </p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {inquiries.length}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <User className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Pending</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {
+                    inquiries.filter(
+                      (inq) =>
+                        inq.status === "pending" &&
+                        inq.propertyStatus !== "LEASED"
+                    ).length
+                  }
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <Clock className="h-6 w-6 text-yellow-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">
+                  Approved/Leased
+                </p>
+                <p className="text-2xl font-bold text-green-600">
+                  {
+                    inquiries.filter(
+                      (inq) =>
+                        inq.status === "approved" ||
+                        inq.propertyStatus === "LEASED"
+                    ).length
+                  }
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <CreditCard className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Rejected</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {inquiries.filter((inq) => inq.status === "rejected").length}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <AlertCircle className="h-6 w-6 text-red-600" />
+              </div>
+            </div>
+          </div>
+        </div>
 
-          <Grid.Col span={{ base: 12, sm: 3 }}>
-            <Paper p="md" radius="md" withBorder>
-              <Group justify="space-between">
-                <div>
-                  <Text c="dimmed" size="sm" tt="uppercase" fw={700}>
-                    Owned
-                  </Text>
-                  <Text fw={700} size="xl">
-                    {loading ? <Loader size="xs" /> : ownedCount}
-                  </Text>
-                </div>
-                <ActionIcon variant="light" color="blue" size="xl" radius="md">
-                  <IconHome size={20} />
-                </ActionIcon>
-              </Group>
-            </Paper>
-          </Grid.Col>
-
-          <Grid.Col span={{ base: 12, sm: 3 }}>
-            <Paper p="md" radius="md" withBorder>
-              <Group justify="space-between">
-                <div>
-                  <Text c="dimmed" size="sm" tt="uppercase" fw={700}>
-                    Rejected
-                  </Text>
-                  <Text fw={700} size="xl">
-                    {loading ? <Loader size="xs" /> : rejectedCount}
-                  </Text>
-                </div>
-                <ActionIcon variant="light" color="red" size="xl" radius="md">
-                  <X size={20} />
-                </ActionIcon>
-              </Group>
-            </Paper>
-          </Grid.Col>
-        </Grid>
-
-        {/* Filters */}
-        <Card withBorder radius="md" p="md">
-          <Grid>
-            <Grid.Col span={{ base: 12, md: 8 }}>
-              <TextInput
-                placeholder="Search by name, email, or property..."
-                leftSection={<IconSearch size={16} />}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.currentTarget.value)}
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <Select
-                placeholder="Filter by status"
-                leftSection={<IconFilter size={16} />}
-                value={statusFilter}
-                onChange={(value) => setStatusFilter(value || "all")}
-                data={[
-                  { value: "all", label: "All Status" },
-                  { value: "pending", label: "Pending" },
-                  { value: "owned", label: "Owned" },
-                  { value: "rejected", label: "Rejected" },
-                ]}
-              />
-            </Grid.Col>
-          </Grid>
-        </Card>
-
-        {/* Applications List */}
-        <Stack gap="md">
-          {loading ? (
-            Array.from({ length: 3 }).map((_, index) => (
-              <Card key={index} withBorder radius="md" p="lg">
-                <Grid>
-                  <Grid.Col span={{ base: 12, md: 9 }}>
-                    <Stack gap="xs">
-                      <Group justify="space-between" align="flex-start">
-                        <Skeleton height={24} width="60%" radius="sm" />
-                        <Skeleton height={24} width="80px" radius="xl" />
-                      </Group>
-                      <Skeleton height={20} width="80%" radius="sm" />
-                      <Skeleton height={16} width="60%" radius="sm" />
-                      <Group gap="xs">
-                        <Skeleton height={16} width="40%" radius="sm" />
-                        <Skeleton height={16} width="40%" radius="sm" />
-                      </Group>
-                      <Skeleton height={16} width="70%" radius="sm" />
-                    </Stack>
-                  </Grid.Col>
-                  <Grid.Col span={{ base: 12, md: 3 }}>
-                    <Stack gap="xs">
-                      <Skeleton height={36} radius="md" />
-                      <Group grow>
-                        <Skeleton height={36} radius="md" />
-                        <Skeleton height={36} radius="md" />
-                      </Group>
-                    </Stack>
-                  </Grid.Col>
-                </Grid>
-              </Card>
-            ))
-          ) : filteredInquiries.length === 0 ? (
-            <Card withBorder radius="md" p="xl">
-              <Stack align="center" gap="md">
-                <IconInfoCircle size={48} color="gray" />
-                <Text size="lg" c="dimmed">
-                  {inquiries.length === 0
-                    ? "You haven't submitted any property applications yet"
-                    : "No applications found matching your criteria"}
-                </Text>
-                {inquiries.length === 0 && (
-                  <Button leftSection={<IconPlus size={16} />}>
-                    Submit New Application
-                  </Button>
-                )}
-              </Stack>
-            </Card>
-          ) : (
-            filteredInquiries.map((inquiry) => {
-              const paymentInfo = calculatePaymentInfo(inquiry);
-              const paymentStatusDisplay = paymentInfo
-                ? getPaymentStatusDisplay(paymentInfo.paymentStatus)
-                : null;
-
-              return (
-                <Card key={inquiry.id} withBorder radius="md" p="lg">
-                  <Grid>
-                    <Grid.Col span={{ base: 12, md: 9 }}>
-                      <Stack gap="xs">
-                        <Group justify="space-between" align="flex-start">
-                          <div>
-                            <Text fw={600} size="lg">
-                              {inquiry.propertyTitle}
-                            </Text>
-                            <Text c="dimmed" size="sm">
-                              Submitted{" "}
-                              {formatDate(inquiry.created_at as string)}
-                            </Text>
-                          </div>
-                          <Badge
-                            color={getStatusColor(inquiry.status)}
-                            variant="light"
-                          >
-                            {inquiry.status === "owned"
-                              ? "Owned"
-                              : inquiry.status.charAt(0).toUpperCase() +
-                                inquiry.status.slice(1)}
-                          </Badge>
-                        </Group>
-
-                        <Text fw={500} c="blue" size="lg">
-                          {formatCurrency(inquiry.propertyPrice || "0")}
-                        </Text>
-                        <Text size="sm" c="dimmed">
-                          <IconMapPin
-                            size={14}
-                            style={{ display: "inline", marginRight: "4px" }}
-                          />
+        {/* Applications Table */}
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Property
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Application Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredInquiries.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="px-6 py-8 text-center text-gray-500"
+                    >
+                      No applications found
+                    </td>
+                  </tr>
+                ) : (
+                  filteredInquiries.map((inquiry, index) => (
+                    <tr
+                      key={`${inquiry.propertyId}-${inquiry.email}-${index}`}
+                      className="hover:bg-gray-50"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {inquiry.propertyTitle}
+                        </div>
+                        <div className="text-sm text-gray-500 flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
                           {inquiry.propertyLocation}
-                        </Text>
-
-                        <Group gap="xs">
-                          <Text size="sm">
-                            <IconPhone
-                              size={14}
-                              style={{ display: "inline", marginRight: "4px" }}
-                            />
-                            {inquiry.primaryPhone}
-                          </Text>
-                          <Text size="sm">
-                            <IconMail
-                              size={14}
-                              style={{ display: "inline", marginRight: "4px" }}
-                            />
-                            {inquiry.email}
-                          </Text>
-                        </Group>
-
-                        <Text size="sm" c="dimmed">
-                          Budget: {inquiry.budgetRange} • Timeline:{" "}
-                          {inquiry.timeline} • Payment: {inquiry.paymentMethod}
-                        </Text>
-
-                        {/* Enhanced Payment Plan Card for Owned Properties */}
-                        {inquiry.status === "owned" &&
-                          inquiry.selectedLeasePlan &&
-                          paymentInfo && (
-                            <Card
-                              withBorder
-                              radius="sm"
-                              p="md"
-                              mt="sm"
-                              style={{ backgroundColor: "#f0f8ff" }}
-                            >
-                              <Group
-                                justify="space-between"
-                                align="flex-start"
-                                mb="md"
-                              >
-                                <div>
-                                  <Text fw={600} size="sm" mb="xs">
-                                    {inquiry.selectedLeasePlan.name}
-                                  </Text>
-                                  <Group gap="md">
-                                    <Group gap="xs">
-                                      <IconCalendar size={14} />
-                                      <Text size="xs" c="dimmed">
-                                        {inquiry.selectedLeasePlan.duration}
-                                      </Text>
-                                    </Group>
-                                    <Group gap="xs">
-                                      <IconCurrencyPeso size={14} />
-                                      <Text size="xs" fw={600} c="green">
-                                        {inquiry.selectedLeasePlan.monthlyRate}
-                                        /month
-                                      </Text>
-                                    </Group>
-                                  </Group>
-                                </div>
-                                <Badge color="green" variant="light" size="sm">
-                                  Payment Plan Active
-                                </Badge>
-                              </Group>
-
-                              <Text size="xs" c="dimmed" mb="xs">
-                                Total: {inquiry.selectedLeasePlan.totalAmount}
-                                {inquiry.selectedLeasePlan.interestRate &&
-                                  ` • Interest: ${inquiry.selectedLeasePlan.interestRate}`}
-                              </Text>
-
-                              {/* Payment Status Badge */}
-                              {paymentStatusDisplay && (
-                                <Badge
-                                  color={paymentStatusDisplay.color}
-                                  variant="filled"
-                                  size="sm"
-                                  mb="sm"
-                                >
-                                  <Group gap={4}>
-                                    {paymentStatusDisplay.icon}
-                                    <Text size="xs">
-                                      {paymentStatusDisplay.label}
-                                    </Text>
-                                  </Group>
-                                </Badge>
-                              )}
-
-                              {/* Payment Progress */}
-                              <div>
-                                <Group justify="space-between" mb="xs">
-                                  <Text size="xs" fw={500}>
-                                    Payment Progress
-                                  </Text>
-                                  <Text size="xs" c="dimmed">
-                                    {paymentInfo.paymentsPaid} of{" "}
-                                    {paymentInfo.totalPayments} payments
-                                  </Text>
-                                </Group>
-                                <Progress
-                                  value={
-                                    (paymentInfo.paymentsPaid /
-                                      paymentInfo.totalPayments) *
-                                    100
-                                  }
-                                  color="blue"
-                                  size="sm"
-                                  mb="sm"
-                                />
-                              </div>
-
-                              {/* Payment Details */}
-                              <Grid>
-                                <Grid.Col span={6}>
-                                  <Text size="xs" c="dimmed">
-                                    Next Payment
-                                  </Text>
-                                  <Text size="sm" fw={600}>
-                                    {paymentInfo.nextPaymentDate.toLocaleDateString(
-                                      "en-US",
-                                      {
-                                        month: "short",
-                                        day: "numeric",
-                                        year: "numeric",
-                                      }
-                                    )}
-                                  </Text>
-                                  <Text size="xs" c="dimmed">
-                                    {paymentInfo.daysUntilPayment < 0
-                                      ? `${Math.abs(
-                                          paymentInfo.daysUntilPayment
-                                        )} days overdue`
-                                      : `Due in ${
-                                          paymentInfo.daysUntilPayment
-                                        } day${
-                                          paymentInfo.daysUntilPayment !== 1
-                                            ? "s"
-                                            : ""
-                                        }`}
-                                  </Text>
-                                </Grid.Col>
-                                <Grid.Col span={6}>
-                                  <Text size="xs" c="dimmed">
-                                    Remaining Balance
-                                  </Text>
-                                  <Text size="sm" fw={600} c="orange">
-                                    {formatCurrency(
-                                      paymentInfo.remainingBalance
-                                    )}
-                                  </Text>
-                                  <Text size="xs" c="dimmed">
-                                    of {inquiry.selectedLeasePlan.totalAmount}
-                                  </Text>
-                                </Grid.Col>
-                              </Grid>
-
-                              {/* Make Payment Button */}
-                              <Button
-                                leftSection={<IconCreditCard size={16} />}
-                                rightSection={<IconArrowRight size={14} />}
-                                color="green"
-                                variant="light"
-                                fullWidth
-                                mt="md"
-                                onClick={() => handleMakePayment(inquiry)}
-                              >
-                                Make Payment -{" "}
-                                {formatCurrency(paymentInfo.monthlyAmount)}
-                              </Button>
-                            </Card>
+                        </div>
+                        <div className="text-sm text-gray-500 flex items-center gap-1">
+                          <DollarSign className="h-3 w-3" />
+                          {new Intl.NumberFormat("en-PH", {
+                            style: "currency",
+                            currency: "PHP",
+                          }).format(inquiry.propertyPrice)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4 text-gray-400" />
+                          {new Date(inquiry.submittedAt).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={getStatusBadge(
+                            inquiry.status,
+                            inquiry.propertyStatus
                           )}
-
-                        {/* Show payment plan for approved properties */}
-                        {inquiry.status === "approved" &&
-                          inquiry.selectedLeasePlan && (
-                            <Card
-                              withBorder
-                              radius="sm"
-                              p="md"
-                              mt="sm"
-                              style={{ backgroundColor: "#f0fff4" }}
-                            >
-                              <Group
-                                justify="space-between"
-                                align="flex-start"
-                                mb="xs"
-                              >
-                                <div>
-                                  <Text fw={600} size="sm" mb="xs">
-                                    {inquiry.selectedLeasePlan.name}
-                                  </Text>
-                                  <Group gap="md">
-                                    <Group gap="xs">
-                                      <IconCalendar size={14} />
-                                      <Text size="xs" c="dimmed">
-                                        {inquiry.selectedLeasePlan.duration}
-                                      </Text>
-                                    </Group>
-                                    <Group gap="xs">
-                                      <IconCurrencyPeso size={14} />
-                                      <Text size="xs" fw={600} c="green">
-                                        {inquiry.selectedLeasePlan.monthlyRate}
-                                        /month
-                                      </Text>
-                                    </Group>
-                                  </Group>
-                                </div>
-                                <Badge color="green" variant="light" size="sm">
-                                  Approved
-                                </Badge>
-                              </Group>
-
-                              <Text size="xs" c="dimmed" mb="xs">
-                                Total: {inquiry.selectedLeasePlan.totalAmount}
-                                {inquiry.selectedLeasePlan.interestRate &&
-                                  ` • Interest: ${inquiry.selectedLeasePlan.interestRate}`}
-                              </Text>
-
-                              {inquiry.selectedLeasePlan.features &&
-                                inquiry.selectedLeasePlan.features.length >
-                                  0 && (
-                                  <div>
-                                    <Text size="xs" fw={500} mb="xs">
-                                      Features:
-                                    </Text>
-                                    <Stack gap={2}>
-                                      {inquiry.selectedLeasePlan.features.map(
-                                        (feature, index) => (
-                                          <Text
-                                            key={index}
-                                            size="xs"
-                                            c="dimmed"
-                                          >
-                                            • {feature}
-                                          </Text>
-                                        )
-                                      )}
-                                    </Stack>
-                                  </div>
-                                )}
-                            </Card>
-                          )}
-
-                        {/* Show property details for approved/owned properties */}
-                        {(inquiry.status === "approved" ||
-                          inquiry.status === "owned") &&
-                          inquiry.property && (
-                            <Card
-                              withBorder
-                              radius="sm"
-                              p="md"
-                              mt="sm"
-                              style={{ backgroundColor: "#fafafa" }}
-                            >
-                              <Text fw={600} size="sm" mb="xs">
-                                Property Details
-                              </Text>
-                              <Grid>
-                                {inquiry.property.bedrooms && (
-                                  <Grid.Col span={6}>
-                                    <Text size="xs" c="dimmed">
-                                      Bedrooms
-                                    </Text>
-                                    <Text size="sm" fw={500}>
-                                      {inquiry.property.bedrooms}
-                                    </Text>
-                                  </Grid.Col>
-                                )}
-                                {inquiry.property.bathrooms && (
-                                  <Grid.Col span={6}>
-                                    <Text size="xs" c="dimmed">
-                                      Bathrooms
-                                    </Text>
-                                    <Text size="sm" fw={500}>
-                                      {inquiry.property.bathrooms}
-                                    </Text>
-                                  </Grid.Col>
-                                )}
-                                {inquiry.property.sqft && (
-                                  <Grid.Col span={6}>
-                                    <Text size="xs" c="dimmed">
-                                      Area
-                                    </Text>
-                                    <Text size="sm" fw={500}>
-                                      {inquiry.property.sqft} sq ft
-                                    </Text>
-                                  </Grid.Col>
-                                )}
-                                {inquiry.property.size && (
-                                  <Grid.Col span={6}>
-                                    <Text size="xs" c="dimmed">
-                                      Lot Size
-                                    </Text>
-                                    <Text size="sm" fw={500}>
-                                      {inquiry.property.size}
-                                    </Text>
-                                  </Grid.Col>
-                                )}
-                              </Grid>
-                              {inquiry.property.amenities &&
-                                inquiry.property.amenities.length > 0 && (
-                                  <>
-                                    <Divider my="xs" />
-                                    <Text size="xs" c="dimmed" mb="xs">
-                                      Amenities
-                                    </Text>
-                                    <Group gap="xs">
-                                      {inquiry.property.amenities
-                                        .slice(0, 3)
-                                        .map((amenity, index) => (
-                                          <Badge
-                                            key={index}
-                                            size="xs"
-                                            variant="light"
-                                          >
-                                            {amenity}
-                                          </Badge>
-                                        ))}
-                                      {inquiry.property.amenities.length >
-                                        3 && (
-                                        <Badge size="xs" variant="outline">
-                                          +
-                                          {inquiry.property.amenities.length -
-                                            3}{" "}
-                                          more
-                                        </Badge>
-                                      )}
-                                    </Group>
-                                  </>
-                                )}
-                            </Card>
-                          )}
-
+                        >
+                          {inquiry.propertyStatus === "LEASED"
+                            ? "Leased"
+                            : inquiry.status.charAt(0).toUpperCase() +
+                              inquiry.status.slice(1)}
+                        </span>
                         {inquiry.status === "rejected" &&
                           inquiry.rejectionReason && (
-                            <Alert
-                              color="red"
-                              title="Rejection Reason"
-                              icon={<IconAlertCircle size={16} />}
-                            >
+                            <div className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                              <AlertCircle className="h-3 w-3" />
                               {inquiry.rejectionReason}
-                            </Alert>
-                          )}
-                      </Stack>
-                    </Grid.Col>
-
-                    <Grid.Col span={{ base: 12, md: 3 }}>
-                      <Stack gap="xs">
-                        <Button
-                          variant="light"
-                          leftSection={<IconEye size={16} />}
-                          onClick={() => {
-                            setSelectedInquiry(inquiry);
-                            setDetailsModalOpen(true);
-                          }}
-                          fullWidth
-                        >
-                          View Details
-                        </Button>
-
-                        {/* Payment History Button for Owned Properties */}
-                        {inquiry.status === "owned" && (
-                          <Button
-                            variant="outline"
-                            color="blue"
-                            leftSection={<IconReceipt size={16} />}
-                            rightSection={<IconArrowRight size={14} />}
-                            onClick={() => {
-                              const queryParams = new URLSearchParams({
-                                propertyId: inquiry.selectedPropertyId || "",
-                                inquiryId: inquiry.id,
-                                type: "history",
-                                propertyTitle: inquiry.propertyTitle || "",
-                              });
-                              router.push(
-                                `/transactions?${queryParams.toString()}`
-                              );
-                            }}
-                            fullWidth
-                          >
-                            Payment History
-                          </Button>
-                        )}
-
-                        <Group grow>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            leftSection={<IconEdit size={16} />}
-                            onClick={() => handleEdit(inquiry)}
-                            disabled={
-                              inquiry.status === "approved" ||
-                              inquiry.status === "owned" ||
-                              actionLoading === inquiry.id
-                            }
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            color="red"
-                            size="sm"
-                            leftSection={<IconTrash size={16} />}
-                            onClick={() => handleCancel(inquiry.id)}
-                            disabled={
-                              inquiry.status === "approved" ||
-                              inquiry.status === "owned" ||
-                              actionLoading === inquiry.id
-                            }
-                            loading={actionLoading === inquiry.id}
-                          >
-                            Cancel
-                          </Button>
-                        </Group>
-                      </Stack>
-                    </Grid.Col>
-                  </Grid>
-                </Card>
-              );
-            })
-          )}
-        </Stack>
-
-        {/* Details Modal */}
-        <Modal
-          opened={detailsModalOpen}
-          onClose={() => setDetailsModalOpen(false)}
-          title="Application Details"
-          size="lg"
-        >
-          {selectedInquiry && (
-            <Stack gap="md">
-              <Group justify="space-between">
-                <Text fw={600} size="lg">
-                  {selectedInquiry.propertyTitle}
-                </Text>
-                <Badge
-                  color={getStatusColor(selectedInquiry.status)}
-                  variant="light"
-                >
-                  {selectedInquiry.status.charAt(0).toUpperCase() +
-                    selectedInquiry.status.slice(1)}
-                </Badge>
-              </Group>
-
-              <Divider />
-
-              <div>
-                <Text fw={600} mb="xs">
-                  Contact Information
-                </Text>
-                <Table>
-                  <Table.Tbody>
-                    <Table.Tr>
-                      <Table.Td>
-                        <Text size="sm" fw={500}>
-                          Full Name
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{selectedInquiry.fullName}</Text>
-                      </Table.Td>
-                    </Table.Tr>
-                    <Table.Tr>
-                      <Table.Td>
-                        <Text size="sm" fw={500}>
-                          Primary Phone
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{selectedInquiry.primaryPhone}</Text>
-                      </Table.Td>
-                    </Table.Tr>
-                    {selectedInquiry.secondaryPhone && (
-                      <Table.Tr>
-                        <Table.Td>
-                          <Text size="sm" fw={500}>
-                            Secondary Phone
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm">
-                            {selectedInquiry.secondaryPhone}
-                          </Text>
-                        </Table.Td>
-                      </Table.Tr>
-                    )}
-                    <Table.Tr>
-                      <Table.Td>
-                        <Text size="sm" fw={500}>
-                          Email
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{selectedInquiry.email}</Text>
-                      </Table.Td>
-                    </Table.Tr>
-                    <Table.Tr>
-                      <Table.Td>
-                        <Text size="sm" fw={500}>
-                          Current Address
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{selectedInquiry.currentAddress}</Text>
-                      </Table.Td>
-                    </Table.Tr>
-                  </Table.Tbody>
-                </Table>
-              </div>
-
-              <Divider />
-
-              <div>
-                <Text fw={600} mb="xs">
-                  Property Preferences
-                </Text>
-                <Table>
-                  <Table.Tbody>
-                    <Table.Tr>
-                      <Table.Td>
-                        <Text size="sm" fw={500}>
-                          Property Type
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{selectedInquiry.propertyType}</Text>
-                      </Table.Td>
-                    </Table.Tr>
-                    <Table.Tr>
-                      <Table.Td>
-                        <Text size="sm" fw={500}>
-                          Budget Range
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{selectedInquiry.budgetRange}</Text>
-                      </Table.Td>
-                    </Table.Tr>
-                    {selectedInquiry.specificLotUnit && (
-                      <Table.Tr>
-                        <Table.Td>
-                          <Text size="sm" fw={500}>
-                            Specific Lot/Unit
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm">
-                            {selectedInquiry.specificLotUnit}
-                          </Text>
-                        </Table.Td>
-                      </Table.Tr>
-                    )}
-                    {selectedInquiry.preferredLotSize && (
-                      <Table.Tr>
-                        <Table.Td>
-                          <Text size="sm" fw={500}>
-                            Preferred Lot Size
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm">
-                            {selectedInquiry.preferredLotSize}
-                          </Text>
-                        </Table.Td>
-                      </Table.Tr>
-                    )}
-                    <Table.Tr>
-                      <Table.Td>
-                        <Text size="sm" fw={500}>
-                          Timeline
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{selectedInquiry.timeline}</Text>
-                      </Table.Td>
-                    </Table.Tr>
-                    <Table.Tr>
-                      <Table.Td>
-                        <Text size="sm" fw={500}>
-                          Payment Method
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{selectedInquiry.paymentMethod}</Text>
-                      </Table.Td>
-                    </Table.Tr>
-                  </Table.Tbody>
-                </Table>
-              </div>
-
-              {selectedInquiry.additionalRequirements && (
-                <>
-                  <Divider />
-                  <div>
-                    <Text fw={600} mb="xs">
-                      Additional Requirements
-                    </Text>
-                    <Text size="sm" c="dimmed">
-                      {selectedInquiry.additionalRequirements}
-                    </Text>
-                  </div>
-                </>
-              )}
-
-              <Divider />
-
-              <div>
-                <Text fw={600} mb="xs">
-                  Contact Preferences
-                </Text>
-                <Table>
-                  <Table.Tbody>
-                    <Table.Tr>
-                      <Table.Td>
-                        <Text size="sm" fw={500}>
-                          Preferred Contact Method
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">
-                          {selectedInquiry.preferredContactMethod}
-                        </Text>
-                      </Table.Td>
-                    </Table.Tr>
-                    <Table.Tr>
-                      <Table.Td>
-                        <Text size="sm" fw={500}>
-                          Preferred Contact Time
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">
-                          {selectedInquiry.preferredContactTime}
-                        </Text>
-                      </Table.Td>
-                    </Table.Tr>
-                  </Table.Tbody>
-                </Table>
-              </div>
-
-              {/* Show selected lease plan if approved/owned */}
-              {(selectedInquiry.status === "approved" ||
-                selectedInquiry.status === "owned") &&
-                selectedInquiry.selectedLeasePlan && (
-                  <>
-                    <Divider />
-                    <div>
-                      <Text fw={600} mb="xs">
-                        Selected Payment Plan
-                      </Text>
-                      <Card withBorder p="md">
-                        <Group
-                          justify="space-between"
-                          align="flex-start"
-                          mb="xs"
-                        >
-                          <Text fw={600}>
-                            {selectedInquiry.selectedLeasePlan.name}
-                          </Text>
-                          {selectedInquiry.selectedLeasePlan.recommended && (
-                            <Badge color="blue" variant="light" size="sm">
-                              Recommended
-                            </Badge>
-                          )}
-                        </Group>
-                        <Group gap="md" mb="xs">
-                          <Text size="sm">
-                            <IconCalendar
-                              size={14}
-                              style={{ display: "inline", marginRight: "4px" }}
-                            />
-                            {selectedInquiry.selectedLeasePlan.duration}
-                          </Text>
-                          <Text size="sm" fw={600} c="green">
-                            <IconCurrencyPeso
-                              size={14}
-                              style={{ display: "inline", marginRight: "4px" }}
-                            />
-                            {selectedInquiry.selectedLeasePlan.monthlyRate}
-                            /month
-                          </Text>
-                        </Group>
-                        <Text size="sm" c="dimmed" mb="xs">
-                          Total: {selectedInquiry.selectedLeasePlan.totalAmount}
-                          {selectedInquiry.selectedLeasePlan.interestRate &&
-                            ` • Interest: ${selectedInquiry.selectedLeasePlan.interestRate}`}
-                        </Text>
-                        {selectedInquiry.selectedLeasePlan.features &&
-                          selectedInquiry.selectedLeasePlan.features.length >
-                            0 && (
-                            <div>
-                              <Text size="xs" fw={500} mb="xs">
-                                Features:
-                              </Text>
-                              <Stack gap={2}>
-                                {selectedInquiry.selectedLeasePlan.features.map(
-                                  (feature, index) => (
-                                    <Text key={index} size="xs" c="dimmed">
-                                      • {feature}
-                                    </Text>
-                                  )
-                                )}
-                              </Stack>
                             </div>
                           )}
-                      </Card>
-                    </div>
-                  </>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={async () => {
+                            setSelectedInquiry(inquiry);
+                            setShowViewModal(true);
+                            if (
+                              inquiry.propertyStatus === "LEASED" ||
+                              inquiry.status === "approved"
+                            ) {
+                              await fetchPaymentPlan(
+                                inquiry.propertyId,
+                                inquiry.email
+                              );
+                            }
+                          }}
+                          className="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 flex items-center gap-1"
+                        >
+                          <Eye className="h-4 w-4" />
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))
                 )}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-              <Divider />
+        {/* View Details Modal */}
+        {showViewModal && selectedInquiry && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                Application Details
+              </h3>
 
-              <div>
-                <Text fw={600} mb="xs">
-                  Application Timeline
-                </Text>
-                <Text size="sm">
-                  <IconClock
-                    size={14}
-                    style={{ display: "inline", marginRight: "4px" }}
-                  />
-                  Submitted on{" "}
-                  {formatDate(selectedInquiry.created_at as string)}
-                </Text>
-                {selectedInquiry.approvedAt && (
-                  <Text size="sm" c="green">
-                    <Check
-                      size={14}
-                      style={{ display: "inline", marginRight: "4px" }}
-                    />
-                    Approved on {formatDate(selectedInquiry.approvedAt)}
-                  </Text>
-                )}
+              {/* Status Badge */}
+              <div className="mb-6">
+                <span
+                  className={`${getStatusBadge(
+                    selectedInquiry.status,
+                    selectedInquiry.propertyStatus
+                  )} text-sm`}
+                >
+                  {selectedInquiry.propertyStatus === "LEASED"
+                    ? "Leased"
+                    : selectedInquiry.status.charAt(0).toUpperCase() +
+                      selectedInquiry.status.slice(1)}
+                </span>
               </div>
-            </Stack>
-          )}
-        </Modal>
 
-        {/* Edit Modal */}
-        <Modal
-          opened={editModalOpen}
-          onClose={() => setEditModalOpen(false)}
-          title="Edit Application"
-          size="lg"
-        >
-          <Stack gap="md">
-            <TextInput
-              label="Full Name"
-              required
-              value={editFormData.fullName}
-              onChange={(e) =>
-                setEditFormData((prev) => ({
-                  ...prev,
-                  fullName: e.currentTarget.value,
-                }))
-              }
-            />
+              {/* Applicant Information */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Image
+                    className="h-10 w-10 rounded-full object-cover"
+                    src={session?.user.image || "/placeholder.svg"}
+                    alt="User Image"
+                    width={40}
+                    height={40}
+                  />
+                  Applicant Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Full Name</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedInquiry.fullName}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Email Address</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedInquiry.email}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Phone Number</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedInquiry.phone || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">
+                      Application Date
+                    </p>
+                    <p className="font-medium text-gray-900">
+                      {new Date(selectedInquiry.submittedAt).toLocaleDateString(
+                        "en-US",
+                        {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-            <Group grow>
-              <TextInput
-                label="Primary Phone"
-                required
-                value={editFormData.primaryPhone}
-                onChange={(e) =>
-                  setEditFormData((prev) => ({
-                    ...prev,
-                    primaryPhone: e.currentTarget.value,
-                  }))
-                }
-              />
-              <TextInput
-                label="Secondary Phone"
-                value={editFormData.secondaryPhone}
-                onChange={(e) =>
-                  setEditFormData((prev) => ({
-                    ...prev,
-                    secondaryPhone: e.currentTarget.value,
-                  }))
-                }
-              />
-            </Group>
+              {/* Property Information */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Property Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Property Title</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedInquiry.propertyTitle}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Location</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedInquiry.propertyLocation}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Price</p>
+                    <p className="font-medium text-gray-900">
+                      {new Intl.NumberFormat("en-PH", {
+                        style: "currency",
+                        currency: "PHP",
+                      }).format(selectedInquiry.propertyPrice)}
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-            <TextInput
-              label="Email"
-              type="email"
-              required
-              value={editFormData.email}
-              onChange={(e) =>
-                setEditFormData((prev) => ({
-                  ...prev,
-                  email: e.currentTarget.value,
-                }))
-              }
-            />
+              {/* Application Reason */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h4 className="font-semibold text-gray-900 mb-3">
+                  Reason for Application
+                </h4>
+                <p className="text-gray-700">{selectedInquiry.reason}</p>
+              </div>
 
-            <TextInput
-              label="Current Address"
-              required
-              value={editFormData.currentAddress}
-              onChange={(e) =>
-                setEditFormData((prev) => ({
-                  ...prev,
-                  currentAddress: e.currentTarget.value,
-                }))
-              }
-            />
+              {/* Rejection Reason (if rejected) */}
+              {selectedInquiry.status === "rejected" &&
+                selectedInquiry.rejectionReason && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                    <h4 className="font-semibold text-red-900 mb-3 flex items-center gap-2">
+                      <AlertCircle className="h-5 w-5" />
+                      Rejection Reason
+                    </h4>
+                    <p className="text-red-700">
+                      {selectedInquiry.rejectionReason}
+                    </p>
+                  </div>
+                )}
 
-            <Group grow>
-              <Select
-                label="Preferred Contact Method"
-                required
-                value={editFormData.preferredContactMethod}
-                onChange={(value) =>
-                  setEditFormData((prev) => ({
-                    ...prev,
-                    preferredContactMethod: value as "phone" | "email" | "text",
-                  }))
-                }
-                data={[
-                  { value: "phone", label: "Phone Call" },
-                  { value: "email", label: "Email" },
-                  { value: "text", label: "Text Message" },
-                ]}
-              />
-              <TextInput
-                label="Preferred Contact Time"
-                required
-                value={editFormData.preferredContactTime}
-                onChange={(e) =>
-                  setEditFormData((prev) => ({
-                    ...prev,
-                    preferredContactTime: e.currentTarget.value,
-                  }))
-                }
-              />
-            </Group>
+              {/* Approval Status (if approved) */}
+              {selectedInquiry.status === "approved" && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                  <h4 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Application Status
+                  </h4>
+                  <p className="text-green-700">
+                    This application has been approved and a payment plan has
+                    been created.
+                  </p>
+                </div>
+              )}
 
-            <TextInput
-              label="Specific Lot/Unit"
-              value={editFormData.specificLotUnit}
-              onChange={(e) =>
-                setEditFormData((prev) => ({
-                  ...prev,
-                  specificLotUnit: e.currentTarget.value,
-                }))
-              }
-            />
+              {/* Payment Plan Details (if leased or approved) */}
+              {(selectedInquiry.propertyStatus === "LEASED" ||
+                selectedInquiry.status === "approved") &&
+                paymentPlanData && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                    <h4 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
+                      <CreditCard className="h-5 w-5" />
+                      Payment Plan Details
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-green-600 mb-1">
+                          Property Price
+                        </p>
+                        <p className="font-medium text-green-900">
+                          {new Intl.NumberFormat("en-PH", {
+                            style: "currency",
+                            currency: "PHP",
+                          }).format(paymentPlanData.propertyPrice)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-600 mb-1">
+                          Down Payment
+                        </p>
+                        <p className="font-medium text-green-900">
+                          {new Intl.NumberFormat("en-PH", {
+                            style: "currency",
+                            currency: "PHP",
+                          }).format(paymentPlanData.downPayment)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-600 mb-1">
+                          Monthly Payment
+                        </p>
+                        <p className="font-medium text-green-900">
+                          {new Intl.NumberFormat("en-PH", {
+                            style: "currency",
+                            currency: "PHP",
+                          }).format(paymentPlanData.monthlyPayment)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-600 mb-1">
+                          Interest Rate
+                        </p>
+                        <p className="font-medium text-green-900">
+                          {paymentPlanData.interestRate}% per annum
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-600 mb-1">
+                          Lease Duration
+                        </p>
+                        <p className="font-medium text-green-900">
+                          {paymentPlanData.leaseDuration} months
+                          <span className="text-sm text-green-600">
+                            {" "}
+                            ({Math.floor(
+                              paymentPlanData.leaseDuration / 12
+                            )}{" "}
+                            years {paymentPlanData.leaseDuration % 12} months)
+                          </span>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-600 mb-1">
+                          Total Amount
+                        </p>
+                        <p className="font-medium text-green-900">
+                          {new Intl.NumberFormat("en-PH", {
+                            style: "currency",
+                            currency: "PHP",
+                          }).format(paymentPlanData.totalAmount)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-600 mb-1">
+                          Start Date
+                        </p>
+                        <p className="font-medium text-green-900">
+                          {new Date(
+                            paymentPlanData.startDate
+                          ).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-600 mb-1">
+                          Plan Status
+                        </p>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            paymentPlanData.status === "active"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {paymentPlanData.status.charAt(0).toUpperCase() +
+                            paymentPlanData.status.slice(1)}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-600 mb-1">
+                          Current Month
+                        </p>
+                        <p className="font-medium text-green-900">
+                          {paymentPlanData.currentMonth} of{" "}
+                          {paymentPlanData.leaseDuration}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-600 mb-1">
+                          Remaining Balance
+                        </p>
+                        <p className="font-medium text-green-900">
+                          {new Intl.NumberFormat("en-PH", {
+                            style: "currency",
+                            currency: "PHP",
+                          }).format(paymentPlanData.remainingBalance)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-600 mb-1">
+                          Next Payment Date
+                        </p>
+                        <p className="font-medium text-green-900">
+                          {new Date(
+                            paymentPlanData.nextPaymentDate
+                          ).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-600 mb-1">
+                          Total Interest
+                        </p>
+                        <p className="font-medium text-orange-600">
+                          {new Intl.NumberFormat("en-PH", {
+                            style: "currency",
+                            currency: "PHP",
+                          }).format(
+                            paymentPlanData.totalAmount -
+                              paymentPlanData.propertyPrice
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-            <Group grow>
-              <TextInput
-                label="Budget Range"
-                required
-                value={editFormData.budgetRange}
-                onChange={(e) =>
-                  setEditFormData((prev) => ({
-                    ...prev,
-                    budgetRange: e.currentTarget.value,
-                  }))
-                }
-              />
-              <TextInput
-                label="Preferred Lot Size"
-                value={editFormData.preferredLotSize}
-                onChange={(e) =>
-                  setEditFormData((prev) => ({
-                    ...prev,
-                    preferredLotSize: e.currentTarget.value,
-                  }))
-                }
-              />
-            </Group>
+              {selectedInquiry.propertyStatus === "LEASED" && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Property Status
+                  </h4>
+                  <p className="text-blue-700">
+                    This property has been leased and a payment plan is active.
+                  </p>
+                </div>
+              )}
 
-            <Group grow>
-              <Select
-                label="Timeline"
-                required
-                value={editFormData.timeline}
-                onChange={(value) =>
-                  setEditFormData((prev) => ({
-                    ...prev,
-                    timeline: value as
-                      | "immediate"
-                      | "1-3-months"
-                      | "3-6-months"
-                      | "6-12-months"
-                      | "flexible",
-                  }))
-                }
-                data={[
-                  { value: "immediate", label: "Immediate (ASAP)" },
-                  { value: "1-3-months", label: "1-3 months" },
-                  { value: "3-6-months", label: "3-6 months" },
-                  { value: "6-12-months", label: "6-12 months" },
-                  { value: "flexible", label: "Flexible timeline" },
-                ]}
-              />
-              <Select
-                label="Payment Method"
-                required
-                value={editFormData.paymentMethod}
-                onChange={(value) =>
-                  setEditFormData((prev) => ({
-                    ...prev,
-                    paymentMethod: value as
-                      | "cash"
-                      | "financing"
-                      | "installment",
-                  }))
-                }
-                data={[
-                  { value: "cash", label: "Cash Payment" },
-                  { value: "financing", label: "Bank Financing" },
-                  { value: "installment", label: "Installment Plan" },
-                ]}
-              />
-            </Group>
-
-            <Textarea
-              label="Additional Requirements"
-              rows={3}
-              value={editFormData.additionalRequirements}
-              onChange={(e) =>
-                setEditFormData((prev) => ({
-                  ...prev,
-                  additionalRequirements: e.currentTarget.value,
-                }))
-              }
-            />
-
-            <Group justify="flex-end" mt="md">
-              <Button variant="outline" onClick={() => setEditModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveEdit}
-                loading={actionLoading === selectedInquiry?.id}
-              >
-                Save Changes
-              </Button>
-            </Group>
-          </Stack>
-        </Modal>
-      </Stack>
-    </Container>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowViewModal(false);
+                    setSelectedInquiry(null);
+                    setPaymentPlanData(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
-export default MyApplicationsSection;
+export default MyApplication;

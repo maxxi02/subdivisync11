@@ -97,7 +97,7 @@ const ServicesSection = () => {
   }, []);
 
   //payments
-  const [paymentLoading, setPaymentLoading] = useState(false);
+  // const [paymentLoading, setPaymentLoading] = useState(false);
   // Fetch service requests on component mount
   useEffect(() => {
     fetchServiceRequests();
@@ -186,7 +186,9 @@ const ServicesSection = () => {
 
         setRequests(updatedRequests);
         showNotification(
-          `Technician assigned successfully. ${response.data.notificationSent ? "Notification sent to tenant." : ""}`
+          `Technician assigned successfully. ${
+            response.data.notificationSent ? "Notification sent to tenant." : ""
+          }`
         );
         closeAssign();
         resetModalFields();
@@ -236,7 +238,9 @@ const ServicesSection = () => {
 
         setRequests(updatedRequests);
         showNotification(
-          `Estimate provided successfully. ${response.data.notificationSent ? "Notification sent to tenant." : ""}`
+          `Estimate provided successfully. ${
+            response.data.notificationSent ? "Notification sent to tenant." : ""
+          }`
         );
         closeEstimate();
         resetModalFields();
@@ -288,7 +292,9 @@ const ServicesSection = () => {
 
         setRequests(updatedRequests);
         showNotification(
-          `Request marked as completed. ${response.data.notificationSent ? "Notification sent to tenant." : ""}`
+          `Request marked as completed. ${
+            response.data.notificationSent ? "Notification sent to tenant." : ""
+          }`
         );
         closeComplete();
         resetModalFields();
@@ -351,32 +357,33 @@ const ServicesSection = () => {
     });
   };
 
-  const handlePayment = async (request: ServiceRequest) => {
-    if (!request.final_cost) return;
+  // const handlePayment = async (request: ServiceRequest) => {
+  //   if (!request.final_cost) return;
 
-    try {
-      setPaymentLoading(true);
+  //   try {
+  //     setPaymentLoading(true);
 
-      // Create PayMongo payment method
-      const paymentResponse = await axios.post("/api/create-payment", {
-        amount: request.final_cost * 100, // Convert to centavos
-        description: `Payment for ${request.category} service`,
-        requestId: request.id,
-      });
+  //     // Create PayMongo payment method
+  //     const paymentResponse = await axios.post("/api/create-payment", {
+  //       amount: request.final_cost * 100, // Convert to centavos
+  //       description: `Payment for ${request.category} service`,
+  //       requestId: request.id,
+  //     });
 
-      if (paymentResponse.data.success) {
-        // Redirect to PayMongo checkout or handle payment flow
-        window.location.href = paymentResponse.data.checkout_url;
-      } else {
-        showNotification("Failed to create payment", true);
-      }
-    } catch (error) {
-      console.error("Payment error:", error);
-      showNotification("Payment failed. Please try again.", true);
-    } finally {
-      setPaymentLoading(false);
-    }
-  };
+  //     if (paymentResponse.data.success) {
+  //       // Redirect to PayMongo checkout or handle payment flow
+  //       window.location.href = paymentResponse.data.checkout_url;
+  //     } else {
+  //       showNotification("Failed to create payment", true);
+  //     }
+  //   } catch (error) {
+  //     console.error("Payment error:", error);
+  //     showNotification("Payment failed. Please try again.", true);
+  //   } finally {
+  //     setPaymentLoading(false);
+  //   }
+  // };
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const paymentStatus = urlParams.get("payment");
@@ -509,8 +516,8 @@ const ServicesSection = () => {
                           request.priority === "high"
                             ? "var(--mantine-color-red-6)"
                             : request.priority === "medium"
-                              ? "var(--mantine-color-yellow-6)"
-                              : "var(--mantine-color-green-6)"
+                            ? "var(--mantine-color-yellow-6)"
+                            : "var(--mantine-color-green-6)"
                         }`,
                       }}
                     >

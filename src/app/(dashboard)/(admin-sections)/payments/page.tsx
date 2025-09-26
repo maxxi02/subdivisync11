@@ -1,3 +1,4 @@
+// src/components/PaymentsTrackingPage.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -63,7 +64,6 @@ interface PaymentWithPlan extends MonthlyPayment {
 
 const PaymentsTrackingPage = () => {
   const [payments, setPayments] = useState<PaymentWithPlan[]>([]);
-  const [paymentPlans, setPaymentPlans] = useState<PaymentPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<
     "all" | "paid" | "pending" | "overdue" | "partial"
@@ -85,10 +85,6 @@ const PaymentsTrackingPage = () => {
       // Fetch monthly payments
       const paymentsResponse = await fetch("/api/monthly-payments");
       const paymentsData = await paymentsResponse.json();
-
-      if (plansData.success) {
-        setPaymentPlans(plansData.paymentPlans);
-      }
 
       if (paymentsData.success) {
         // Combine payments with their payment plans
@@ -319,7 +315,16 @@ const PaymentsTrackingPage = () => {
             <div className="flex gap-4">
               <select
                 value={filter}
-                onChange={(e) => setFilter(e.target.value as any)}
+                onChange={(e) =>
+                  setFilter(
+                    e.target.value as
+                      | "all"
+                      | "paid"
+                      | "pending"
+                      | "overdue"
+                      | "partial"
+                  )
+                }
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Payments</option>

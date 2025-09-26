@@ -1,3 +1,5 @@
+import { ImageDown } from "lucide-react";
+import Image from "next/image";
 import React, { useState } from "react";
 
 interface CustomCarouselProps {
@@ -69,7 +71,9 @@ const CustomCarousel = ({
 
   if (images.length === 1) {
     return (
-      <img
+      <Image
+        width={500}
+        height={500}
         src={images[0]}
         alt={alt}
         style={{
@@ -89,7 +93,9 @@ const CustomCarousel = ({
   return (
     <div style={{ position: "relative", width: "100%", height: `${height}px` }}>
       {/* Main Image */}
-      <img
+      <Image
+        width={500}
+        height={500}
         src={images[currentIndex]}
         alt={`${alt} - Image ${currentIndex + 1}`}
         style={{

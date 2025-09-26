@@ -1,3 +1,4 @@
+// src/components/PropertyManagement.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -60,6 +61,7 @@ import {
 } from "lucide-react";
 import { uploadImageToServer, validateImageFile } from "@/lib/upload";
 import CustomCarousel from "./_components/carousel";
+import Image from "next/image";
 
 // Types
 interface PropertyOwner {
@@ -113,6 +115,14 @@ interface CreatePropertyRequest {
   bedrooms?: number;
   bathrooms?: number;
   sqft?: number;
+}
+
+interface UpdatePropertyRequest extends CreatePropertyRequest {
+  owner_details?: {
+    fullName: string;
+    email: string;
+    phone: string;
+  };
 }
 
 interface InquiryRequest {
@@ -192,10 +202,12 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
             <div className="grid grid-cols-3 gap-2">
               {images.map((image: string, index: number) => (
                 <div key={`existing-${index}`} className="relative">
-                  <img
+                  <Image
                     src={image}
                     alt={`Property ${index + 1}`}
                     className="w-full h-24 object-cover rounded border"
+                    height={500}
+                    width={500}
                   />
                   <Button
                     type="button"
@@ -220,7 +232,9 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
             <div className="grid grid-cols-3 gap-2">
               {selectedImages.map((file: File, index: number) => (
                 <div key={`new-${index}`} className="relative">
-                  <img
+                  <Image
+                    width={500}
+                    height={500}
                     src={URL.createObjectURL(file)}
                     alt={`New ${index + 1}`}
                     className="w-full h-24 object-cover rounded border"
@@ -396,7 +410,7 @@ const PropertyManagement = () => {
         imageUrls = await Promise.all(uploadPromises);
       }
 
-      const requestBody = {
+      const requestBody: CreatePropertyRequest = {
         ...formData,
         images: [...(formData.images || []), ...imageUrls],
         status: formData.status as
@@ -477,7 +491,7 @@ const PropertyManagement = () => {
         newImageUrls = await Promise.all(uploadPromises);
       }
 
-      const requestBody: any = {
+      const requestBody: UpdatePropertyRequest = {
         title: editFormData.title,
         location: editFormData.location,
         size: editFormData.size,
@@ -535,6 +549,7 @@ const PropertyManagement = () => {
         sqft: 0,
       });
       setSelectedImages([]);
+      setOwnerDetails({ fullName: "", email: "", phone: "" });
     } catch (error) {
       console.error("Error updating property:", error);
       const errorMessage =
@@ -1026,10 +1041,12 @@ const PropertyManagement = () => {
                           <div className="flex items-center space-x-3">
                             <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
                               {property.images && property.images.length > 0 ? (
-                                <img
+                                <Image
                                   src={property.images[0] || "/placeholder.svg"}
                                   alt={property.title}
                                   className="w-full h-full object-cover"
+                                  height={500}
+                                  width={500}
                                 />
                               ) : (
                                 <Building2 className="w-6 h-6 text-gray-400" />
@@ -1109,6 +1126,19 @@ const PropertyManagement = () => {
                                 />
                               </svg>
                             </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setInquiryForm({
+                                  ...inquiryForm,
+                                  propertyId: property._id,
+                                });
+                                setInquiryModalOpen(true);
+                              }}
+                            >
+                              <FileText className="w-4 h-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1116,7 +1146,7 @@ const PropertyManagement = () => {
                   </TableBody>
                 </Table>
                 {pagination.pages > 1 && (
-                  <div className="flex justify-between items-center mt-4">
+                  <div className="flex justify-between items-center mt-4 px-4">
                     <Button
                       disabled={pagination.page === 1}
                       onClick={() => fetchProperties(pagination.page - 1)}

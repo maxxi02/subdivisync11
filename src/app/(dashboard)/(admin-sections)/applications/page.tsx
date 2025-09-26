@@ -1,3 +1,4 @@
+// src/components/ApplicationsPage.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -9,13 +10,16 @@ import {
   X,
   Trash2,
   AlertCircle,
-  User,
   Phone,
   Mail,
   MapPin,
   Clock,
   CreditCard,
+  User,
 } from "lucide-react";
+import Image from "next/image";
+import { getServerSession } from "@/better-auth/action";
+import { Session } from "@/better-auth/auth-types";
 
 interface Inquiry {
   fullName: string;
@@ -61,6 +65,20 @@ interface InquiryWithProperty extends Inquiry {
   propertyStatus: string;
 }
 
+interface PaymentPlan {
+  propertyPrice: number;
+  downPayment: number;
+  monthlyPayment: number;
+  interestRate: number;
+  leaseDuration: number;
+  totalAmount: number;
+  startDate: string;
+  status: string;
+  currentMonth: number;
+  remainingBalance: number;
+  nextPaymentDate: string;
+}
+
 const ApplicationsPage = () => {
   const [inquiries, setInquiries] = useState<InquiryWithProperty[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,8 +98,19 @@ const ApplicationsPage = () => {
     "all" | "pending" | "approved" | "rejected"
   >("all");
 
-  //payments data
-  const [paymentPlanData, setPaymentPlanData] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  useEffect(() => {
+    const getSession = async () => {
+      const session = await getServerSession();
+      setSession(session);
+    };
+    getSession();
+  }, []);
+
+  // Payments data
+  const [paymentPlanData, setPaymentPlanData] = useState<PaymentPlan | null>(
+    null
+  );
 
   const fetchPaymentPlan = async (propertyId: string, tenantEmail: string) => {
     try {
@@ -193,7 +222,13 @@ const ApplicationsPage = () => {
 
   useEffect(() => {
     calculateLeaseTerms();
-  }, [selectedInquiry, monthlyPayment, interestRate, downPayment]);
+  }, [
+    selectedInquiry,
+    monthlyPayment,
+    interestRate,
+    downPayment,
+    calculateLeaseTerms,
+  ]);
 
   // Handle inquiry approval with payment setup
   const handleApprove = async (inquiry: InquiryWithProperty) => {
@@ -248,7 +283,7 @@ const ApplicationsPage = () => {
         throw new Error("Failed to create payment plan");
       }
 
-      const updatedInquiries = currentProperty.inquiries.map((inq: any) => {
+      const updatedInquiries = currentProperty.inquiries.map((inq: Inquiry) => {
         if (inq.email === inquiry.email && inq.phone === inquiry.phone) {
           return { ...inq, status: "approved" };
         }
@@ -456,7 +491,15 @@ const ApplicationsPage = () => {
             <div className="flex gap-4">
               <select
                 value={filter}
-                onChange={(e) => setFilter(e.target.value as any)}
+                onChange={(e) =>
+                  setFilter(
+                    e.target.value as
+                      | "all"
+                      | "pending"
+                      | "approved"
+                      | "rejected"
+                  )
+                }
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Applications</option>
@@ -590,7 +633,13 @@ const ApplicationsPage = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <User className="h-5 w-5 text-blue-600" />
+                            <Image
+                              className="h-10 w-10 rounded-full object-cover"
+                              src={session?.user.image || ""}
+                              alt="User Image"
+                              width={20}
+                              height={20}
+                            />
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
@@ -757,8 +806,13 @@ const ApplicationsPage = () => {
               {/* Applicant Information */}
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Applicant Information
+                  <Image
+                    className="h-10 w-10 rounded-full object-cover"
+                    src={session?.user.image || ""}
+                    alt="User Image"
+                    width={20}
+                    height={20}
+                  />
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>

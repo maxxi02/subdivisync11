@@ -5,8 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Upload, X, Image as ImageIcon, AlertCircle } from "lucide-react";
-import { uploadImageToServer, validateImageFile, createImagePreview, revokeImagePreview } from "@/lib/upload";
+import {
+  uploadImageToServer,
+  validateImageFile,
+  createImagePreview,
+  revokeImagePreview,
+} from "@/lib/upload";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 interface ImageUploadProps {
   images: string[];
@@ -41,20 +47,22 @@ export function ImageUpload({
     const totalImages = images.length + fileArray.length;
 
     if (totalImages > maxImages) {
-      alert(`You can only upload up to ${maxImages} images. You currently have ${images.length} images and are trying to add ${fileArray.length} more.`);
+      alert(
+        `You can only upload up to ${maxImages} images. You currently have ${images.length} images and are trying to add ${fileArray.length} more.`
+      );
       return;
     }
 
     setUploading(true);
 
     // Create previews for immediate feedback
-    const newPreviews: ImagePreview[] = fileArray.map(file => ({
+    const newPreviews: ImagePreview[] = fileArray.map((file) => ({
       url: createImagePreview(file),
       file,
       uploading: true,
     }));
 
-    setPreviews(prev => [...prev, ...newPreviews]);
+    setPreviews((prev) => [...prev, ...newPreviews]);
 
     // Upload files to Cloudinary
     const uploadPromises = fileArray.map(async (file, index) => {
@@ -67,7 +75,7 @@ export function ImageUpload({
 
         // Upload to server
         const result = await uploadImageToServer(file);
-        
+
         if (!result.success || !result.imageUrl) {
           throw new Error(result.error || "Upload failed");
         }
@@ -91,9 +99,9 @@ export function ImageUpload({
 
     try {
       const uploadResults = await Promise.all(uploadPromises);
-      
+
       // Update previews with results
-      setPreviews(prev => {
+      setPreviews((prev) => {
         const updated = [...prev];
         fileArray.forEach((_, index) => {
           const resultIndex = prev.length - fileArray.length + index;
@@ -104,8 +112,8 @@ export function ImageUpload({
 
       // Add successful uploads to images array
       const successfulUploads = uploadResults
-        .filter(result => !result.error && !result.uploading)
-        .map(result => result.url);
+        .filter((result) => !result.error && !result.uploading)
+        .map((result) => result.url);
 
       if (successfulUploads.length > 0) {
         onImagesChange([...images, ...successfulUploads]);
@@ -113,9 +121,8 @@ export function ImageUpload({
 
       // Clean up failed uploads after a delay
       setTimeout(() => {
-        setPreviews(prev => prev.filter(preview => !preview.error));
+        setPreviews((prev) => prev.filter((preview) => !preview.error));
       }, 5000);
-
     } catch (error) {
       console.error("Batch upload error:", error);
     } finally {
@@ -129,7 +136,7 @@ export function ImageUpload({
   };
 
   const handleRemovePreview = (indexToRemove: number) => {
-    setPreviews(prev => {
+    setPreviews((prev) => {
       const preview = prev[indexToRemove];
       if (preview.file) {
         revokeImagePreview(preview.url);
@@ -144,7 +151,10 @@ export function ImageUpload({
     }
   };
 
-  const allImages = [...images.map(url => ({ url, uploading: false })), ...previews];
+  const allImages = [
+    ...images.map((url) => ({ url, uploading: false })),
+    ...previews,
+  ];
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -172,7 +182,7 @@ export function ImageUpload({
           <Upload className="w-4 h-4" />
           <span>{uploading ? "Uploading..." : "Select Images"}</span>
         </Button>
-        
+
         <input
           ref={fileInputRef}
           type="file"
@@ -205,24 +215,28 @@ export function ImageUpload({
                         <p className="text-xs text-gray-500">Uploading...</p>
                       </div>
                     </div>
-                  ) : image.error ? (
+                  ) : image.uploading ? (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
                         <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
                         <p className="text-xs text-red-500">Failed</p>
-                        <p className="text-xs text-gray-500 mt-1">{image.error}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {image.uploading}
+                        </p>
                       </div>
                     </div>
                   ) : (
-                    <img
+                    <Image
                       src={image.url}
                       alt={`Property image ${index + 1}`}
                       className="w-full h-full object-cover"
+                      width={500}
+                      height={500}
                     />
                   )}
-                  
+
                   {/* Remove Button */}
-                  {!image.uploading && !image.error && (
+                  {!image.uploading && !image.uploading && (
                     <Button
                       type="button"
                       variant="destructive"

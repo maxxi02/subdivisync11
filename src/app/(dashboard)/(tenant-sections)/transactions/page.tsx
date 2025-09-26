@@ -1,24 +1,14 @@
 "use client";
-
 import React, { useState, useEffect } from "react";
 import {
-  Calendar,
-  DollarSign,
   Clock,
-  Check,
   AlertCircle,
   CreditCard,
-  User,
-  MapPin,
-  FileText,
   RefreshCw,
   Eye,
   X,
   Home,
   TrendingUp,
-  History,
-  Receipt,
-  ExternalLink,
 } from "lucide-react";
 
 interface PaymentPlan {
@@ -84,7 +74,6 @@ const TransactionPage = () => {
     try {
       const response = await fetch("/api/tenant/payment-plans");
       const data = await response.json();
-
       if (data.success) {
         setPaymentPlans(data.paymentPlans);
       } else {
@@ -95,6 +84,7 @@ const TransactionPage = () => {
       }
     } catch (error) {
       console.error("Error fetching payment plans:", error);
+      alert("Failed to load payment plans. Please try again.");
     }
   };
 
@@ -103,7 +93,6 @@ const TransactionPage = () => {
     try {
       const response = await fetch("/api/tenant/monthly-payments");
       const data = await response.json();
-
       if (data.success) {
         setMonthlyPayments(data.payments);
       } else {
@@ -114,6 +103,7 @@ const TransactionPage = () => {
       }
     } catch (error) {
       console.error("Error fetching monthly payments:", error);
+      alert("Failed to load monthly payments. Please try again.");
     }
   };
 
@@ -123,7 +113,6 @@ const TransactionPage = () => {
       await Promise.all([fetchPaymentPlans(), fetchMonthlyPayments()]);
       setLoading(false);
     };
-
     fetchData();
   }, []);
 
@@ -151,6 +140,39 @@ const TransactionPage = () => {
     );
   };
 
+  // Update payment plan progress after successful payment
+  const updatePaymentPlanProgress = async (
+    paymentPlanId: string,
+    paymentAmount: number
+  ) => {
+    try {
+      const response = await fetch(
+        `/api/tenant/payment-plans/${[paymentPlanId]}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            paymentAmount,
+            updateType: "payment_made",
+          }),
+        }
+      );
+
+      const data = await response.json();
+      if (!data.success) {
+        console.error("Failed to update payment plan progress:", data.error);
+        alert("Failed to update payment plan progress.");
+      }
+      return data.success;
+    } catch (error) {
+      console.error("Error updating payment plan progress:", error);
+      alert("Failed to update payment plan progress.");
+      return false;
+    }
+  };
+
   // Process payment with PayMongo
   const processPayment = async (payment: MonthlyPayment) => {
     if (!payment) return;
@@ -172,12 +194,33 @@ const TransactionPage = () => {
       const data = await response.json();
 
       if (data.success) {
-        // Redirect to PayMongo checkout using client key
-        if (data.clientSecret) {
-          // You would integrate PayMongo's client-side library here
-          alert(`Payment initiated! Client Secret: ${data.clientSecret}`);
-          // For now, we'll simulate successful payment
-          await markPaymentAsPaid(payment._id);
+        if (data.paymentProcessed) {
+          // Update payment status - Calls PUT /api/tenant/monthly-payments/[paymentId]
+          await markPaymentAsPaid(payment._id, data.paymentIntentId);
+
+          // Update payment plan progress - Calls PUT /api/tenant/payment-plans/[paymentPlanId]/progress
+          await updatePaymentPlanProgress(
+            payment.paymentPlanId,
+            payment.amount
+          );
+
+          // Refresh data to update UI
+          await Promise.all([fetchPaymentPlans(), fetchMonthlyPayments()]);
+
+          alert("Payment successful!");
+          setShowPaymentModal(false);
+        } else if (data.checkoutUrl) {
+          localStorage.setItem(
+            "pendingPayment",
+            JSON.stringify({
+              paymentId: payment._id,
+              paymentPlanId: payment.paymentPlanId,
+              amount: payment.amount,
+            })
+          );
+          window.location.href = data.checkoutUrl;
+        } else {
+          throw new Error("No checkout URL or payment confirmation received");
         }
       } else {
         throw new Error(data.error || "Failed to process payment");
@@ -189,32 +232,36 @@ const TransactionPage = () => {
           error instanceof Error ? error.message : "Unknown error"
         }`
       );
-    } finally {
       setProcessingPayment(null);
       setShowPaymentModal(false);
     }
   };
 
-  // Mark payment as paid (for manual verification)
-  const markPaymentAsPaid = async (paymentId: string) => {
+  // Mark payment as paid
+  const markPaymentAsPaid = async (
+    paymentId: string,
+    paymentIntentId?: string
+  ) => {
     try {
-      const response = await fetch(`/api/monthly-payments/${paymentId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          status: "paid",
-          paidDate: new Date().toISOString(),
-          paymentMethod: "PayMongo",
-        }),
-      });
+      const response = await fetch(
+        `/api/tenant/monthly-payments/${paymentId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            status: "paid",
+            paidDate: new Date().toISOString(),
+            paymentMethod: "PayMongo",
+            paymentIntentId: paymentIntentId || undefined,
+          }),
+        }
+      );
 
       const data = await response.json();
-
       if (data.success) {
-        alert("Payment marked as paid successfully!");
-        await Promise.all([fetchPaymentPlans(), fetchMonthlyPayments()]);
+        return true;
       } else {
         throw new Error(data.error || "Failed to update payment");
       }
@@ -225,8 +272,54 @@ const TransactionPage = () => {
           error instanceof Error ? error.message : "Unknown error"
         }`
       );
+      return false;
     }
   };
+
+  // Check for pending payments when component loads
+  useEffect(() => {
+    const checkPendingPayment = async () => {
+      const pendingPayment = localStorage.getItem("pendingPayment");
+      if (pendingPayment) {
+        try {
+          const paymentInfo = JSON.parse(pendingPayment);
+          const urlParams = new URLSearchParams(window.location.search);
+          const paymentStatus = urlParams.get("status");
+
+          if (paymentStatus === "success") {
+            // Mark payment as paid - Calls PUT /api/tenant/monthly-payments/[paymentId]
+            const success = await markPaymentAsPaid(paymentInfo.paymentId);
+            if (success) {
+              // Update payment plan progress - Calls PUT /api/tenant/payment-plans/[paymentPlanId]/progress
+              await updatePaymentPlanProgress(
+                paymentInfo.paymentPlanId,
+                paymentInfo.amount
+              );
+              // Refresh data to update UI
+              await Promise.all([fetchPaymentPlans(), fetchMonthlyPayments()]);
+              alert("Payment completed successfully!");
+            }
+          }
+          localStorage.removeItem("pendingPayment");
+          if (paymentStatus) {
+            window.history.replaceState(
+              {},
+              document.title,
+              window.location.pathname
+            );
+          }
+        } catch (error) {
+          console.error("Error processing pending payment:", error);
+          localStorage.removeItem("pendingPayment");
+          alert("Failed to process pending payment.");
+        }
+      }
+    };
+
+    if (!loading) {
+      checkPendingPayment();
+    }
+  }, [loading]);
 
   const getStatusBadge = (status: string) => {
     const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
@@ -284,7 +377,11 @@ const TransactionPage = () => {
             <div className="flex gap-4">
               <select
                 value={filter}
-                onChange={(e) => setFilter(e.target.value as any)}
+                onChange={(e) =>
+                  setFilter(
+                    e.target.value as "all" | "active" | "completed" | "overdue"
+                  )
+                }
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Plans</option>
@@ -319,6 +416,7 @@ const TransactionPage = () => {
               </div>
             </div>
           </div>
+
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -334,6 +432,7 @@ const TransactionPage = () => {
               </div>
             </div>
           </div>
+
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -347,6 +446,7 @@ const TransactionPage = () => {
               </div>
             </div>
           </div>
+
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -423,7 +523,7 @@ const TransactionPage = () => {
                     <p className="text-sm text-gray-600">Progress</p>
                     <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
                       <div
-                        className="bg-blue-600 h-2 rounded-full"
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-500"
                         style={{
                           width: `${
                             (plan.currentMonth / plan.leaseDuration) * 100
@@ -431,6 +531,12 @@ const TransactionPage = () => {
                         }}
                       ></div>
                     </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {Math.round(
+                        (plan.currentMonth / plan.leaseDuration) * 100
+                      )}
+                      % Complete
+                    </p>
                   </div>
                 </div>
 
@@ -499,8 +605,8 @@ const TransactionPage = () => {
               No Payment Plans Found
             </h3>
             <p className="text-gray-600">
-              You don't have any {filter !== "all" ? filter : ""} payment plans
-              at the moment.
+              You don&#39;t have any {filter !== "all" ? filter : ""} payment
+              plans at the moment.
             </p>
           </div>
         )}
@@ -512,7 +618,6 @@ const TransactionPage = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Confirm Payment
               </h3>
-
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm text-gray-600">Property:</span>
@@ -533,12 +638,29 @@ const TransactionPage = () => {
                     {formatDate(selectedPayment.dueDate)}
                   </span>
                 </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-600">
+                    Current Progress:
+                  </span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {selectedPlan.currentMonth} / {selectedPlan.leaseDuration}{" "}
+                    months
+                  </span>
+                </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Amount:</span>
                   <span className="text-lg font-bold text-green-600">
                     {formatCurrency(selectedPayment.amount)}
                   </span>
                 </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-xs text-blue-800">
+                  <strong>After payment:</strong> Progress will advance to month{" "}
+                  {selectedPayment.monthNumber}, and your remaining balance will
+                  be reduced by {formatCurrency(selectedPayment.amount)}.
+                </p>
               </div>
 
               <div className="flex gap-3">
@@ -676,59 +798,37 @@ const TransactionPage = () => {
                     <p className="text-sm text-gray-600">Remaining Balance</p>
                   </div>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div
-                    className="bg-blue-600 h-3 rounded-full transition-all"
-                    style={{
-                      width: `${
-                        (selectedPlan.currentMonth /
-                          selectedPlan.leaseDuration) *
-                        100
-                      }%`,
-                    }}
-                  ></div>
-                </div>
-                <p className="text-center text-sm text-gray-600 mt-2">
-                  {Math.round(
-                    (selectedPlan.currentMonth / selectedPlan.leaseDuration) *
-                      100
-                  )}
-                  % Complete
-                </p>
-              </div>
 
-              {/* Payment History */}
-              <div className="mb-6">
-                <h4 className="font-semibold text-gray-900 mb-3">
-                  Payment History
-                </h4>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Month
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Amount
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Due Date
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {getPaymentsForPlan(selectedPlan._id)
-                        .sort((a, b) => a.monthNumber - b.monthNumber)
-                        .map((payment) => (
-                          <tr key={payment._id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                {/* Payment History */}
+                <div className="mt-6">
+                  <h4 className="font-semibold text-gray-900 mb-3">
+                    Payment History
+                  </h4>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Month
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Amount
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Due Date
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Paid Date
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {getPaymentsForPlan(selectedPlan._id).map((payment) => (
+                          <tr key={payment._id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               Month {payment.monthNumber}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -739,34 +839,98 @@ const TransactionPage = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={getStatusBadge(payment.status)}>
-                                {payment.status}
+                                {payment.status.charAt(0).toUpperCase() +
+                                  payment.status.slice(1)}
                               </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {payment.paidDate
+                                ? formatDate(payment.paidDate)
+                                : "-"}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                               {payment.status === "pending" && (
                                 <button
                                   onClick={() => {
                                     setSelectedPayment(payment);
-                                    setShowDetailsModal(false);
                                     setShowPaymentModal(true);
+                                    setShowDetailsModal(false);
                                   }}
-                                  className="text-blue-600 hover:text-blue-800 font-medium"
+                                  disabled={processingPayment === payment._id}
+                                  className="text-green-600 hover:text-green-800 disabled:opacity-50 flex items-center gap-1"
                                 >
+                                  <CreditCard className="h-4 w-4" />
                                   Pay Now
                                 </button>
                               )}
                               {payment.status === "paid" &&
-                                payment.paidDate && (
-                                  <span className="text-green-600 text-xs">
-                                    Paid: {formatDate(payment.paidDate)}
-                                  </span>
+                                payment.receiptUrl && (
+                                  <a
+                                    href={payment.receiptUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                    View Receipt
+                                  </a>
                                 )}
                             </td>
                           </tr>
                         ))}
-                    </tbody>
-                  </table>
+                      </tbody>
+                    </table>
+                  </div>
+                  {getPaymentsForPlan(selectedPlan._id).length === 0 && (
+                    <div className="text-center py-6 text-gray-600">
+                      No payment history available.
+                    </div>
+                  )}
                 </div>
+
+                {/* Tenant Information */}
+                <div className="mt-6">
+                  <h4 className="font-semibold text-gray-900 mb-3">
+                    Tenant Information
+                  </h4>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-600">Full Name:</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {selectedPlan.tenant.fullName}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Email:</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {selectedPlan.tenant.email}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Phone:</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {selectedPlan.tenant.phone}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Start Date:</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {formatDate(selectedPlan.startDate)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>

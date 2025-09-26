@@ -1,8 +1,6 @@
+// src/components/AuthLayout.tsx
 "use client";
-import { useState, useEffect, useRef } from "react";
 import type React from "react";
-
-import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 
 export default function AuthLayout({
@@ -10,32 +8,7 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-  const { data: session, isPending } = useSession();
-  const [showVideo, setShowVideo] = useState(true);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>("");
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const handleVideoEnded = () => {
-      setShowVideo(false);
-
-      setTimeout(() => {
-        setShowVideo(true);
-        video.currentTime = 0;
-        video.play();
-      }, 60000);
-    };
-
-    return () => {
-      video.removeEventListener("ended", handleVideoEnded);
-    };
-  }, []);
+  const { data: isPending } = useSession();
 
   // Show loading screen while checking authentication
   if (isPending) {
@@ -60,23 +33,11 @@ export default function AuthLayout({
         }}
       />
 
-      {loading && (
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-cyan-500 to-blue-600" />
-      )}
-
       <div className="absolute inset-0 bg-black/40 z-5"></div>
 
       <div className="relative z-10 flex items-center justify-center h-full p-4 lg:p-8">
         <div className="flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-12 max-w-6xl w-full">
-          <div className="flex-shrink-0">
-            {children}
-
-            {error && (
-              <div className="mt-4 p-3 bg-red-100 border border-red-300 rounded-md">
-                <p className="text-red-700 text-sm text-center">{error}</p>
-              </div>
-            )}
-          </div>
+          <div className="flex-shrink-0">{children}</div>
         </div>
       </div>
     </div>

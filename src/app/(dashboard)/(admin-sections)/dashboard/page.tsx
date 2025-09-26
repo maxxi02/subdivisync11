@@ -24,8 +24,6 @@ import {
   IconDots,
 } from "@tabler/icons-react";
 import { LineChart, BarChart, PieChart } from "@mantine/charts";
-import { useSession } from "@/lib/auth-client";
-import { redirect } from "next/navigation";
 
 const stats = [
   {

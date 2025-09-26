@@ -81,7 +81,7 @@ const Enable2FA: React.FC<Enable2FAProps> = ({ session }) => {
         title: "Error",
         message: `Something went wrong ${
           state ? "enabling" : "disabling"
-        } 2FA! 😿`,
+        } 2FA! 😿${error}`,
         color: "red",
       });
     } finally {

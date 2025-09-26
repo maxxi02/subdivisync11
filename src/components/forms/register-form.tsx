@@ -128,7 +128,7 @@ export function RegisterForm() {
         imageData = await convertFileToBase64(formData.profileImage);
       }
 
-      const { data, error: authError } = await authClient.signUp.email({
+      const { error: authError } = await authClient.signUp.email({
         name: fullName,
         email: formData.email.trim(),
         password: formData.password,
