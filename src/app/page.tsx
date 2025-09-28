@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+
 interface Announcement {
   _id: string;
   title: string;
@@ -52,17 +53,19 @@ const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
           <div className="w-full h-48 bg-purple-100" />
         ) : (
           <>
-            <div className="overflow-hidden w-full h-48">
+            <div className="overflow-hidden w-full h-80">
               <div
                 className="flex transition-transform duration-300"
                 style={{ transform: `translateX(-${currentIndex * 100}%)` }}
               >
                 {images.map((img) => (
                   <Image
+                    width={500}
+                    height={500}
                     key={img.publicId}
                     src={img.url}
                     alt={announcement.title}
-                    className="w-full h-48 object-cover flex-shrink-0"
+                    className="w-full h-80 object-cover flex-shrink-0"
                   />
                 ))}
               </div>
@@ -254,6 +257,8 @@ export default function HomePage() {
 
             <div className="relative">
               <Image
+                width={500}
+                height={500}
                 src="/modern-house.jpg"
                 alt="Modern luxury property"
                 className="w-full h-auto rounded-2xl shadow-2xl"

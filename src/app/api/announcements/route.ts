@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET - Fetch announcements
+// GET - Fetch announcements (Public access by default)
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
@@ -227,7 +227,6 @@ export async function GET(request: NextRequest) {
     const id = searchParams.get("id");
     const limit = parseInt(searchParams.get("limit") || "50");
     const page = parseInt(searchParams.get("page") || "1");
-    const publicAccess = searchParams.get("public") === "true";
 
     // Fetch a single announcement by ID
     if (id) {
@@ -263,49 +262,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // For public access, show all announcements without authentication
-    if (publicAccess) {
-      const skip = (page - 1) * limit;
-      const announcements = await announcementsCollection
-        .find({})
-        .sort({ created_at: -1 })
-        .skip(skip)
-        .limit(limit)
-        .toArray();
-
-      const totalCount = await announcementsCollection.countDocuments({});
-
-      const enrichedAnnouncements = announcements.map(
-        (announcement): Announcement => ({
-          ...announcement,
-          _id: announcement._id!.toString(),
-          images: announcement.images || [],
-          created_at: announcement.created_at,
-          updated_at: announcement.updated_at,
-        })
-      );
-
-      return NextResponse.json({
-        success: true,
-        announcements: enrichedAnnouncements,
-        pagination: {
-          total: totalCount,
-          page,
-          limit,
-          pages: Math.ceil(totalCount / limit),
-        },
-      });
-    }
-
-    // Regular authenticated access (admin only)
-    const session = await getServerSession();
-    if (!session || session.user.role !== "admin") {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized - Admin access required" },
-        { status: 401 }
-      );
-    }
-
+    // Fetch all announcements (publicly accessible)
     const skip = (page - 1) * limit;
     const announcements = await announcementsCollection
       .find({})

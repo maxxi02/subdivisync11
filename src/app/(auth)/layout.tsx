@@ -9,7 +9,6 @@ const layout = ({ children }: { children: React.ReactNode }) => {
         </div>
       }
     >
-      
       {children}
     </Suspense>
   );
