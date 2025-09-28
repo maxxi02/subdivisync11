@@ -898,15 +898,6 @@ const ServiceRequestsSection = () => {
                               Cancel
                             </Button>
                           )}
-                          <Button
-                            size="xs"
-                            variant="outline"
-                            color="red"
-                            onClick={() => handleDeleteRequest(request.id)}
-                            leftSection={<IconTrash size={14} />}
-                          >
-                            Delete
-                          </Button>
                         </Group>
                       </td>
                     </tr>

@@ -1,863 +1,516 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
-  Container,
-  Title,
-  Text,
-  Button,
-  Card,
-  Badge,
-  Avatar,
-  Alert,
-  Group,
-  Stack,
-  Flex,
-  Loader,
-  Center,
-  Grid,
-  Paper,
-  Divider,
-  Box,
-  Anchor,
-  AppShell,
-  Image,
-} from "@mantine/core";
-import {
-  IconCalendar,
-  IconClock,
-  IconArrowRight,
-  IconShare,
-  IconBookmark,
-  IconAlertCircle,
-  IconPin,
-  IconUsers,
-  IconSpeakerphone,
-  IconChevronLeft,
-  IconHome,
-  IconBuilding,
-  IconShield,
-  IconBell,
-} from "@tabler/icons-react";
-import axios from "axios";
-import type { Session } from "@/better-auth/auth-types";
-import { Home } from "lucide-react";
-import Link from "next/link";
+  Home,
+  Building2,
+  ChevronDown,
+  Users,
+  Shield,
+  Globe,
+  ArrowRight,
+  ArrowLeftIcon,
+  ArrowRightIcon,
+} from "lucide-react";
+import Image from "next/image";
 
-// Types
 interface Announcement {
   _id: string;
   title: string;
   content: string;
   category: string;
-  priority: string;
-  isPinned: boolean;
-  imageUrl?: string;
-  author: string;
-  authorId: string;
-  authorEmail: string;
-  createdAt: string;
-  updatedAt: string;
-  scheduledDate?: string;
-  isActive: boolean;
-  readBy: Array<{
-    userId: string;
-    userEmail: string;
-    readAt: string;
-  }>;
-  imageMetadata?: {
-    originalName: string;
-    size: number;
-    type: string;
-    uploadedAt: string;
-    cloudinaryUrl?: string;
-  };
+  priority: "low" | "medium" | "high";
+  scheduledDate: string;
+  images: { url: string; publicId: string }[];
+  created_by: string;
+  created_at: string;
+  updated_at?: string;
 }
 
-const HomePageWidgets = ({ user }: { user: Session | null }) => {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>("");
-  const [selectedAnnouncement, setSelectedAnnouncement] =
-    useState<Announcement | null>(null);
+const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const images = announcement.images;
 
-  // Fetch announcements from API
-  useEffect(() => {
-    fetchAnnouncements();
-  }, []);
+  const prev = () =>
+    setCurrentIndex((i) => (i === 0 ? images.length - 1 : i - 1));
+  const next = () =>
+    setCurrentIndex((i) => (i === images.length - 1 ? 0 : i + 1));
 
-  const fetchAnnouncements = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get("/api/announcements", {
-        params: {
-          limit: 5, // Get latest 5 announcements for homepage
-        },
-      });
+  const priorityColor = {
+    high: "bg-red-500",
+    medium: "bg-yellow-500",
+    low: "bg-green-500",
+  }[announcement.priority];
 
-      if (response.data.success) {
-        setAnnouncements(response.data.announcements);
-      } else {
-        setError("Failed to fetch announcements");
-      }
-    } catch (err) {
-      setError("Error loading announcements");
-      console.error("Error fetching announcements:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Mark announcement as read
-  const markAsRead = async (announcementId: string) => {
-    if (!user) return;
-
-    try {
-      await axios.post("/api/announcements/read", {
-        announcementId,
-      });
-
-      // Update local state
-      setAnnouncements((prev) =>
-        prev.map((ann) =>
-          ann._id === announcementId
-            ? {
-                ...ann,
-                readBy: [
-                  ...ann.readBy.filter((r) => r.userId !== user.user.id),
-                  {
-                    userId: user.user.id,
-                    userEmail: user.user.email,
-                    readAt: new Date().toISOString(),
-                  },
-                ],
-              }
-            : ann
-        )
-      );
-
-      // Update selected announcement if it's the same one
-      if (selectedAnnouncement && selectedAnnouncement._id === announcementId) {
-        setSelectedAnnouncement((prev) =>
-          prev
-            ? {
-                ...prev,
-                readBy: [
-                  ...prev.readBy.filter((r) => r.userId !== user.user.id),
-                  {
-                    userId: user.user.id,
-                    userEmail: user.user.email,
-                    readAt: new Date().toISOString(),
-                  },
-                ],
-              }
-            : null
-        );
-      }
-    } catch (err) {
-      console.error("Error marking announcement as read:", err);
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority.toLowerCase()) {
-      case "urgent":
-        return "red";
-      case "high":
-        return "blue"; // Changed from orange to blue
-      case "medium":
-        return "blue";
-      case "low":
-        return "gray";
-      default:
-        return "gray";
-    }
-  };
-
-  const getCategoryIcon = (category: string) => {
-    switch (category.toLowerCase()) {
-      case "maintenance":
-        return "🔧";
-      case "event":
-        return "📅";
-      case "security":
-        return "🔒";
-      case "community":
-        return "👥";
-      case "urgent":
-        return "🚨";
-      case "general":
-        return "📢";
-      default:
-        return "📢";
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const hasUserRead = (announcement: Announcement) => {
-    return user
-      ? announcement.readBy.some((r) => r.userId === user.user.id)
-      : false;
-  };
-
-  // Single announcement view
-  if (selectedAnnouncement) {
-    return (
-      <AppShell>
-        <AppShell.Header
-          p="md"
-          style={{ position: "sticky", top: 0, zIndex: 50 }}
-        >
-          <Container size="xl">
-            <Flex justify="space-between" align="center" h="100%">
-              <Group>
-                <IconSpeakerphone
-                  size={24}
-                  color="var(--mantine-color-blue-6)"
-                />
-                <Title order={3}>SubdiviSync</Title>
-              </Group>
-              <Button
-                variant="subtle"
-                onClick={() => setSelectedAnnouncement(null)}
-                leftSection={<IconChevronLeft size={16} />}
-              >
-                Back to Home
-              </Button>
-            </Flex>
-          </Container>
-        </AppShell.Header>
-
-        <Container size="lg" py="xl">
-          <Stack gap="xl">
-            {/* Header Section */}
-            <Stack gap="md" align="center">
-              <Group gap="xs">
-                <Badge
-                  color={getPriorityColor(selectedAnnouncement.priority)}
-                  size="lg"
-                >
-                  {getCategoryIcon(selectedAnnouncement.category)}{" "}
-                  {selectedAnnouncement.category}
-                </Badge>
-                {selectedAnnouncement.isPinned && (
-                  <Badge
-                    color="gray"
-                    size="lg"
-                    leftSection={<IconPin size={12} />}
-                  >
-                    Pinned
-                  </Badge>
-                )}
-              </Group>
-
-              <Title
-                order={1}
-                size="h1"
-                ta="center"
-                style={{ lineHeight: 1.2 }}
-              >
-                {selectedAnnouncement.title}
-              </Title>
-
-              <Text size="xl" c="dimmed" ta="center" style={{ maxWidth: 600 }}>
-                {selectedAnnouncement.content.length > 200
-                  ? `${selectedAnnouncement.content.substring(0, 200)}...`
-                  : selectedAnnouncement.content}
-              </Text>
-            </Stack>
-
-            {/* Author Info */}
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
-              <Flex justify="space-between" align="center">
-                <Group gap="md">
-                  <Avatar size="lg" radius="xl">
-                    {selectedAnnouncement.author.charAt(0).toUpperCase()}
-                  </Avatar>
-                  <div>
-                    <Text fw={600}>{selectedAnnouncement.author}</Text>
-                    <Text size="sm" c="dimmed">
-                      {selectedAnnouncement.authorEmail}
-                    </Text>
-                  </div>
-                </Group>
-                <Stack gap={4} align="flex-end">
-                  <Group gap={4}>
-                    <IconCalendar size={16} />
-                    <Text size="sm" c="dimmed">
-                      {formatDate(selectedAnnouncement.createdAt)}
-                    </Text>
-                  </Group>
-                  <Group gap={4}>
-                    <IconClock size={16} />
-                    <Text size="sm" c="dimmed">
-                      Priority: {selectedAnnouncement.priority}
-                    </Text>
-                  </Group>
-                </Stack>
-              </Flex>
-            </Card>
-
-            {/* Featured Image */}
-            {selectedAnnouncement.imageUrl && (
-              <Image
-                src={selectedAnnouncement.imageUrl || "/placeholder.svg"}
-                alt={selectedAnnouncement.title}
-                radius="md"
-                h={400}
-                fit="cover"
-                style={{
-                  height: "200px",
-                  "@media (min-width: 768px)": {
-                    height: "400px",
-                  },
-                }}
-              />
-            )}
-
-            {/* Content */}
-            <Paper p="xl" radius="md">
-              <Text size="lg" style={{ lineHeight: 1.6 }}>
-                {selectedAnnouncement.content}
-              </Text>
-            </Paper>
-
-            {/* Action Section */}
-            {user && (
-              <Card
-                shadow="sm"
-                padding="lg"
-                radius="md"
-                style={{
-                  backgroundColor: hasUserRead(selectedAnnouncement)
-                    ? "var(--mantine-color-green-6)"
-                    : "var(--mantine-color-blue-6)",
-                  color: "white",
-                }}
-              >
-                <Stack gap="md" align="center">
-                  <Title order={3} c="white">
-                    {hasUserRead(selectedAnnouncement)
-                      ? "Thank You!"
-                      : "Action Required"}
-                  </Title>
-                  <Text c="white" opacity={0.9} ta="center">
-                    {hasUserRead(selectedAnnouncement)
-                      ? "You have already read this announcement."
-                      : "Please confirm that you have read and understood this announcement."}
-                  </Text>
-                  {!hasUserRead(selectedAnnouncement) && (
-                    <Button
-                      size="lg"
-                      variant="white"
-                      color="blue"
-                      rightSection={<IconArrowRight size={16} />}
-                      onClick={() => markAsRead(selectedAnnouncement._id)}
-                    >
-                      Mark as Read & Acknowledge
-                    </Button>
-                  )}
-                </Stack>
-              </Card>
-            )}
-
-            {/* Social Actions */}
-            <div>
-              <Divider />
-              <Flex justify="space-between" align="center" pt="md">
-                <Group gap="xs">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    leftSection={<IconShare size={16} />}
-                  >
-                    Share
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    leftSection={<IconBookmark size={16} />}
-                  >
-                    Save
-                  </Button>
-                </Group>
-                <Text size="sm" c="dimmed">
-                  {selectedAnnouncement.readBy.length} residents have read this
-                  announcement
-                </Text>
-              </Flex>
-            </div>
-          </Stack>
-        </Container>
-      </AppShell>
-    );
-  }
-
-  // Main homepage view
   return (
-    <AppShell>
-      <AppShell.Header
-        p="md"
-        style={{ position: "sticky", top: 0, zIndex: 50 }}
-      >
-        <Container size="xl">
-          <Flex justify="space-between" align="center" h="100%">
-            <Group gap="xs">
-              <Home size={24} color="var(--mantine-color-blue-6)" />
-              <Title order={3}>SubdiviSync</Title>
-            </Group>
-            <Group gap="xl" visibleFrom="md">
-              <Anchor href="#features" size="sm" fw={500}>
-                Features
-              </Anchor>
-              <Anchor href="#announcements" size="sm" fw={500}>
-                Updates
-              </Anchor>
-              <Anchor href="#contact" size="sm" fw={500}>
-                Contact
-              </Anchor>
-            </Group>
-          </Flex>
-        </Container>
-      </AppShell.Header>
-
-      {/* Hero Section */}
-      <Box
-        py={60}
-        px="md"
-        style={{
-          background:
-            "linear-gradient(135deg, var(--mantine-color-blue-6) 0%, var(--mantine-color-cyan-5) 100%)",
-          "@media (min-width: 768px)": {
-            paddingTop: "100px",
-            paddingBottom: "100px",
-          },
-        }}
-      >
-        <Container size="lg">
-          <Stack gap="xl" align="center">
-            <Title order={1} ta="center" c="white" style={{ lineHeight: 1.1 }}>
-              Your Subdivision,{" "}
-              <Text component="span" c="blue.2" inherit>
-                {" "}
-                Connected
-              </Text>
-            </Title>
-
-            <Text
-              c="blue.1"
-              ta="center"
-              style={{ maxWidth: 700, lineHeight: 1.6 }}
-            >
-              SubdiviSync brings your community together with seamless
-              communication, property management, and neighborhood services.
-              Stay connected, stay informed, stay secure.
-            </Text>
-
-            <Group gap="md" pt="md" justify="center">
-              <Button
-                color="blue"
-                variant="white"
-                c="blue"
-                rightSection={<IconArrowRight size={20} />}
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+      <div className="relative">
+        {images.length === 0 ? (
+          <div className="w-full h-48 bg-purple-100" />
+        ) : (
+          <>
+            <div className="overflow-hidden w-full h-48">
+              <div
+                className="flex transition-transform duration-300"
+                style={{ transform: `translateX(-${currentIndex * 100}%)` }}
               >
-                <Link href={"/login"}>Join Your Community</Link>
-              </Button>
-              <Button
-                variant="outline"
-                c="white"
-                style={{ borderColor: "white" }}
-              >
-                Learn More
-              </Button>
-            </Group>
-          </Stack>
-        </Container>
-      </Box>
-
-      {/* Stats Section */}
-      <Box
-        py={40}
-        px="md"
-        style={{
-          backgroundColor: "var(--mantine-color-gray-0)",
-          "@media (min-width: 768px)": {
-            paddingTop: "64px",
-            paddingBottom: "64px",
-          },
-        }}
-      >
-        <Container size="xl">
-          <Grid gutter="md">
-            <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
-              <Stack gap="xs" align="center">
-                <IconHome size={32} color="var(--mantine-color-blue-6)" />
-                <Title order={2} c="blue">
-                  500+
-                </Title>
-                <Text c="dimmed" ta="center" size="sm">
-                  Connected Properties
-                </Text>
-              </Stack>
-            </Grid.Col>
-            <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
-              <Stack gap="xs" align="center">
-                <IconUsers size={32} color="var(--mantine-color-blue-6)" />
-                <Title order={2} c="blue">
-                  1,200+
-                </Title>
-                <Text c="dimmed" ta="center" size="sm">
-                  Active Residents
-                </Text>
-              </Stack>
-            </Grid.Col>
-            <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
-              <Stack gap="xs" align="center">
-                <IconShield size={32} color="var(--mantine-color-blue-6)" />
-                <Title order={2} c="blue">
-                  24/7
-                </Title>
-                <Text c="dimmed" ta="center" size="sm">
-                  Security Monitoring
-                </Text>
-              </Stack>
-            </Grid.Col>
-            <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
-              <Stack gap="xs" align="center">
-                <IconBell size={32} color="var(--mantine-color-blue-6)" />
-                <Title order={2} c="blue">
-                  {announcements.length}
-                </Title>
-                <Text c="dimmed" ta="center" size="sm">
-                  Recent Updates
-                </Text>
-              </Stack>
-            </Grid.Col>
-          </Grid>
-        </Container>
-      </Box>
-
-      {/* Features Section */}
-      <Box
-        id="features"
-        py={60}
-        px="md"
-        style={{
-          "@media (min-width: 768px)": {
-            paddingTop: "80px",
-            paddingBottom: "80px",
-          },
-        }}
-      >
-        <Container size="xl">
-          <Stack gap="xl" align="center" mb="xl">
-            <Title
-              order={2}
-              size="2rem"
-              ta="center"
-              style={{
-                "@media (min-width: 768px)": {
-                  fontSize: "2.5rem",
-                },
-              }}
-            >
-              Everything Your Community Needs
-            </Title>
-            <Text size="md" c="dimmed" ta="center" style={{ maxWidth: 600 }}>
-              From announcements to security, property management to community
-              events - we&#39;ve got your subdivision covered.
-            </Text>
-          </Stack>
-
-          <Grid gutter="md">
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <Card
-                shadow="md"
-                padding="lg"
-                radius="md"
-                h="100%"
-                style={{
-                  background:
-                    "linear-gradient(135deg, var(--mantine-color-blue-0) 0%, var(--mantine-color-blue-1) 100%)",
-                }}
-              >
-                <Stack gap="md" align="center" h="100%">
-                  <IconSpeakerphone
-                    size={48}
-                    color="var(--mantine-color-blue-6)"
+                {images.map((img) => (
+                  <Image
+                    key={img.publicId}
+                    src={img.url}
+                    alt={announcement.title}
+                    className="w-full h-48 object-cover flex-shrink-0"
                   />
-                  <Title order={3} ta="center" size="h4">
-                    Community Announcements
-                  </Title>
-                  <Text c="dimmed" ta="center" style={{ flex: 1 }} size="sm">
-                    Stay informed with real-time updates from your homeowners
-                    association, security alerts, and community events.
-                  </Text>
-                </Stack>
-              </Card>
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <Card
-                shadow="md"
-                padding="lg"
-                radius="md"
-                h="100%"
-                style={{
-                  background:
-                    "linear-gradient(135deg, var(--mantine-color-blue-0) 0%, var(--mantine-color-blue-1) 100%)",
-                }}
-              >
-                <Stack gap="md" align="center" h="100%">
-                  <IconBuilding size={48} color="var(--mantine-color-blue-6)" />
-                  <Title order={3} ta="center" size="h4">
-                    Property Management
-                  </Title>
-                  <Text c="dimmed" ta="center" style={{ flex: 1 }} size="sm">
-                    Manage your property details, track maintenance requests,
-                    and communicate with property managers seamlessly.
-                  </Text>
-                </Stack>
-              </Card>
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <Card
-                shadow="md"
-                padding="lg"
-                radius="md"
-                h="100%"
-                style={{
-                  background:
-                    "linear-gradient(135deg, var(--mantine-color-blue-0) 0%, var(--mantine-color-blue-1) 100%)",
-                }}
-              >
-                <Stack gap="md" align="center" h="100%">
-                  <IconShield size={48} color="var(--mantine-color-blue-6)" />
-                  <Title order={3} ta="center" size="h4">
-                    Security & Safety
-                  </Title>
-                  <Text c="dimmed" ta="center" style={{ flex: 1 }} size="sm">
-                    Enhanced security features with visitor management, incident
-                    reporting, and emergency notification systems.
-                  </Text>
-                </Stack>
-              </Card>
-            </Grid.Col>
-          </Grid>
-        </Container>
-      </Box>
-
-      {/* Announcements Section */}
-      <Box
-        id="announcements"
-        py={60}
-        px="md"
-        style={{
-          backgroundColor: "var(--mantine-color-gray-0)",
-          "@media (min-width: 768px)": {
-            paddingTop: "80px",
-            paddingBottom: "80px",
-          },
-        }}
-      >
-        <Container size="xl">
-          <Stack gap="xl" align="center" mb="xl">
-            <Title
-              order={2}
-              size="2rem"
-              style={{
-                "@media (min-width: 768px)": {
-                  fontSize: "2.5rem",
-                },
-              }}
-            >
-              Latest Community Updates
-            </Title>
-            <Text size="md" c="dimmed">
-              Stay informed with the most recent news from your subdivision
-            </Text>
-          </Stack>
-
-          {loading ? (
-            <Center py={48}>
-              <Stack gap="md" align="center">
-                <Loader size="lg" />
-                <Text c="dimmed">Loading community updates...</Text>
-              </Stack>
-            </Center>
-          ) : error ? (
-            <Alert icon={<IconAlertCircle size={16} />} color="red">
-              {error}
-            </Alert>
-          ) : announcements.length === 0 ? (
-            <Center py={48}>
-              <Stack gap="md" align="center">
-                <IconSpeakerphone
-                  size={64}
-                  color="var(--mantine-color-gray-5)"
-                />
-                <Title order={3}>No announcements yet</Title>
-                <Text c="dimmed">Check back soon for community updates</Text>
-              </Stack>
-            </Center>
-          ) : (
-            <Stack gap="lg">
-              {announcements.map((announcement) => (
-                <Card
-                  key={announcement._id}
-                  shadow="sm"
-                  padding="lg"
-                  radius="md"
-                  withBorder
-                  style={{
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                    borderLeft: announcement.isPinned
-                      ? "4px solid var(--mantine-color-blue-6)"
-                      : undefined,
-                  }}
-                  onClick={() => setSelectedAnnouncement(announcement)}
+                ))}
+              </div>
+            </div>
+            {images.length > 1 && (
+              <>
+                <button
+                  onClick={prev}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/70 p-1 rounded-full hover:bg-white/90"
                 >
-                  <Stack gap="md">
-                    <Flex justify="space-between" align="flex-start" gap="md">
-                      <Stack gap="sm" style={{ flex: 1 }}>
-                        <Group gap="xs">
-                          <Badge
-                            color={getPriorityColor(announcement.priority)}
-                          >
-                            {getCategoryIcon(announcement.category)}{" "}
-                            {announcement.category}
-                          </Badge>
-                          {announcement.isPinned && (
-                            <Badge
-                              color="gray"
-                              leftSection={<IconPin size={12} />}
-                            >
-                              Pinned
-                            </Badge>
-                          )}
-                          {user && !hasUserRead(announcement) && (
-                            <Badge variant="outline" color="red">
-                              New
-                            </Badge>
-                          )}
-                        </Group>
-                        <Title order={3} style={{ lineHeight: 1.3 }}>
-                          {announcement.title}
-                        </Title>
-                      </Stack>
-                    </Flex>
-
-                    <Text c="dimmed" size="md" lineClamp={2}>
-                      {announcement.content}
-                    </Text>
-
-                    <Flex justify="space-between" align="center">
-                      <Group gap="md">
-                        <Avatar size="sm" radius="xl">
-                          {announcement.author.charAt(0).toUpperCase()}
-                        </Avatar>
-                        <div>
-                          <Text size="sm" fw={500}>
-                            {announcement.author}
-                          </Text>
-                          <Group gap={4}>
-                            <IconCalendar size={12} />
-                            <Text size="xs" c="dimmed">
-                              {formatDate(announcement.createdAt)}
-                            </Text>
-                          </Group>
-                        </div>
-                      </Group>
-
-                      <Button
-                        variant="subtle"
-                        size="sm"
-                        rightSection={<IconArrowRight size={14} />}
-                      >
-                        Read More
-                      </Button>
-                    </Flex>
-                  </Stack>
-                </Card>
-              ))}
-            </Stack>
-          )}
-        </Container>
-      </Box>
-
-      {/* CTA Section */}
-      <Box
-        py={60}
-        px="md"
-        style={{
-          background:
-            "linear-gradient(135deg, var(--mantine-color-blue-7) 0%, var(--mantine-color-blue-6) 100%)",
-          "@media (min-width: 768px)": {
-            paddingTop: "80px",
-            paddingBottom: "80px",
-          },
-        }}
-      >
-        <Container size="lg">
-          <Stack gap="xl" align="center">
-            <Title
-              order={2}
-              size="2rem"
-              ta="center"
-              c="white"
-              style={{
-                lineHeight: 1.2,
-                "@media (min-width: 768px)": {
-                  fontSize: "2.5rem",
-                },
-              }}
-            >
-              Ready to Connect Your Community?
-            </Title>
-
-            <Text
-              size="md"
-              c="blue.1"
-              ta="center"
-              style={{ maxWidth: 600, lineHeight: 1.6 }}
-            >
-              Join thousands of residents who have transformed their subdivision
-              experience with SubdiviSync. Better communication, enhanced
-              security, stronger community bonds.
-            </Text>
-
-            <Group gap="md" pt="md" justify="center">
-              <Button
-                size="lg"
-                color="blue"
-                variant="white"
-                c="blue"
-                rightSection={<IconArrowRight size={20} />}
-              >
-                Get Started Today
-              </Button>
-              <Button
-                variant="outline"
-                c="white"
-                style={{ borderColor: "white" }}
-              >
-                Schedule Demo
-              </Button>
-            </Group>
-          </Stack>
-        </Container>
-      </Box>
-    </AppShell>
+                  <ArrowLeftIcon />
+                </button>
+                <button
+                  onClick={next}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/70 p-1 rounded-full hover:bg-white/90"
+                >
+                  <ArrowRightIcon />
+                </button>
+              </>
+            )}
+          </>
+        )}
+        <Badge className="absolute top-3 left-3 bg-blue-600 text-white">
+          {announcement.category}
+        </Badge>
+        <Badge className={`absolute top-3 right-3 ${priorityColor} text-white`}>
+          {announcement.priority}
+        </Badge>
+      </div>
+      <CardContent className="p-4">
+        <h3 className="font-semibold text-gray-900 mb-2">
+          {announcement.title}
+        </h3>
+        <p className="text-gray-500 text-sm leading-5 mb-2">
+          {announcement.content}
+        </p>
+        <div className="text-sm text-gray-400">
+          Posted on {new Date(announcement.scheduledDate).toLocaleDateString()}
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
-export default HomePageWidgets;
+export default function HomePage() {
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        const response = await fetch("/api/announcements");
+        const data = await response.json();
+        if (data.success) {
+          const currentDate = new Date("2025-09-28");
+          const filtered = data.announcements.filter(
+            (ann: Announcement) => new Date(ann.scheduledDate) <= currentDate
+          );
+          filtered.sort(
+            (a: Announcement, b: Announcement) =>
+              new Date(b.scheduledDate).getTime() -
+              new Date(a.scheduledDate).getTime()
+          );
+          setAnnouncements(filtered);
+        }
+      } catch (err) {
+        console.error("Failed to fetch announcements");
+      }
+    };
+    fetchAnnouncements();
+  }, []);
+
+  const propertyTypes = [
+    { icon: Home, label: "House", count: "2340 PROPERTIES" },
+    { icon: Building2, label: "Villa", count: "2145 PROPERTIES" },
+    { icon: Building2, label: "Condo", count: "924 PROPERTIES" },
+  ];
+
+  const differentiators = [
+    {
+      icon: Users,
+      title: "Expert Advice",
+      description:
+        "Our property has been designed with attention to every detail, both commercial and client.",
+    },
+    {
+      icon: Shield,
+      title: "Exclusive Property",
+      description:
+        "All our properties have been designed to be exclusive to every client, both commercial and client.",
+    },
+    {
+      icon: Globe,
+      title: "Global Network",
+      description:
+        "Access to our extensive network of properties worldwide with local expertise.",
+    },
+  ];
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="border-b bg-white sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <Home className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-xl font-bold text-gray-900">
+                Subdivisync{" "}
+              </span>
+            </div>
+
+            <nav className="hidden md:flex items-center space-x-8">
+              <a
+                href="#"
+                className="text-gray-900 font-medium hover:text-blue-600"
+              >
+                Home
+              </a>
+              <a href="#" className="text-gray-600 hover:text-blue-600">
+                For Rent
+              </a>
+              <a href="#" className="text-gray-600 hover:text-blue-600">
+                For Buy
+              </a>
+              <a href="#" className="text-gray-600 hover:text-blue-600">
+                Services
+              </a>
+              <a href="#" className="text-gray-600 hover:text-blue-600">
+                About Us
+              </a>
+            </nav>
+
+            <div className="flex items-center space-x-3">
+              <Button variant="ghost" className="text-gray-600">
+                Log In
+              </Button>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                Register
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="relative bg-gradient-to-br from-gray-50 to-white py-20">
+        <div className="container mx-auto px-4">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="space-y-8">
+              <div className="space-y-6">
+                <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight text-balance">
+                  Find a Perfect Property to Suit Your Lifestyle
+                </h1>
+                <p className="text-lg text-gray-600 leading-relaxed">
+                  Seamlessly blend life and living. Discover a property that
+                  complements your rhythm, turning every moment into a
+                  reflection of your lifestyle.
+                </p>
+              </div>
+
+              {/* Property Types */}
+              <div className="flex flex-wrap gap-4">
+                {propertyTypes.map((type, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center space-x-3 bg-white p-4 rounded-lg shadow-sm border"
+                  >
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <type.icon className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-gray-900">
+                        {type.label}
+                      </div>
+                      <div className="text-sm text-gray-500">{type.count}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="text-center">
+                <p className="text-gray-500 mb-2">Scroll down to explore</p>
+                <ChevronDown className="w-5 h-5 text-gray-400 mx-auto animate-bounce" />
+              </div>
+            </div>
+
+            <div className="relative">
+              <Image
+                src="/modern-house.jpg"
+                alt="Modern luxury property"
+                className="w-full h-auto rounded-2xl shadow-2xl"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Announcements Section */}
+      <section className="py-16 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900">Announcements</h2>
+            <Button
+              variant="ghost"
+              className="text-blue-600 hover:text-blue-700"
+            >
+              See More <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {announcements.map((announcement) => (
+              <AnnouncementCard
+                key={announcement._id}
+                announcement={announcement}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Popular Properties */}
+      {/* <section className="py-16 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900">
+              Popular Property
+            </h2>
+            <Button
+              variant="ghost"
+              className="text-blue-600 hover:text-blue-700"
+            >
+              See More <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {featuredProperties.map((property) => (
+              <Card
+                key={property.id}
+                className="overflow-hidden hover:shadow-lg transition-shadow"
+              >
+                <div className="relative">
+                  <img
+                    src={property.image}
+                    alt={property.title}
+                    className="w-full h-48 object-cover"
+                  />
+                  <Badge className="absolute top-3 left-3 bg-blue-600 text-white">
+                    {property.type}
+                  </Badge>
+                </div>
+                <CardContent className="p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-semibold text-gray-900">
+                      {property.title}
+                    </h3>
+                    <span className="text-lg font-bold text-blue-600">
+                      {property.price}
+                    </span>
+                  </div>
+                  <div className="flex items-center text-gray-500 text-sm">
+                    <MapPin className="w-4 h-4 mr-1" />
+                    {property.location}
+                  </div>
+                  <div className="flex justify-between items-center mt-4">
+                    <div className="flex items-center">
+                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                      <span className="text-sm text-gray-600 ml-1">4.8</span>
+                    </div>
+                    <Button size="sm" variant="outline">
+                      View Details
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section> */}
+
+      {/* Statistics Section */}
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="space-y-6">
+              <h2 className="text-4xl font-bold text-gray-900 text-balance">
+                Take a big step into the future of living
+              </h2>
+              <p className="text-gray-600 leading-relaxed">
+                Our approach goes beyond transactions through transparent
+                dealings, ethical practices, and a genuine commitment to client
+                satisfaction. We prioritize building lasting relationships over
+                quick sales ventures. With a rich legacy of excellence, we have
+                consistently surpassed industry standards to redefine the art of
+                property acquisition and sales.
+              </p>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                Learn More <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <Card className="p-6 text-center bg-blue-600 text-white">
+                <div className="text-3xl font-bold mb-2">3500+</div>
+                <div className="text-blue-100">Happy Customer</div>
+              </Card>
+              <Card className="p-6 text-center bg-gray-900 text-white">
+                <div className="text-3xl font-bold mb-2">15+</div>
+                <div className="text-gray-300">Years Experience</div>
+              </Card>
+              <Card className="p-6 text-center border-2 border-gray-200">
+                <div className="text-3xl font-bold mb-2 text-gray-900">
+                  10,000+
+                </div>
+                <div className="text-gray-600">Property Ready</div>
+              </Card>
+              <Card className="p-6 text-center border-2 border-gray-200">
+                <div className="text-3xl font-bold mb-2 text-gray-900">
+                  500+
+                </div>
+                <div className="text-gray-600">Financing Assistance</div>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Differentiators Section */}
+      <section className="py-16 bg-gray-900 text-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">
+              What are Our Differentiation?
+            </h2>
+            <p className="text-gray-300 max-w-2xl mx-auto">
+              Our properties has been designed with attention to every detail,
+              both commercial and client.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {differentiators.map((item, index) => (
+              <Card key={index} className="bg-gray-800 border-gray-700 p-6">
+                <CardContent className="p-0">
+                  <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
+                    <item.icon className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-3">
+                    {item.title}
+                  </h3>
+                  <p className="text-gray-300 leading-relaxed">
+                    {item.description}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white py-12">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <Home className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-xl font-bold">Subdivisync</span>
+              </div>
+              <p className="text-gray-400">
+                Your trusted partner in finding the perfect property that suits
+                your lifestyle.
+              </p>
+            </div>
+
+            <div>
+              <h4 className="font-semibold mb-4">Quick Links</h4>
+              <ul className="space-y-2 text-gray-400">
+                <li>
+                  <a href="#" className="hover:text-white">
+                    Home
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-white">
+                    Properties
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-white">
+                    Services
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-white">
+                    About Us
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-semibold mb-4">Services</h4>
+              <ul className="space-y-2 text-gray-400">
+                <li>
+                  <a href="#" className="hover:text-white">
+                    Buy Property
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-white">
+                    Rent Property
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-white">
+                    Property Management
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-white">
+                    Investment
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-semibold mb-4">Contact</h4>
+              <ul className="space-y-2 text-gray-400">
+                <li>123 Real Estate St.</li>
+                <li>City, State 12345</li>
+                <li>Phone: (555) 123-4567</li>
+                <li>Email: info@Subdivisync.com</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+            <p>&copy; 2025 Subdivisync. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}

@@ -24,6 +24,9 @@ import {
   IconDots,
 } from "@tabler/icons-react";
 import { LineChart, BarChart, PieChart } from "@mantine/charts";
+import { useEffect } from "react";
+import { getServerSession } from "@/better-auth/action";
+import { useRouter } from "next/navigation";
 
 const stats = [
   {
@@ -80,6 +83,18 @@ const occupancyData = [
 ];
 
 export default function Dashboard() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      const session = await getServerSession();
+      if (session?.user?.role !== "admin") {
+        router.push("/tenant-dashboard");
+      }
+    };
+    fetchSession();
+  }, []);
+
   return (
     <Container size="xl" px="md">
       <Stack gap="xl">

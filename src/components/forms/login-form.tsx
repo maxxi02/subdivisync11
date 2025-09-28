@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Button,
@@ -15,6 +15,8 @@ import {
 import { IconAlertCircle } from "@tabler/icons-react";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client"; // Adjust path as needed
+import { getServerSession } from "@/better-auth/action";
+import { Session } from "@/better-auth/auth-types";
 
 interface FormData {
   email: string;
@@ -32,6 +34,19 @@ export function LoginForm() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>("");
+  const [session, setSession] = useState<Session | null>(null);
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      const session = await getServerSession();
+      setSession(session);
+    };
+    fetchSession();
+
+    if (session?.session.token) {
+      router.replace("/dashboard");
+    }
+  }, [session]);
 
   const handleInputChange = (
     field: keyof FormData,
@@ -88,6 +103,14 @@ export function LoginForm() {
               context.error.message ||
                 "Sign in failed. Please check your credentials."
             );
+
+            if (context.error.status === 403) {
+              alert("Please verify your email address");
+              await authClient.sendVerificationEmail({
+                email: formData.email,
+                callbackURL: "/login",
+              });
+            }
           },
         }
       );
@@ -187,7 +210,7 @@ export function LoginForm() {
             Sign In
           </Button>
 
-          <Text ta="center" size="sm" c="dimmed">
+          {/* <Text ta="center" size="sm" c="dimmed">
             Don&#39;t have an account?{" "}
             <Link
               href="/register"
@@ -195,7 +218,7 @@ export function LoginForm() {
             >
               Register
             </Link>
-          </Text>
+          </Text> */}
         </Stack>
       </form>
     </Paper>

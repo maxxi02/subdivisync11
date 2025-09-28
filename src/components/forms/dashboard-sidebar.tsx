@@ -131,7 +131,7 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
     {
       icon: IconDashboard,
       label: "Dashboard",
-      href: "/dashboard",
+      href: "/tenant-dashboard",
       description: "Home & Updates",
     },
     {

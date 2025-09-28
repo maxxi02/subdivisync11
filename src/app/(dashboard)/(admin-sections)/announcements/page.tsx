@@ -1,408 +1,500 @@
 "use client";
-
-import React, { useState, useEffect } from "react";
-import {
-  Container,
-  Title,
-  Button,
-  Group,
-  Stack,
-  Card,
-  Text,
-  Badge,
-  TextInput,
-  Select,
-  Paper,
-  ActionIcon,
-  Menu,
-  Alert,
-  Tooltip,
-  Image,
-  Avatar,
-  Divider,
-  Collapse,
-  LoadingOverlay,
-} from "@mantine/core";
-import {
-  IconSpeakerphone,
-  IconPlus,
-  IconSearch,
-  IconFilter,
-  IconDotsVertical,
-  IconEdit,
-  IconTrash,
-  IconPin,
-  IconChevronDown,
-  IconChevronUp,
-  IconBell,
-  IconCalendar,
-  IconTools,
-  IconUsers,
-  IconAlertTriangle,
-  IconInfoCircle,
-  IconPinnedOff,
-} from "@tabler/icons-react";
-import CreateAnnouncementForm from "./_components/create-announcement-form";
+import { getServerSession } from "@/better-auth/action";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import { Badge } from "@/components/ui/badge";
 
 interface Announcement {
   _id: string;
   title: string;
   content: string;
-  category: "maintenance" | "event" | "general" | "urgent" | "community";
-  priority: "low" | "medium" | "high" | "urgent";
-  isPinned: boolean;
-  imageUrl?: string;
-  author: string;
-  authorId: string;
-  createdAt: string;
-  updatedAt: string;
-  readBy: Array<{
-    userId: string;
-    userEmail: string;
-    readAt: string;
-  }>;
+  category: string;
+  priority: "low" | "medium" | "high";
+  scheduledDate: string;
+  images: { url: string; publicId: string }[];
+  created_by: string;
+  created_at: string;
+  updated_at?: string;
 }
 
-const AdminAnnouncementsPage: React.FC = () => {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>("");
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string | null>("");
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+const AnnouncementCard = ({
+  announcement,
+  onEdit,
+  onDelete,
+}: {
+  announcement: Announcement;
+  onEdit: (announcement: Announcement) => void;
+  onDelete: (id: string) => void;
+}) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const images = announcement.images;
 
-  useEffect(() => {
-    fetchAnnouncements();
-  }, []);
-
-  const fetchAnnouncements = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch("/api/announcements");
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch announcements");
-      }
-
-      setAnnouncements(data.announcements);
-    } catch (error) {
-      setError((error as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case "maintenance":
-        return <IconTools size={16} />;
-      case "event":
-        return <IconCalendar size={16} />;
-      case "urgent":
-        return <IconAlertTriangle size={16} />;
-      case "community":
-        return <IconUsers size={16} />;
-      default:
-        return <IconInfoCircle size={16} />;
-    }
-  };
-
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "maintenance":
-        return "orange";
-      case "event":
-        return "green";
-      case "urgent":
-        return "red";
-      case "community":
-        return "blue";
-      default:
-        return "gray";
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "urgent":
-        return "red";
-      case "high":
-        return "orange";
-      case "medium":
-        return "yellow";
-      default:
-        return "gray";
-    }
-  };
-
-  const toggleExpanded = (id: string) => {
-    const newExpanded = new Set(expandedItems);
-    if (newExpanded.has(id)) {
-      newExpanded.delete(id);
-    } else {
-      newExpanded.add(id);
-    }
-    setExpandedItems(newExpanded);
-  };
-
-  const togglePin = async (
-    announcementId: string,
-    currentPinStatus: boolean
-  ) => {
-    try {
-      const response = await fetch("/api/announcements", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          id: announcementId,
-          isPinned: !currentPinStatus,
-        }),
-      });
-
-      if (response.ok) {
-        fetchAnnouncements();
-      }
-    } catch (error) {
-      console.error("Error toggling pin:", error);
-    }
-  };
-
-  const filteredAnnouncements = announcements
-    .filter(
-      (ann) =>
-        ann.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ann.content.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .filter((ann) => !categoryFilter || ann.category === categoryFilter)
-    .sort((a, b) => {
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
+  const prev = () =>
+    setCurrentIndex((i) => (i === 0 ? images.length - 1 : i - 1));
+  const next = () =>
+    setCurrentIndex((i) => (i === images.length - 1 ? 0 : i + 1));
 
   return (
-    <Container size="lg" px={0}>
-      <LoadingOverlay visible={loading} />
-
-      <Paper shadow="sm" p="xl" radius="md">
-        <Group justify="space-between" mb="xl">
-          <Group>
-            <IconSpeakerphone size={28} />
-            <div>
-              <Title order={2}>Manage Announcements</Title>
-              <Text size="sm" c="dimmed">
-                Create and manage subdivision announcements
-              </Text>
-            </div>
-          </Group>
-          <Button
-            leftSection={<IconPlus size="1rem" />}
-            onClick={() => setCreateModalOpen(true)}
-          >
-            New Announcement
-          </Button>
-        </Group>
-
-        {error && (
-          <Alert color="red" mb="md">
-            {error}
-          </Alert>
-        )}
-
-        <Group mb="lg">
-          <TextInput
-            placeholder="Search announcements..."
-            leftSection={<IconSearch size={16} />}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.currentTarget.value)}
-            style={{ flex: 1 }}
-          />
-          <Select
-            placeholder="Filter by category"
-            leftSection={<IconFilter size={16} />}
-            data={[
-              { value: "", label: "All Categories" },
-              { value: "maintenance", label: "Maintenance" },
-              { value: "event", label: "Events" },
-              { value: "general", label: "General" },
-              { value: "urgent", label: "Urgent" },
-              { value: "community", label: "Community" },
-            ]}
-            value={categoryFilter}
-            onChange={setCategoryFilter}
-            clearable
-          />
-        </Group>
-
-        <Stack gap="md">
-          {filteredAnnouncements.map((announcement) => (
-            <Card
-              key={announcement._id}
-              shadow="sm"
-              padding="lg"
-              radius="md"
-              withBorder
-              style={{
-                borderLeft: `4px solid var(--mantine-color-${getPriorityColor(announcement.priority)}-6)`,
-              }}
+    <div className="max-w-7xl rounded-md bg-white shadow-sm border border-gray-100">
+      {images.length === 0 ? (
+        <div className="w-full h-[150px] bg-[#EFCDFF]" />
+      ) : (
+        <div className="relative">
+          <div className="overflow-hidden w-full h-[500px]">
+            <div
+              className="flex transition-transform duration-300 ease-in-out"
+              style={{ transform: `translateX(-${currentIndex * 100}%)` }}
             >
-              {announcement.imageUrl && (
-                <Image
-                  src={announcement.imageUrl}
+              {images.map((image) => (
+                <img
+                  key={image.publicId}
+                  src={image.url}
                   alt={announcement.title}
-                  height={200}
-                  radius="md"
-                  mb="md"
-                  fit="cover"
+                  className="w-full h-[500px] object-cover flex-shrink-0"
                 />
-              )}
-
-              <Group justify="space-between" mb="sm">
-                <Group>
-                  {announcement.isPinned && (
-                    <Tooltip label="Pinned announcement">
-                      <IconPin size={16} color="var(--mantine-color-red-6)" />
-                    </Tooltip>
-                  )}
-                  <Badge
-                    leftSection={getCategoryIcon(announcement.category)}
-                    color={getCategoryColor(announcement.category)}
-                    variant="light"
-                  >
-                    {announcement.category.charAt(0).toUpperCase() +
-                      announcement.category.slice(1)}
-                  </Badge>
-                  <Badge
-                    color={getPriorityColor(announcement.priority)}
-                    variant="outline"
-                    size="sm"
-                  >
-                    {announcement.priority.toUpperCase()}
-                  </Badge>
-                  <Badge color="blue" variant="light" size="sm">
-                    {announcement.readBy.length} reads
-                  </Badge>
-                </Group>
-                <Group>
-                  <Text size="sm" c="dimmed">
-                    {new Date(announcement.createdAt).toLocaleDateString()}
-                  </Text>
-                  <Menu>
-                    <Menu.Target>
-                      <ActionIcon variant="subtle">
-                        <IconDotsVertical size="1rem" />
-                      </ActionIcon>
-                    </Menu.Target>
-                    <Menu.Dropdown>
-                      <Menu.Item
-                        leftSection={
-                          announcement.isPinned ? (
-                            <IconPinnedOff size="1rem" />
-                          ) : (
-                            <IconPin size="1rem" />
-                          )
-                        }
-                        onClick={() =>
-                          togglePin(announcement._id, announcement.isPinned)
-                        }
-                      >
-                        {announcement.isPinned ? "Unpin" : "Pin"}
-                      </Menu.Item>
-                      <Menu.Item leftSection={<IconEdit size="1rem" />}>
-                        Edit
-                      </Menu.Item>
-                      <Menu.Divider />
-                      <Menu.Item
-                        leftSection={<IconTrash size="1rem" />}
-                        color="red"
-                      >
-                        Delete
-                      </Menu.Item>
-                    </Menu.Dropdown>
-                  </Menu>
-                </Group>
-              </Group>
-
-              <Title order={4} mb="xs">
-                {announcement.title}
-              </Title>
-
-              <Collapse in={expandedItems.has(announcement._id)}>
-                <Text size="sm" mb="md">
-                  {announcement.content}
-                </Text>
-                <Divider mb="sm" />
-                <Group justify="space-between">
-                  <Group>
-                    <Avatar size="sm" radius="xl">
-                      {announcement.author.charAt(0)}
-                    </Avatar>
-                    <Text size="sm" c="dimmed">
-                      Posted by {announcement.author}
-                    </Text>
-                  </Group>
-                </Group>
-              </Collapse>
-
-              <Group justify="space-between" mt="md">
-                <Text
-                  size="sm"
-                  c="dimmed"
-                  lineClamp={
-                    expandedItems.has(announcement._id) ? undefined : 2
-                  }
-                >
-                  {expandedItems.has(announcement._id)
-                    ? ""
-                    : announcement.content}
-                </Text>
-                <Button
-                  variant="subtle"
-                  size="sm"
-                  rightSection={
-                    expandedItems.has(announcement._id) ? (
-                      <IconChevronUp size={16} />
-                    ) : (
-                      <IconChevronDown size={16} />
-                    )
-                  }
-                  onClick={() => toggleExpanded(announcement._id)}
-                >
-                  {expandedItems.has(announcement._id)
-                    ? "Show Less"
-                    : "Read More"}
-                </Button>
-              </Group>
-            </Card>
-          ))}
-        </Stack>
-
-        {filteredAnnouncements.length === 0 && !loading && (
-          <Paper p="xl" ta="center">
-            <IconBell size={48} color="var(--mantine-color-gray-4)" />
-            <Title order={3} c="dimmed" mt="md">
-              No announcements found
-            </Title>
-            <Text c="dimmed">
-              {searchTerm || categoryFilter
-                ? "Try adjusting your search or filter criteria."
-                : "Create your first announcement to get started."}
-            </Text>
-          </Paper>
-        )}
-      </Paper>
-
-      <CreateAnnouncementForm
-        opened={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        onSuccess={fetchAnnouncements}
-      />
-    </Container>
+              ))}
+            </div>
+          </div>
+          {images.length > 1 && (
+            <>
+              <button
+                onClick={prev}
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/70 rounded-full p-1 hover:bg-white/90 text-black"
+              >
+                <IconChevronLeft />
+              </button>
+              <button
+                onClick={next}
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/70 rounded-full p-1 hover:bg-white/90 text-black"
+              >
+                <IconChevronRight />
+              </button>
+            </>
+          )}
+        </div>
+      )}
+      <div className="p-4">
+        <h3 className="text-gray-900 text-lg font-semibold leading-7">
+          {announcement.title}
+        </h3>
+        <p className="mt-2 text-gray-500 text-sm leading-5">
+          {announcement.content}
+        </p>
+        <p className="mt-2 text-sm text-gray-400">
+          Category:{" "}
+          <Badge className="bg-blue-500/90 border-none text-black">
+            {announcement.category}
+          </Badge>{" "}
+          | Priority:{" "}
+          <Badge className="bg-blue-500/90 border-none text-black">
+            {announcement.priority}
+          </Badge>{" "}
+          | Scheduled:{" "}
+          <Badge className="bg-blue-500/90 border-none text-black">
+            {new Date(announcement.scheduledDate).toLocaleDateString()}
+          </Badge>
+          {new Date(announcement.scheduledDate).toLocaleDateString()}
+        </p>
+        <div className="mt-4 flex gap-2">
+          <button
+            onClick={() => onEdit(announcement)}
+            className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600"
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => onDelete(announcement._id)}
+            className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
-export default AdminAnnouncementsPage;
+const ManageAnnouncementSection = () => {
+  const router = useRouter();
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [formData, setFormData] = useState({
+    id: "",
+    title: "",
+    content: "",
+    category: "",
+    priority: "low" as "low" | "medium" | "high",
+    scheduledDate: "",
+    images: [] as File[],
+    imagesToDelete: [] as string[],
+  });
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Check admin access
+  useEffect(() => {
+    const checkSession = async () => {
+      const session = await getServerSession();
+      if (!session || session.user.role !== "admin") {
+        setIsAdmin(false);
+        router.push("/dashboard");
+      } else {
+        setIsAdmin(true);
+      }
+    };
+    checkSession();
+  }, [router]);
+
+  // Fetch announcements
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch("/api/announcements?public=false");
+        const data = await response.json();
+        if (data.success) {
+          setAnnouncements(data.announcements);
+        } else {
+          setError(data.error || "Failed to fetch announcements");
+        }
+      } catch (err) {
+        setError("An error occurred while fetching announcements");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    if (isAdmin) {
+      fetchAnnouncements();
+    }
+  }, [isAdmin]);
+
+  // Handle form input changes
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Handle file input for images
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      setFormData((prev) => ({
+        ...prev,
+        images: [...prev.images, ...Array.from(files)],
+      }));
+    }
+  };
+
+  // Handle image deletion
+  const handleRemoveImage = (publicId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      imagesToDelete: [...prev.imagesToDelete, publicId],
+      images: prev.images.filter(
+        (_, i) => !prev.imagesToDelete.includes(publicId)
+      ),
+    }));
+  };
+
+  // Reset form
+  const resetForm = () => {
+    setFormData({
+      id: "",
+      title: "",
+      content: "",
+      category: "",
+      priority: "low",
+      scheduledDate: "",
+      images: [],
+      imagesToDelete: [],
+    });
+    setIsEditing(false);
+  };
+
+  // Handle form submission (create or update)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    const form = new FormData();
+    form.append("title", formData.title);
+    form.append("content", formData.content);
+    form.append("category", formData.category);
+    form.append("priority", formData.priority);
+    form.append("scheduledDate", formData.scheduledDate);
+    if (isEditing) {
+      form.append("id", formData.id);
+      form.append("imagesToDelete", JSON.stringify(formData.imagesToDelete));
+    }
+    formData.images.forEach((image) => form.append("images", image));
+
+    try {
+      const url = isEditing ? "/api/announcements" : "/api/announcements";
+      const method = isEditing ? "PUT" : "POST";
+      const response = await fetch(url, {
+        method,
+        body: form,
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        // Update local state
+        if (isEditing) {
+          setAnnouncements((prev) =>
+            prev.map((ann) =>
+              ann._id === data.announcement._id ? data.announcement : ann
+            )
+          );
+        } else {
+          setAnnouncements((prev) => [data.announcement, ...prev]);
+        }
+        resetForm();
+      } else {
+        setError(data.error || "Failed to save announcement");
+      }
+    } catch (err) {
+      setError("An error occurred while saving the announcement");
+    }
+  };
+
+  // Handle edit button click
+  const handleEdit = (announcement: Announcement) => {
+    setFormData({
+      id: announcement._id,
+      title: announcement.title,
+      content: announcement.content,
+      category: announcement.category,
+      priority: announcement.priority,
+      scheduledDate: new Date(announcement.scheduledDate)
+        .toISOString()
+        .split("T")[0],
+      images: [],
+      imagesToDelete: [],
+    });
+    setIsEditing(true);
+  };
+
+  // Handle delete button click
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this announcement?")) return;
+
+    try {
+      const response = await fetch(`/api/announcements?id=${id}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setAnnouncements((prev) => prev.filter((ann) => ann._id !== id));
+      } else {
+        setError(data.error || "Failed to delete announcement");
+      }
+    } catch (err) {
+      setError("An error occurred while deleting the announcement");
+    }
+  };
+
+  if (!isAdmin) {
+    return null; // Redirect handled by useEffect
+  }
+
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Manage Announcements</h1>
+
+      {/* Create/Edit Form */}
+      <form
+        onSubmit={handleSubmit}
+        className="mb-8 bg-white p-6 rounded shadow"
+      >
+        <h2 className="text-xl font-semibold mb-4">
+          {isEditing ? "Edit Announcement" : "Create Announcement"}
+        </h2>
+        {error && <p className="text-red-500 mb-4">{error}</p>}
+
+        <div className="mb-4">
+          <label htmlFor="title" className="block text-sm font-medium">
+            Title
+          </label>
+          <input
+            type="text"
+            id="title"
+            name="title"
+            value={formData.title}
+            onChange={handleInputChange}
+            required
+            className="mt-1 block w-full border rounded p-2"
+          />
+        </div>
+
+        <div className="mb-4">
+          <label htmlFor="content" className="block text-sm font-medium">
+            Content
+          </label>
+          <textarea
+            id="content"
+            name="content"
+            value={formData.content}
+            onChange={handleInputChange}
+            required
+            className="mt-1 block w-full border rounded p-2"
+            rows={4}
+          />
+        </div>
+
+        <div className="mb-4">
+          <label htmlFor="category" className="block text-sm font-medium">
+            Category
+          </label>
+          <input
+            type="text"
+            id="category"
+            name="category"
+            value={formData.category}
+            onChange={handleInputChange}
+            required
+            className="mt-1 block w-full border rounded p-2"
+          />
+        </div>
+
+        <div className="mb-4">
+          <label htmlFor="priority" className="block text-sm font-medium">
+            Priority
+          </label>
+          <select
+            id="priority"
+            name="priority"
+            value={formData.priority}
+            onChange={handleInputChange}
+            required
+            className="mt-1 block w-full border rounded p-2"
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+
+        <div className="mb-4">
+          <label htmlFor="scheduledDate" className="block text-sm font-medium">
+            Scheduled Date
+          </label>
+          <input
+            type="date"
+            id="scheduledDate"
+            name="scheduledDate"
+            value={formData.scheduledDate}
+            onChange={handleInputChange}
+            required
+            className="mt-1 block w-full border rounded p-2"
+          />
+        </div>
+
+        <div className="mb-4">
+          <label htmlFor="images" className="block text-sm font-medium">
+            Images
+          </label>
+          <input
+            type="file"
+            id="images"
+            name="images"
+            accept="image/jpeg,image/png,image/webp,image/jpg"
+            multiple
+            onChange={handleFileChange}
+            className="mt-1 block w-full"
+          />
+          <div className="mt-2 flex flex-wrap gap-2">
+            {formData.images.map((file, index) => (
+              <div key={index} className="relative">
+                <img
+                  src={URL.createObjectURL(file)}
+                  alt={`Preview ${index}`}
+                  className="w-24 h-24 object-cover rounded"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      images: prev.images.filter((_, i) => i !== index),
+                    }))
+                  }
+                  className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"
+                >
+                  &times;
+                </button>
+              </div>
+            ))}
+            {isEditing &&
+              announcements
+                .find((ann) => ann._id === formData.id)
+                ?.images.filter(
+                  (img) => !formData.imagesToDelete.includes(img.publicId)
+                )
+                .map((image) => (
+                  <div key={image.publicId} className="relative">
+                    <img
+                      src={image.url}
+                      alt="Existing image"
+                      className="w-24 h-24 object-cover rounded"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImage(image.publicId)}
+                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                ))}
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            {isEditing ? "Update" : "Create"} Announcement
+          </button>
+          {isEditing && (
+            <button
+              type="button"
+              onClick={resetForm}
+              className="bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      </form>
+
+      {/* Announcements List */}
+      <h2 className="text-xl font-semibold mb-4">Announcements</h2>
+      {isLoading ? (
+        <p>Loading...</p>
+      ) : announcements.length === 0 ? (
+        <p>No announcements found.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {announcements.map((announcement) => (
+            <AnnouncementCard
+              key={announcement._id}
+              announcement={announcement}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ManageAnnouncementSection;
