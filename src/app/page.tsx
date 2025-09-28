@@ -16,7 +16,7 @@ import {
   ArrowRightIcon,
 } from "lucide-react";
 import Image from "next/image";
-
+import { useRouter } from "next/navigation";
 interface Announcement {
   _id: string;
   title: string;
@@ -109,7 +109,7 @@ const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
 
 export default function HomePage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-
+  const router = useRouter();
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
@@ -198,11 +198,12 @@ export default function HomePage() {
             </nav>
 
             <div className="flex items-center space-x-3">
-              <Button variant="ghost" className="text-gray-600">
+              <Button
+                variant="ghost"
+                className="text-gray-600"
+                onClick={() => router.push("/login")}
+              >
                 Log In
-              </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                Register
               </Button>
             </div>
           </div>
