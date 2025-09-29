@@ -9,12 +9,15 @@ import {
   Stack,
   Badge,
   ActionIcon,
-  Progress,
   SimpleGrid,
   Container,
   Flex,
   Box,
   ThemeIcon,
+  Table,
+  Loader,
+  Center,
+  Notification,
 } from "@mantine/core";
 import {
   IconHome,
@@ -22,81 +25,440 @@ import {
   IconCurrencyDollar,
   IconTrendingUp,
   IconDots,
+  IconX,
+  IconCheck,
 } from "@tabler/icons-react";
 import { LineChart, BarChart, PieChart } from "@mantine/charts";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { getServerSession } from "@/better-auth/action";
 import { useRouter } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
 
-const stats = [
-  {
-    title: "Total Properties",
-    value: "24",
-    icon: IconHome,
-    color: "blue",
-    change: "+12%",
-  },
-  {
-    title: "Active Tenants",
-    value: "18",
-    icon: IconUsers,
-    color: "green",
-    change: "+5%",
-  },
-  {
-    title: "Monthly Revenue",
-    value: "$12,450",
-    icon: IconCurrencyDollar,
-    color: "yellow",
-    change: "+8%",
-  },
-  {
-    title: "Occupancy Rate",
-    value: "92%",
-    icon: IconTrendingUp,
-    color: "teal",
-    change: "+3%",
-  },
-];
+interface Property {
+  _id: string;
+  title: string;
+  location: string;
+  size: string;
+  price: number;
+  type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
+  status: "CREATED" | "UNDER_INQUIRY" | "APPROVED" | "REJECTED" | "LEASED";
+  images?: string[];
+  amenities: string[];
+  description?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  sqft?: number;
+  created_by: string;
+  created_at: Date;
+  updated_at?: Date;
+  owner?: {
+    fullName: string;
+    email: string;
+    phone?: string;
+    address?: string;
+    paymentStatus: "paid" | "partial" | "pending";
+    paymentMethod?: string;
+  };
+  inquiries?: {
+    fullName: string;
+    email: string;
+    phone: string;
+    reason: string;
+    submittedAt: string;
+    status: "pending" | "approved" | "rejected";
+  }[];
+}
 
-const tenantData = [
-  { month: "Jan", tenants: 12 },
-  { month: "Feb", tenants: 14 },
-  { month: "Mar", tenants: 16 },
-  { month: "Apr", tenants: 15 },
-  { month: "May", tenants: 17 },
-  { month: "Jun", tenants: 18 },
-];
+interface MonthlyPayment {
+  _id: string;
+  paymentPlanId: string;
+  propertyId: string;
+  tenantEmail: string;
+  monthNumber: number;
+  amount: number;
+  dueDate: string;
+  status: "pending" | "paid" | "overdue";
+  paymentIntentId?: string;
+  paidDate?: string;
+  paymentMethod?: string;
+  notes?: string;
+  receiptUrl?: string;
+  created_at: string;
+  updated_at: string;
+}
 
-const paymentData = [
-  { month: "Jan", payments: 8500 },
-  { month: "Feb", payments: 9200 },
-  { month: "Mar", payments: 10100 },
-  { month: "Apr", payments: 9800 },
-  { month: "May", payments: 11200 },
-  { month: "Jun", payments: 12450 },
-];
+interface Announcement {
+  _id: string;
+  title: string;
+  content: string;
+  category: string;
+  priority: "low" | "medium" | "high";
+  scheduledDate: Date;
+  images: { url: string; publicId: string }[];
+  created_by: string;
+  created_at: Date;
+  updated_at?: Date;
+}
 
-const occupancyData = [
-  { name: "Occupied", value: 18, color: "green.6" },
-  { name: "Vacant", value: 6, color: "red.6" },
-];
+interface Tenant {
+  _id: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  status: string;
+  created_at: string;
+}
+
+interface NotificationType {
+  type: "success" | "error";
+  message: string;
+}
 
 export default function Dashboard() {
   const router = useRouter();
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [payments, setPayments] = useState<MonthlyPayment[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState<NotificationType | null>(
+    null
+  );
+  const [stats, setStats] = useState([
+    {
+      title: "Total Properties",
+      value: "0",
+      icon: IconHome,
+      color: "blue",
+      change: "+0%",
+    },
+    {
+      title: "Active Tenants",
+      value: "0",
+      icon: IconUsers,
+      color: "green",
+      change: "+0%",
+    },
+    {
+      title: "Monthly Revenue",
+      value: "₱0", // Changed to PHP
+      icon: IconCurrencyDollar,
+      color: "yellow",
+      change: "+0%",
+    },
+    {
+      title: "Occupancy Rate",
+      value: "0%",
+      icon: IconTrendingUp,
+      color: "teal",
+      change: "+0%",
+    },
+  ]);
+  const [tenantData, setTenantData] = useState<
+    { month: string; tenants: number }[]
+  >([]);
+  const [paymentData, setPaymentData] = useState<
+    { month: string; payments: number }[]
+  >([]);
+  const [occupancyData, setOccupancyData] = useState([
+    { name: "Occupied", value: 0, color: "green.6" },
+    { name: "Vacant", value: 0, color: "red.6" },
+  ]);
+  const [recentActivity, setRecentActivity] = useState<
+    { text: string; time: string; status: string; color: string }[]
+  >([]);
 
   useEffect(() => {
     const fetchSession = async () => {
       const session = await getServerSession();
       if (session?.user?.role !== "admin") {
         router.push("/tenant-dashboard");
+      } else {
+        fetchAllData();
+        const interval = setInterval(fetchAllData, 30000);
+        return () => clearInterval(interval);
       }
     };
     fetchSession();
   }, []);
 
+  const showNotification = (type: "success" | "error", message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
+
+  const fetchAllData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchProperties(),
+        fetchPayments(),
+        fetchAnnouncements(),
+        fetchTenants(),
+      ]);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      showNotification(
+        "error",
+        "Failed to load dashboard data. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchProperties = async () => {
+    const res = await fetch("/api/properties?status=all");
+    if (!res.ok) throw new Error("Failed to fetch properties");
+    const data = await res.json();
+    setProperties(data.properties || []);
+  };
+
+  const fetchPayments = async () => {
+    const res = await fetch("/api/monthly-payments");
+    if (!res.ok) throw new Error("Failed to fetch payments");
+    const data = await res.json();
+    setPayments(data.payments || []);
+  };
+
+  const fetchAnnouncements = async () => {
+    const res = await fetch("/api/announcements?limit=10");
+    if (!res.ok) throw new Error("Failed to fetch announcements");
+    const data = await res.json();
+    setAnnouncements(data.announcements || []);
+  };
+
+  const fetchTenants = async () => {
+    const { data: users, error } = await authClient.admin.listUsers({
+      query: {
+        filterField: "role",
+        filterValue: "tenant",
+        filterOperator: "eq",
+        limit: 100,
+      },
+    });
+    if (error) throw new Error("Failed to fetch tenants");
+    const mappedTenants = (users.users || []).map((user) => ({
+      _id: user.id,
+      user_id: user.id,
+      user_name: user.name,
+      user_email: user.email,
+      status: "Active",
+      created_at: user.createdAt.toISOString(),
+    }));
+    setTenants(mappedTenants);
+  };
+
+  useEffect(() => {
+    if (properties.length > 0 || tenants.length > 0 || payments.length > 0) {
+      computeStats();
+      computeTenantData();
+      computePaymentData();
+      computeOccupancyData();
+      computeRecentActivity();
+    }
+  }, [properties, tenants, payments, announcements]);
+
+  const computeStats = () => {
+    const totalProperties = properties.length;
+    const activeTenants = tenants.filter((t) => t.status === "Active").length;
+    const occupied = properties.filter((p) => p.status === "LEASED").length;
+    const occupancyRate =
+      totalProperties > 0 ? Math.round((occupied / totalProperties) * 100) : 0;
+
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const monthlyRevenue = payments
+      .filter((p) => {
+        const paidDate = new Date(p.paidDate || p.dueDate);
+        return (
+          p.status === "paid" &&
+          paidDate.getMonth() === currentMonth &&
+          paidDate.getFullYear() === currentYear
+        );
+      })
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    setStats([
+      {
+        title: "Total Properties",
+        value: totalProperties.toString(),
+        icon: IconHome,
+        color: "blue",
+        change: "+0%",
+      },
+      {
+        title: "Active Tenants",
+        value: activeTenants.toString(),
+        icon: IconUsers,
+        color: "green",
+        change: "+0%",
+      },
+      {
+        title: "Monthly Revenue",
+        value: `₱${monthlyRevenue.toLocaleString("en-PH")}`, // Changed to PHP
+        icon: IconCurrencyDollar,
+        color: "yellow",
+        change: "+0%",
+      },
+      {
+        title: "Occupancy Rate",
+        value: `${occupancyRate}%`,
+        icon: IconTrendingUp,
+        color: "teal",
+        change: "+0%",
+      },
+    ]);
+  };
+
+  const computeTenantData = () => {
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const tenantCounts = Array(6).fill(0);
+    const now = new Date();
+    tenants.forEach((t) => {
+      const created = new Date(t.created_at);
+      const monthDiff =
+        now.getFullYear() * 12 +
+        now.getMonth() -
+        (created.getFullYear() * 12 + created.getMonth());
+      if (monthDiff < 6) {
+        tenantCounts[5 - monthDiff]++;
+      }
+    });
+    setTenantData(
+      months.slice(-6).map((month, i) => ({ month, tenants: tenantCounts[i] }))
+    );
+  };
+
+  const computePaymentData = () => {
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const paymentSums = Array(6).fill(0);
+    const now = new Date();
+    payments.forEach((p) => {
+      if (p.status === "paid") {
+        const paidDate = new Date(p.paidDate || p.dueDate);
+        const monthDiff =
+          now.getFullYear() * 12 +
+          now.getMonth() -
+          (paidDate.getFullYear() * 12 + paidDate.getMonth());
+        if (monthDiff < 6) {
+          paymentSums[5 - monthDiff] += p.amount;
+        }
+      }
+    });
+    setPaymentData(
+      months.slice(-6).map((month, i) => ({ month, payments: paymentSums[i] }))
+    );
+  };
+
+  const computeOccupancyData = () => {
+    const occupied = properties.filter((p) => p.status === "LEASED").length;
+    const vacant = properties.length - occupied;
+    setOccupancyData([
+      { name: "Occupied", value: occupied, color: "green.6" },
+      { name: "Vacant", value: vacant, color: "red.6" },
+    ]);
+  };
+
+  const computeRecentActivity = () => {
+    const activities = [
+      ...payments
+        .sort(
+          (a, b) =>
+            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        )
+        .slice(0, 5)
+        .map((p) => ({
+          text: `Payment ${p.status} for ${
+            p.tenantEmail
+          } - ₱${p.amount.toLocaleString("en-PH")}`, // Changed to PHP
+          time: new Date(p.updated_at).toLocaleString(),
+          status: p.status.charAt(0).toUpperCase() + p.status.slice(1),
+          color:
+            p.status === "paid"
+              ? "blue"
+              : p.status === "overdue"
+              ? "red"
+              : "yellow",
+        })),
+      ...announcements
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+        .slice(0, 5)
+        .map((a) => ({
+          text: `Announcement: ${a.title}`,
+          time: new Date(a.created_at).toLocaleString(),
+          status: a.priority.charAt(0).toUpperCase() + a.priority.slice(1),
+          color:
+            a.priority === "high"
+              ? "red"
+              : a.priority === "medium"
+              ? "yellow"
+              : "blue",
+        })),
+    ]
+      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+      .slice(0, 5);
+    setRecentActivity(activities);
+  };
+
+  if (loading) {
+    return (
+      <Container size="xl" py="xl">
+        <Center style={{ height: 400 }}>
+          <Loader size="lg" />
+        </Center>
+      </Container>
+    );
+  }
+
   return (
     <Container size="xl" px="md">
+      {notification && (
+        <Notification
+          icon={
+            notification.type === "success" ? (
+              <IconCheck size={18} />
+            ) : (
+              <IconX size={18} />
+            )
+          }
+          color={notification.type === "success" ? "green" : "red"}
+          title={notification.type === "success" ? "Success" : "Error"}
+          onClose={() => setNotification(null)}
+          style={{ position: "fixed", top: 20, right: 20, zIndex: 1000 }}
+        >
+          {notification.message}
+        </Notification>
+      )}
       <Stack gap="xl">
         <Box py="md">
           <Title order={1} size="h2" fw={600} c="gray.9" mb="xs">
@@ -230,7 +592,7 @@ export default function Dashboard() {
                     Monthly Revenue
                   </Title>
                   <Text size="sm" c="gray.6">
-                    USD
+                    PHP
                   </Text>
                 </Group>
                 <Box flex={1}>
@@ -245,6 +607,9 @@ export default function Dashboard() {
                     withLegend
                     legendProps={{ verticalAlign: "bottom", height: 50 }}
                     aria-label="Bar chart showing monthly payment revenue"
+                    valueFormatter={(value) =>
+                      `₱${value.toLocaleString("en-PH")}`
+                    } // Format as PHP
                   />
                 </Box>
               </Stack>
@@ -280,7 +645,7 @@ export default function Dashboard() {
                       aria-hidden="true"
                     />
                     <Text size="sm" c="gray.7" fw={500}>
-                      Occupied (18)
+                      Occupied ({occupancyData[0].value})
                     </Text>
                   </Group>
                   <Group gap="xs">
@@ -292,7 +657,7 @@ export default function Dashboard() {
                       aria-hidden="true"
                     />
                     <Text size="sm" c="gray.7" fw={500}>
-                      Vacant (6)
+                      Vacant ({occupancyData[1].value})
                     </Text>
                   </Group>
                 </Flex>
@@ -316,26 +681,7 @@ export default function Dashboard() {
                   </ActionIcon>
                 </Group>
                 <Stack gap="lg">
-                  {[
-                    {
-                      text: "New tenant moved in - Unit 4B",
-                      time: "2 hours ago",
-                      status: "Completed",
-                      color: "teal",
-                    },
-                    {
-                      text: "Maintenance request - Unit 2A",
-                      time: "5 hours ago",
-                      status: "Pending",
-                      color: "yellow",
-                    },
-                    {
-                      text: "Rent payment received - Unit 1C",
-                      time: "1 day ago",
-                      status: "Processed",
-                      color: "blue",
-                    },
-                  ].map((activity, index) => (
+                  {recentActivity.map((activity, index) => (
                     <Flex
                       key={index}
                       justify="space-between"
@@ -366,57 +712,118 @@ export default function Dashboard() {
           </Grid.Col>
         </Grid>
 
-        <Grid>
-          <Grid.Col span={{ base: 12, md: 8, lg: 6 }}>
-            <Card padding="xl" radius="lg" withBorder shadow="sm">
-              <Stack gap="lg">
-                <Title order={3} size="h4" fw={600} c="gray.8">
-                  Property Performance
-                </Title>
-                <Stack gap="xl">
-                  {[
-                    {
-                      label: "Occupied Units",
-                      value: "18/24",
-                      progress: 75,
-                      color: "teal",
-                    },
-                    {
-                      label: "Maintenance Requests",
-                      value: "3/10",
-                      progress: 30,
-                      color: "yellow",
-                    },
-                    {
-                      label: "Collection Rate",
-                      value: "95%",
-                      progress: 95,
-                      color: "blue",
-                    },
-                  ].map((item, index) => (
-                    <Stack key={index} gap="xs">
-                      <Group justify="space-between" align="center">
-                        <Text size="sm" fw={500} c="gray.7">
-                          {item.label}
-                        </Text>
-                        <Text size="sm" fw={600} c="gray.8">
-                          {item.value}
-                        </Text>
-                      </Group>
-                      <Progress
-                        value={item.progress}
-                        color={item.color}
-                        size="md"
-                        radius="md"
-                        aria-label={`${item.label}: ${item.value}`}
-                      />
-                    </Stack>
-                  ))}
-                </Stack>
-              </Stack>
-            </Card>
-          </Grid.Col>
-        </Grid>
+        <Card padding="xl" radius="lg" withBorder shadow="sm">
+          <Title order={3} size="h4" fw={600} c="gray.8" mb="md">
+            Recent Payments
+          </Title>
+          <Table striped highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Tenant Email</Table.Th>
+                <Table.Th>Amount</Table.Th>
+                <Table.Th>Due Date</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th>Paid Date</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {payments
+                .sort(
+                  (a, b) =>
+                    new Date(b.dueDate).getTime() -
+                    new Date(a.dueDate).getTime()
+                )
+                .slice(0, 10)
+                .map((payment) => (
+                  <Table.Tr key={payment._id}>
+                    <Table.Td>{payment.tenantEmail}</Table.Td>
+                    <Table.Td>
+                      ₱{payment.amount.toLocaleString("en-PH")}{" "}
+                      {/* Changed to PHP */}
+                    </Table.Td>
+                    <Table.Td>
+                      {new Date(payment.dueDate).toLocaleDateString()}
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge
+                        color={
+                          payment.status === "paid"
+                            ? "green"
+                            : payment.status === "overdue"
+                            ? "red"
+                            : "yellow"
+                        }
+                      >
+                        {payment.status}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      {payment.paidDate
+                        ? new Date(payment.paidDate).toLocaleDateString()
+                        : "-"}
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+            </Table.Tbody>
+          </Table>
+          {payments.length === 0 && (
+            <Text c="dimmed" ta="center" mt="md">
+              No recent payments
+            </Text>
+          )}
+        </Card>
+
+        <Card padding="xl" radius="lg" withBorder shadow="sm">
+          <Title order={3} size="h4" fw={600} c="gray.8" mb="md">
+            Recent Tenants
+          </Title>
+          <Table striped highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Name</Table.Th>
+                <Table.Th>Email</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th>Created At</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {tenants
+                .sort(
+                  (a, b) =>
+                    new Date(b.created_at).getTime() -
+                    new Date(a.created_at).getTime()
+                )
+                .slice(0, 10)
+                .map((tenant) => (
+                  <Table.Tr key={tenant._id}>
+                    <Table.Td>{tenant.user_name}</Table.Td>
+                    <Table.Td>{tenant.user_email}</Table.Td>
+                    <Table.Td>
+                      <Badge
+                        color={
+                          tenant.status === "Active"
+                            ? "green"
+                            : tenant.status === "Inactive"
+                            ? "red"
+                            : "yellow"
+                        }
+                      >
+                        {tenant.status}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      {new Date(tenant.created_at).toLocaleDateString()}
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+            </Table.Tbody>
+          </Table>
+          {tenants.length === 0 && (
+            <Text c="dimmed" ta="center" mt="md">
+              No tenants
+            </Text>
+          )}
+        </Card>
       </Stack>
     </Container>
   );

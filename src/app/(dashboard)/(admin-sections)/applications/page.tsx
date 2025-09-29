@@ -20,6 +20,7 @@ import {
 import Image from "next/image";
 import { getServerSession } from "@/better-auth/action";
 import { Session } from "@/better-auth/auth-types";
+import { Center, Container, Loader } from "@mantine/core";
 
 interface Inquiry {
   fullName: string;
@@ -485,12 +486,11 @@ const ApplicationsPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading applications...</p>
-        </div>
-      </div>
+      <Container size="xl" py="xl">
+        <Center style={{ height: 400 }}>
+          <Loader size="lg" />
+        </Center>
+      </Container>
     );
   }
 
@@ -829,7 +829,7 @@ const ApplicationsPage = () => {
 
         {/* View Details Modal */}
         {showViewModal && selectedInquiry && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
               <h3 className="text-xl font-semibold text-gray-900 mb-4">
                 Application Details

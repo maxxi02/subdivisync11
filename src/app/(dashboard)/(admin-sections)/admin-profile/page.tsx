@@ -1,7 +1,6 @@
 "use client";
 import { getServerSession } from "@/better-auth/action";
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Session } from "@/better-auth/auth-types";
 import {
   Button,
@@ -253,11 +252,17 @@ const AdminProfilePage = () => {
       });
       twoFactorForm.reset();
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to enable two-factor authentication");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to enable two-factor authentication"
+      );
       notifications.show({
         title: "Error",
         message:
-          error instanceof Error ? error.message : "Failed to enable two-factor authentication",
+          error instanceof Error
+            ? error.message
+            : "Failed to enable two-factor authentication",
         color: "red",
       });
     } finally {

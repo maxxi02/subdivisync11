@@ -52,7 +52,6 @@ import {
   Users,
   Mail,
   Phone,
-  RefreshCw,
   AlertTriangle,
 } from "lucide-react";
 import { uploadImageToServer, validateImageFile } from "@/lib/upload";
@@ -312,12 +311,6 @@ const PropertyManagement = () => {
     sqft: 0,
   });
 
-  const [inquiryForm, setInquiryForm] = useState<InquiryRequest>({
-    propertyId: "",
-    reason: "",
-    duration: "",
-  });
-
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
 
   const fetchProperties = async (page: number = 1) => {
@@ -351,6 +344,29 @@ const PropertyManagement = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (formData.type !== "house-and-lot" && formData.type !== "condo") {
+      setFormData({
+        ...formData,
+        bedrooms: undefined,
+        bathrooms: undefined,
+      });
+    }
+  }, [formData.type]);
+
+  useEffect(() => {
+    if (
+      editFormData.type !== "house-and-lot" &&
+      editFormData.type !== "condo"
+    ) {
+      setEditFormData({
+        ...editFormData,
+        bedrooms: undefined,
+        bathrooms: undefined,
+      });
+    }
+  }, [editFormData.type]);
 
   useEffect(() => {
     fetchProperties();
@@ -662,8 +678,8 @@ const PropertyManagement = () => {
       images: property.images || [],
       amenities: property.amenities || [],
       description: property.description || "",
-      bedrooms: property.bedrooms || 0,
-      bathrooms: property.bathrooms || 0,
+      bedrooms: property.bedrooms,
+      bathrooms: property.bathrooms,
       sqft: property.sqft || 0,
     });
     setOwnerDetails({
@@ -682,17 +698,6 @@ const PropertyManagement = () => {
     }).format(amount);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading properties...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -708,13 +713,6 @@ const PropertyManagement = () => {
               </p>
             </div>
             <div className="flex gap-4">
-              <Button
-                onClick={() => fetchProperties()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Refresh
-              </Button>
               <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
                 <DialogTrigger asChild>
                   <Button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
@@ -917,7 +915,9 @@ const PropertyManagement = () => {
                             onChange={(e) =>
                               setFormData({
                                 ...formData,
-                                bedrooms: parseInt(e.target.value) || 0,
+                                bedrooms: e.target.value
+                                  ? parseInt(e.target.value)
+                                  : undefined,
                               })
                             }
                             placeholder="e.g., 3"
@@ -933,7 +933,9 @@ const PropertyManagement = () => {
                             onChange={(e) =>
                               setFormData({
                                 ...formData,
-                                bathrooms: parseInt(e.target.value) || 0,
+                                bathrooms: e.target.value
+                                  ? parseInt(e.target.value)
+                                  : undefined,
                               })
                             }
                             placeholder="e.g., 2"
@@ -1140,9 +1142,7 @@ const PropertyManagement = () => {
                       </TableCell>
                       <TableCell className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
+                          <button
                             onClick={() => {
                               setSelectedProperty(property);
                               setViewModalOpen(true);
@@ -1151,19 +1151,15 @@ const PropertyManagement = () => {
                           >
                             <Eye className="h-4 w-4" />
                             View
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
+                          </button>
+                          <button
                             onClick={() => openEditModal(property)}
                             className="bg-yellow-600 text-white px-3 py-1 rounded-md hover:bg-yellow-700 flex items-center gap-1"
                           >
                             <Edit className="h-4 w-4" />
                             Edit
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
+                          </button>
+                          <button
                             onClick={() => handleDeleteProperty(property._id)}
                             className="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 flex items-center gap-1"
                           >
@@ -1182,7 +1178,7 @@ const PropertyManagement = () => {
                               />
                             </svg>
                             Delete
-                          </Button>
+                          </button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1414,12 +1410,12 @@ const PropertyManagement = () => {
                     </div>
                   </div>
                   <div className="flex justify-end">
-                    <Button
+                    <button
                       onClick={() => setViewModalOpen(false)}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md bg-gray-50"
                     >
                       Close
-                    </Button>
+                    </button>
                   </div>
                 </div>
               </>
@@ -1676,7 +1672,9 @@ const PropertyManagement = () => {
                       onChange={(e) =>
                         setEditFormData({
                           ...editFormData,
-                          bedrooms: parseInt(e.target.value) || 0,
+                          bedrooms: e.target.value
+                            ? parseInt(e.target.value)
+                            : undefined,
                         })
                       }
                       placeholder="e.g., 3"
@@ -1692,7 +1690,9 @@ const PropertyManagement = () => {
                       onChange={(e) =>
                         setEditFormData({
                           ...editFormData,
-                          bathrooms: parseInt(e.target.value) || 0,
+                          bathrooms: e.target.value
+                            ? parseInt(e.target.value)
+                            : undefined,
                         })
                       }
                       placeholder="e.g., 2"

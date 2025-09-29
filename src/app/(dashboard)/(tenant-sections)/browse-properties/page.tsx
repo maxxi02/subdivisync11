@@ -1,147 +1,42 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
-  Building2,
-  MapPin,
-  Square,
-  Car,
-  Wifi,
-  Dumbbell,
-  Shield,
-  Trees,
-  AlertCircle,
-  CheckCircle,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+  Container,
+  Title,
+  Text,
+  SimpleGrid,
+  Card,
+  Badge,
+  Group,
+  Stack,
+  Button,
+  Modal,
+  TextInput,
+  Textarea,
+  Select,
+  Loader,
+  Center,
+  Alert,
+  AspectRatio,
+} from "@mantine/core";
+import {
+  IconBuilding,
+  IconMapPin,
+  IconSquare,
+  IconBed,
+  IconBath,
+  IconParkingCircle,
+  IconWifi,
+  IconBarbell,
+  IconShield,
+  IconTrees,
+  IconAlertCircle,
+  IconCheck,
+  IconSearch,
+} from "@tabler/icons-react";
 import { useSession } from "@/lib/auth-client";
-import Image from "next/image";
-
-// Alert component inline implementation
-interface AlertProps {
-  children: React.ReactNode;
-  variant?: "default" | "destructive";
-  className?: string;
-}
-
-const Alert = ({
-  children,
-  variant = "default",
-  className = "",
-}: AlertProps) => {
-  const variantStyles =
-    variant === "destructive"
-      ? "border-red-200 bg-red-50"
-      : "border-green-200 bg-green-50";
-  return (
-    <div className={`rounded-lg border p-4 ${variantStyles} ${className}`}>
-      {children}
-    </div>
-  );
-};
-
-interface AlertDescriptionProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-const AlertDescription = ({
-  children,
-  className = "",
-}: AlertDescriptionProps) => {
-  return <div className={`text-sm ${className}`}>{children}</div>;
-};
-
-interface CustomCarouselProps {
-  images: string[];
-  alt: string;
-}
-
-const CustomCarousel = ({ images, alt }: CustomCarouselProps) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  const nextImage = () => {
-    setCurrentIndex((prev) => (prev + 1) % images.length);
-  };
-
-  const prevImage = () => {
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
-  };
-
-  const goToImage = (index: number) => {
-    setCurrentIndex(index);
-  };
-
-  if (!images || images.length === 0) {
-    return (
-      <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
-        <Building2 className="w-16 h-16 text-gray-400" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative w-full aspect-video bg-gray-100 rounded-lg overflow-hidden group">
-      <Image
-        width={500}
-        height={500}
-        src={images[currentIndex] || "/placeholder.svg"}
-        alt={alt}
-        className="w-full h-full object-cover transition-opacity duration-300"
-      />
-
-      {images.length > 1 && (
-        <>
-          <button
-            onClick={prevImage}
-            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-            aria-label="Previous image"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={nextImage}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-            aria-label="Next image"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </>
-      )}
-
-      {images.length > 1 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
-          {images.map((_, index: number) => (
-            <button
-              key={index}
-              className={`w-2 h-2 rounded-full transition-all duration-200 ${
-                index === currentIndex
-                  ? "bg-white scale-125"
-                  : "bg-white/60 hover:bg-white/80"
-              }`}
-              onClick={() => goToImage(index)}
-              aria-label={`Go to image ${index + 1}`}
-            />
-          ))}
-        </div>
-      )}
-
-      {images.length > 1 && (
-        <div className="absolute top-4 right-4 bg-black/50 text-white px-2 py-1 rounded text-sm">
-          {currentIndex + 1} / {images.length}
-        </div>
-      )}
-    </div>
-  );
-};
+import { CustomCarousel } from "./_components/custom-carousel";
 
 // Property interface
 interface Property {
@@ -156,6 +51,8 @@ interface Property {
   amenities: string[];
   description?: string;
   sqft?: number;
+  bedrooms?: number;
+  bathrooms?: number;
   created_by?: string;
   created_at: string;
   updated_at?: string;
@@ -385,17 +282,17 @@ const PropertyListingPage = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "CREATED":
-        return "bg-green-100 text-green-800 border-green-200";
+        return "green";
       case "UNDER_INQUIRY":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        return "yellow";
       case "APPROVED":
-        return "bg-blue-100 text-blue-800 border-blue-200";
+        return "blue";
       case "REJECTED":
-        return "bg-red-100 text-red-800 border-red-200";
+        return "red";
       case "LEASED":
-        return "bg-purple-100 text-purple-800 border-purple-200";
+        return "violet";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "gray";
     }
   };
 
@@ -419,425 +316,416 @@ const PropertyListingPage = () => {
   const getAmenityIcon = (amenity: string) => {
     switch (amenity) {
       case "parking":
-        return <Car className="w-4 h-4" />;
+        return <IconParkingCircle size={16} />;
       case "gym":
-        return <Dumbbell className="w-4 h-4" />;
+        return <IconBarbell size={16} />;
       case "security":
-        return <Shield className="w-4 h-4" />;
+        return <IconShield size={16} />;
       case "internet-ready":
-        return <Wifi className="w-4 h-4" />;
+        return <IconWifi size={16} />;
       case "garden":
-        return <Trees className="w-4 h-4" />;
+        return <IconTrees size={16} />;
       default:
-        return <Building2 className="w-4 h-4" />;
+        return <IconBuilding size={16} />;
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading properties...</p>
-        </div>
-      </div>
+      <Container size="xl" py="xl">
+        <Center style={{ height: 400 }}>
+          <Loader size="lg" />
+        </Center>
+      </Container>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <p className="text-red-500 mb-4">{error}</p>
-          <Button
-            onClick={() => window.location.reload()}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            Retry
-          </Button>
-        </div>
-      </div>
+      <Container size="xl" py="xl">
+        <Center style={{ height: 400 }}>
+          <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
+            {error}
+          </Alert>
+        </Center>
+      </Container>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Properties</h1>
-          <p className="text-gray-600 mt-2">Browse available properties</p>
-        </div>
+    <Container size="xl" px="md">
+      <Stack gap="xl">
+        <Stack gap="xs">
+          <Title order={1} size="h2" fw={600} c="gray.9">
+            Properties
+          </Title>
+          <Text c="gray.6" size="md" lh={1.5}>
+            Browse available properties
+          </Text>
+        </Stack>
 
-        <Card className="mb-8 border-0 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="md:col-span-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Search by title, location, or description..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <div>
-                <select
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="all">All Types</option>
-                  <option value="residential-lot">Residential Lot</option>
-                  <option value="commercial">Commercial</option>
-                  <option value="house-and-lot">House and Lot</option>
-                  <option value="condo">Condo</option>
-                </select>
-              </div>
-              <div>
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="all">All Status</option>
-                  <option value="CREATED">Available</option>
-                  <option value="UNDER_INQUIRY">Under Inquiry</option>
-                  <option value="APPROVED">Approved</option>
-                  <option value="REJECTED">Rejected</option>
-                  <option value="LEASED">Leased</option>
-                </select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+          <TextInput
+            placeholder="Search by title, location, or description..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            leftSection={<IconSearch size={16} />}
+          />
+          <Select
+            value={selectedType}
+            onChange={(value) => setSelectedType(value || "all")}
+            data={[
+              { value: "all", label: "All Types" },
+              { value: "residential-lot", label: "Residential Lot" },
+              { value: "commercial", label: "Commercial" },
+              { value: "house-and-lot", label: "House and Lot" },
+              { value: "condo", label: "Condo" },
+            ]}
+          />
+          <Select
+            value={selectedStatus}
+            onChange={(value) => setSelectedStatus(value || "all")}
+            data={[
+              { value: "all", label: "All Status" },
+              { value: "CREATED", label: "Available" },
+              { value: "UNDER_INQUIRY", label: "Under Inquiry" },
+              { value: "APPROVED", label: "Approved" },
+              { value: "REJECTED", label: "Rejected" },
+              { value: "LEASED", label: "Leased" },
+            ]}
+          />
+        </SimpleGrid>
 
-        <div className="mb-6">
-          <p className="text-gray-600">
-            Showing {filteredProperties.length} of {properties.length}{" "}
-            properties
-          </p>
-        </div>
+        <Text c="gray.6" size="sm">
+          Showing {filteredProperties.length} of {properties.length} properties
+        </Text>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} spacing="lg">
           {filteredProperties.map((property) => (
             <Card
               key={property._id}
-              className="border-0 shadow-sm hover:shadow-md transition-shadow"
+              shadow="sm"
+              padding="lg"
+              radius="md"
+              withBorder
             >
-              <CardContent className="p-0">
+              <AspectRatio ratio={16 / 9}>
                 {property.images && property.images.length > 0 ? (
-                  <div className="aspect-video bg-gray-100 rounded-t-lg overflow-hidden">
-                    <CustomCarousel
-                      images={property.images}
-                      alt={property.title}
-                    />
-                  </div>
+                  <CustomCarousel
+                    images={property.images}
+                    alt={property.title}
+                    showIndicators={true}
+                    autoPlay={false}
+                  />
                 ) : (
-                  <div className="aspect-video bg-gray-100 rounded-t-lg flex items-center justify-center">
-                    <Building2 className="w-12 h-12 text-gray-400" />
-                  </div>
+                  <Center>
+                    <IconBuilding size={48} color="gray" />
+                  </Center>
+                )}
+              </AspectRatio>
+
+              <Stack gap="md" mt="md">
+                <Group justify="space-between" align="flex-start">
+                  <Title order={3} size="h4" fw={600} c="gray.8">
+                    {property.title}
+                  </Title>
+                  <Badge color={getStatusColor(property.status)}>
+                    {getStatusMessage(property.status)}
+                  </Badge>
+                </Group>
+
+                <Group gap="xs">
+                  <IconMapPin size={16} color="gray" />
+                  <Text size="sm" c="gray.7">
+                    {property.location}
+                  </Text>
+                </Group>
+
+                <Text fw={700} size="xl" c="green">
+                  ₱{property.price.toLocaleString("en-PH")}
+                </Text>
+
+                <SimpleGrid cols={2}>
+                  <Group gap="xs">
+                    <IconBuilding size={16} color="gray" />
+                    <Text size="sm" c="gray.7">
+                      {property.type
+                        .replace("-", " ")
+                        .replace(/\b\w/g, (l) => l.toUpperCase())}
+                    </Text>
+                  </Group>
+                  <Group gap="xs">
+                    <IconSquare size={16} color="gray" />
+                    <Text size="sm" c="gray.7">
+                      {property.size}
+                    </Text>
+                  </Group>
+                  {(property.bedrooms ?? 0) > 0 && (
+                    <Group gap="xs">
+                      <IconBed size={16} color="gray" />
+                      <Text size="sm" c="gray.7">
+                        {property.bedrooms} Bedrooms
+                      </Text>
+                    </Group>
+                  )}
+                  {(property.bathrooms ?? 0) > 0 && (
+                    <Group gap="xs">
+                      <IconBath size={16} color="gray" />
+                      <Text size="sm" c="gray.7">
+                        {property.bathrooms} Bathrooms
+                      </Text>
+                    </Group>
+                  )}
+                </SimpleGrid>
+
+                {property.description && (
+                  <Text size="sm" c="gray.7" lineClamp={2}>
+                    {property.description}
+                  </Text>
                 )}
 
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">
-                      {property.title}
-                    </h3>
-                    <Badge className={getStatusColor(property.status)}>
-                      {getStatusMessage(property.status)}
-                    </Badge>
-                  </div>
+                {property.amenities && property.amenities.length > 0 && (
+                  <Group gap="xs" grow wrap="nowrap">
+                    {property.amenities.slice(0, 3).map((amenity, index) => (
+                      <Badge key={index} variant="light" color="gray">
+                        <p className="flex items-center gap-2 text-sm">
+                          {amenity.replace("-", " ")}
+                        </p>
+                      </Badge>
+                    ))}
+                    {property.amenities.length > 3 && (
+                      <Badge variant="light" color="gray">
+                        +{property.amenities.length - 3} more
+                      </Badge>
+                    )}
+                  </Group>
+                )}
 
-                  <div className="flex items-center text-gray-600 mb-3">
-                    <MapPin className="w-4 h-4 mr-1" />
-                    <span className="text-sm">{property.location}</span>
-                  </div>
-
-                  <div className="text-2xl font-bold text-green-600 mb-3">
-                    ${property.price.toLocaleString()}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 mb-4">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Building2 className="w-4 h-4 mr-1" />
-                      <span>
-                        {property.type
-                          .replace("-", " ")
-                          .replace(/\b\w/g, (l) => l.toUpperCase())}
-                      </span>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Square className="w-4 h-4 mr-1" />
-                      <span>{property.size}</span>
-                    </div>
-                  </div>
-
-                  {property.description && (
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                      {property.description}
-                    </p>
-                  )}
-
-                  {property.amenities && property.amenities.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {property.amenities.slice(0, 3).map((amenity, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded"
-                        >
-                          {getAmenityIcon(amenity)}
-                          <span className="ml-1">
-                            {amenity.replace("-", " ")}
-                          </span>
-                        </div>
-                      ))}
-                      {property.amenities.length > 3 && (
-                        <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                          +{property.amenities.length - 3} more
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <Button
-                    onClick={() => setSelectedProperty(property)}
-                    className="w-full"
-                    disabled={property.status !== "CREATED"}
-                  >
-                    {property.status === "CREATED"
-                      ? "View Details & Inquire"
-                      : "View Details"}
-                  </Button>
-                </div>
-              </CardContent>
+                <Button
+                  onClick={() => setSelectedProperty(property)}
+                  disabled={property.status !== "CREATED"}
+                  fullWidth
+                >
+                  {property.status === "CREATED"
+                    ? "View Details & Inquire"
+                    : "View Details"}
+                </Button>
+              </Stack>
             </Card>
           ))}
-        </div>
+        </SimpleGrid>
 
         {filteredProperties.length === 0 && (
-          <div className="text-center py-12">
-            <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500">
-              No properties found matching your criteria.
-            </p>
-          </div>
+          <Center py="xl">
+            <Stack align="center">
+              <IconBuilding size={48} color="gray" />
+              <Text c="gray.6" size="md">
+                No properties found matching your criteria.
+              </Text>
+            </Stack>
+          </Center>
         )}
+      </Stack>
 
+      <Modal
+        opened={!!selectedProperty}
+        onClose={() => setSelectedProperty(null)}
+        size="xl"
+        title={<Title order={2}>{selectedProperty?.title}</Title>}
+        centered
+      >
         {selectedProperty && (
-          <div className="fixed inset-0  bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] overflow-y-auto w-full">
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <h2 className="text-2xl font-bold">
-                    {selectedProperty.title}
-                  </h2>
+          <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="xl">
+            <Stack>
+              <AspectRatio ratio={16 / 9}>
+                {selectedProperty.images &&
+                selectedProperty.images.length > 0 ? (
+                  <CustomCarousel
+                    images={selectedProperty.images}
+                    alt={selectedProperty.title}
+                    showIndicators={true}
+                    autoPlay={true}
+                    autoPlayInterval={4000}
+                  />
+                ) : (
+                  <Center>
+                    <IconBuilding size={48} color="gray" />
+                  </Center>
+                )}
+              </AspectRatio>
+
+              <Group gap="xs">
+                <IconMapPin size={18} color="gray" />
+                <Text size="md" c="gray.7">
+                  {selectedProperty.location}
+                </Text>
+              </Group>
+
+              <Text fw={700} size="xl" c="green">
+                ₱{selectedProperty.price.toLocaleString("en-PH")}
+              </Text>
+
+              <SimpleGrid cols={2}>
+                <Group gap="xs">
+                  <IconBuilding size={18} color="gray" />
+                  <Text size="md" c="gray.7">
+                    {selectedProperty.type
+                      .replace("-", " ")
+                      .replace(/\b\w/g, (l) => l.toUpperCase())}
+                  </Text>
+                </Group>
+                <Group gap="xs">
+                  <IconSquare size={18} color="gray" />
+                  <Text size="md" c="gray.7">
+                    {selectedProperty.size}
+                  </Text>
+                </Group>
+                {(selectedProperty.bedrooms ?? 0) > 0 && (
+                  <Group gap="xs">
+                    <IconBed size={18} color="gray" />
+                    <Text size="md" c="gray.7">
+                      {selectedProperty.bedrooms} Bedrooms
+                    </Text>
+                  </Group>
+                )}
+                {(selectedProperty.bathrooms ?? 0) > 0 && (
+                  <Group gap="xs">
+                    <IconBath size={18} color="gray" />
+                    <Text size="md" c="gray.7">
+                      {selectedProperty.bathrooms} Bathrooms
+                    </Text>
+                  </Group>
+                )}
+              </SimpleGrid>
+
+              {selectedProperty.description && (
+                <Stack gap="xs">
+                  <Title order={4} fw={600} c="gray.8">
+                    Description
+                  </Title>
+                  <Text size="sm" c="gray.7">
+                    {selectedProperty.description}
+                  </Text>
+                </Stack>
+              )}
+
+              {selectedProperty.amenities &&
+                selectedProperty.amenities.length > 0 && (
+                  <Stack gap="xs">
+                    <Title order={4} fw={600} c="gray.8">
+                      Amenities
+                    </Title>
+                    <SimpleGrid cols={2}>
+                      {selectedProperty.amenities.map((amenity, index) => (
+                        <Group key={index} gap="xs">
+                          {getAmenityIcon(amenity)}
+                          <Text size="sm" c="gray.7">
+                            {amenity.replace("-", " ")}
+                          </Text>
+                        </Group>
+                      ))}
+                    </SimpleGrid>
+                  </Stack>
+                )}
+            </Stack>
+
+            <Stack>
+              {selectedProperty.status === "CREATED" ? (
+                <Stack gap="md">
+                  <Title order={3} fw={600} c="gray.8">
+                    Submit Inquiry
+                  </Title>
+
+                  {error && (
+                    <Alert
+                      icon={<IconAlertCircle size={16} />}
+                      title="Error"
+                      color="red"
+                    >
+                      {error}
+                    </Alert>
+                  )}
+
+                  {successMessage && (
+                    <Alert
+                      icon={<IconCheck size={16} />}
+                      title="Success"
+                      color="green"
+                    >
+                      {successMessage}
+                    </Alert>
+                  )}
+
+                  <TextInput
+                    label="Full Name"
+                    placeholder="Enter your full name"
+                    value={inquiryForm.fullName}
+                    onChange={(e) =>
+                      handleInputChange("fullName", e.currentTarget.value)
+                    }
+                    required
+                  />
+
+                  <TextInput
+                    label="Email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={inquiryForm.email}
+                    onChange={(e) =>
+                      handleInputChange("email", e.currentTarget.value)
+                    }
+                    required
+                  />
+
+                  <TextInput
+                    label="Phone"
+                    placeholder="Enter your phone number"
+                    value={inquiryForm.phone}
+                    onChange={(e) =>
+                      handleInputChange("phone", e.currentTarget.value)
+                    }
+                    required
+                  />
+
+                  <Textarea
+                    label="Reason for Inquiry"
+                    placeholder="Explain why you're interested in this property..."
+                    value={inquiryForm.reason}
+                    onChange={(e) =>
+                      handleInputChange("reason", e.currentTarget.value)
+                    }
+                    minRows={4}
+                    required
+                  />
+
                   <Button
-                    variant="outline"
-                    onClick={() => setSelectedProperty(null)}
-                    className="ml-4"
+                    onClick={() => handleSubmit(selectedProperty._id)}
+                    loading={submitting}
+                    fullWidth
                   >
-                    Close
+                    {submitting ? "Submitting..." : "Submit Inquiry"}
                   </Button>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div>
-                    {selectedProperty.images &&
-                    selectedProperty.images.length > 0 ? (
-                      <div className="mb-6">
-                        <CustomCarousel
-                          images={selectedProperty.images}
-                          alt={selectedProperty.title}
-                        />
-                      </div>
-                    ) : (
-                      <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center mb-6">
-                        <Building2 className="w-16 h-16 text-gray-400" />
-                      </div>
-                    )}
-
-                    <div className="space-y-6">
-                      <div className="flex items-center text-gray-600">
-                        <MapPin className="w-5 h-5 mr-2" />
-                        <span className="text-lg">
-                          {selectedProperty.location}
-                        </span>
-                      </div>
-
-                      <div className="text-4xl font-bold text-green-600">
-                        ${selectedProperty.price.toLocaleString()}
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="flex items-center text-gray-600">
-                          <Building2 className="w-5 h-5 mr-2" />
-                          <span>
-                            {selectedProperty.type
-                              .replace("-", " ")
-                              .replace(/\b\w/g, (l) => l.toUpperCase())}
-                          </span>
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <Square className="w-5 h-5 mr-2" />
-                          <span>{selectedProperty.size}</span>
-                        </div>
-                      </div>
-
-                      {selectedProperty.description && (
-                        <div>
-                          <h4 className="text-lg font-semibold mb-3">
-                            Description
-                          </h4>
-                          <p className="text-gray-600 leading-relaxed">
-                            {selectedProperty.description}
-                          </p>
-                        </div>
-                      )}
-
-                      {selectedProperty.amenities &&
-                        selectedProperty.amenities.length > 0 && (
-                          <div>
-                            <h4 className="text-lg font-semibold mb-3">
-                              Amenities
-                            </h4>
-                            <div className="grid grid-cols-2 gap-3">
-                              {selectedProperty.amenities.map(
-                                (amenity, index) => (
-                                  <div
-                                    key={index}
-                                    className="flex items-center text-gray-600"
-                                  >
-                                    {getAmenityIcon(amenity)}
-                                    <span className="ml-2 capitalize">
-                                      {amenity.replace("-", " ")}
-                                    </span>
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          </div>
-                        )}
-                    </div>
-                  </div>
-
-                  <div className="lg:pl-6">
-                    {selectedProperty.status === "CREATED" ? (
-                      <div className="space-y-6">
-                        <h3 className="text-xl font-semibold">
-                          Submit Inquiry
-                        </h3>
-
-                        {error && (
-                          <Alert variant="destructive">
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertDescription>{error}</AlertDescription>
-                          </Alert>
-                        )}
-
-                        {successMessage && (
-                          <Alert>
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                            <AlertDescription className="text-green-800">
-                              {successMessage}
-                            </AlertDescription>
-                          </Alert>
-                        )}
-
-                        <div>
-                          <Label htmlFor="fullName" className="text-base">
-                            Full Name *
-                          </Label>
-                          <Input
-                            id="fullName"
-                            placeholder="Enter your full name"
-                            value={inquiryForm.fullName}
-                            onChange={(e) =>
-                              handleInputChange("fullName", e.target.value)
-                            }
-                            className="mt-2 h-12"
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="email" className="text-base">
-                            Email *
-                          </Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            placeholder="Enter your email"
-                            value={inquiryForm.email}
-                            onChange={(e) =>
-                              handleInputChange("email", e.target.value)
-                            }
-                            className="mt-2 h-12"
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="phone" className="text-base">
-                            Phone *
-                          </Label>
-                          <Input
-                            id="phone"
-                            placeholder="Enter your phone number"
-                            value={inquiryForm.phone}
-                            onChange={(e) =>
-                              handleInputChange("phone", e.target.value)
-                            }
-                            className="mt-2 h-12"
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="reason" className="text-base">
-                            Reason for Inquiry *
-                          </Label>
-                          <Textarea
-                            id="reason"
-                            placeholder="Explain why you're interested in this property..."
-                            value={inquiryForm.reason}
-                            onChange={(e) =>
-                              handleInputChange("reason", e.target.value)
-                            }
-                            className="mt-2 min-h-[120px]"
-                            rows={6}
-                          />
-                        </div>
-
-                        <Button
-                          onClick={() => handleSubmit(selectedProperty._id)}
-                          className="w-full bg-black hover:bg-gray-800 text-white h-12 text-base"
-                          disabled={submitting}
-                        >
-                          {submitting ? "Submitting..." : "Submit Inquiry"}
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="text-center py-12">
-                        <Badge
-                          className={`${getStatusColor(
-                            selectedProperty.status
-                          )} mb-6 text-base px-4 py-2`}
-                        >
-                          {getStatusMessage(selectedProperty.status)}
-                        </Badge>
-                        <p className="text-gray-500 text-lg">
-                          This property is not available for new inquiries.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+                </Stack>
+              ) : (
+                <Center h={300}>
+                  <Stack align="center" gap="md">
+                    <Badge
+                      color={getStatusColor(selectedProperty.status)}
+                      size="lg"
+                    >
+                      {getStatusMessage(selectedProperty.status)}
+                    </Badge>
+                    <Text c="gray.6" size="md">
+                      This property is not available for new inquiries.
+                    </Text>
+                  </Stack>
+                </Center>
+              )}
+            </Stack>
+          </SimpleGrid>
         )}
-      </div>
-    </div>
+      </Modal>
+    </Container>
   );
 };
 

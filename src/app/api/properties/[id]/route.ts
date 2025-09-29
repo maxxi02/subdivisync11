@@ -16,6 +16,8 @@ export interface Property {
   images?: string[];
   amenities: string[];
   description?: string;
+  bedrooms?: number;
+  bathrooms?: number;
   sqft?: number;
   created_by: string;
   created_at: Date;
@@ -50,6 +52,8 @@ interface DBProperty {
   amenities: string[];
   description?: string;
   sqft?: number;
+  bedrooms?: number;
+  bathrooms?: number;
   created_by: string;
   created_at: Date;
   updated_at?: Date;
@@ -490,6 +494,8 @@ async function handlePropertyUpdate(
       status: updatedProperty!.status,
       description: updatedProperty!.description,
       sqft: updatedProperty!.sqft,
+      bedrooms: updatedProperty!.bedrooms,
+      bathrooms: updatedProperty!.bathrooms,
       owner: updatedProperty!.owner,
       inquiries: updatedProperty!.inquiries || [],
     };

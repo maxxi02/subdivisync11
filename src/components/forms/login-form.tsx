@@ -125,12 +125,7 @@ export function LoginForm() {
   };
 
   return (
-    <Paper
-      className="w-full max-w-sm bg-white/95 backdrop-blur-sm"
-      p="xl"
-      radius="md"
-      withBorder
-    >
+    <Paper className="w-full max-w-sm " p="xl">
       <div className="text-center mb-6">
         <Title order={2} className="text-xl text-gray-900 mb-2">
           Login

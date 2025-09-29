@@ -131,7 +131,7 @@ export default function HomePage() {
           setAnnouncements(filtered);
         }
       } catch (err) {
-        console.error("Failed to fetch announcements");
+        console.error("Failed to fetch announcements", (err as Error).message);
       }
     };
     fetchAnnouncements();

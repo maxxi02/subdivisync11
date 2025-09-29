@@ -28,7 +28,6 @@ import {
   IconCheck,
   IconClock,
   IconSettings,
-  IconTrash,
   IconCash,
   IconExclamationMark,
   IconSearch,
@@ -262,28 +261,28 @@ const ServiceRequestsSection = () => {
     setImagePreviewUrls(imagePreviewUrls.filter((_, i) => i !== index));
   };
 
-  const handleDeleteRequest = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this request?")) return;
-    try {
-      const response = await axios.delete(
-        `/api/service-requests?requestId=${id}`
-      );
-      if (response.data.success) {
-        setRequests(requests.filter((request) => request.id !== id));
-        showNotification("Service request deleted successfully");
-      } else {
-        showNotification(
-          response.data.error || "Failed to delete service request",
-          true
-        );
-      }
-    } catch (err) {
-      const errorMessage = axios.isAxiosError(err)
-        ? err.message
-        : "Failed to delete service request";
-      showNotification(errorMessage, true);
-    }
-  };
+  // const handleDeleteRequest = async (id: string) => {
+  //   if (!confirm("Are you sure you want to delete this request?")) return;
+  //   try {
+  //     const response = await axios.delete(
+  //       `/api/service-requests?requestId=${id}`
+  //     );
+  //     if (response.data.success) {
+  //       setRequests(requests.filter((request) => request.id !== id));
+  //       showNotification("Service request deleted successfully");
+  //     } else {
+  //       showNotification(
+  //         response.data.error || "Failed to delete service request",
+  //         true
+  //       );
+  //     }
+  //   } catch (err) {
+  //     const errorMessage = axios.isAxiosError(err)
+  //       ? err.message
+  //       : "Failed to delete service request";
+  //     showNotification(errorMessage, true);
+  //   }
+  // };
 
   const handleCancelRequest = async (id: string) => {
     if (!confirm("Are you sure you want to cancel this request?")) return;

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
+import Image from "next/image";
 
 interface Announcement {
   _id: string;
@@ -47,7 +48,9 @@ const AnnouncementCard = ({
               style={{ transform: `translateX(-${currentIndex * 100}%)` }}
             >
               {images.map((image) => (
-                <img
+                <Image
+                  width={500}
+                  height={500}
                   key={image.publicId}
                   src={image.url}
                   alt={announcement.title}
@@ -260,7 +263,7 @@ const ManageAnnouncementSection = () => {
       }
     } catch (err) {
       setError("An error occurred while saving the announcement");
-    }
+    } 
   };
 
   // Handle edit button click
@@ -412,7 +415,9 @@ const ManageAnnouncementSection = () => {
           <div className="mt-2 flex flex-wrap gap-2">
             {formData.images.map((file, index) => (
               <div key={index} className="relative">
-                <img
+                <Image
+                  width={500}
+                  height={500}
                   src={URL.createObjectURL(file)}
                   alt={`Preview ${index}`}
                   className="w-24 h-24 object-cover rounded"
@@ -439,7 +444,9 @@ const ManageAnnouncementSection = () => {
                 )
                 .map((image) => (
                   <div key={image.publicId} className="relative">
-                    <img
+                    <Image
+                      width={500}
+                      height={500}
                       src={image.url}
                       alt="Existing image"
                       className="w-24 h-24 object-cover rounded"

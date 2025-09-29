@@ -10,26 +10,19 @@ import {
   Group,
   Stack,
   Badge,
-  ActionIcon,
-  Progress,
   SimpleGrid,
   Container,
   Flex,
   Box,
   ThemeIcon,
-  Button,
 } from "@mantine/core";
 import {
   IconHome,
-  IconUsers,
   IconCurrencyDollar,
-  IconTrendingUp,
-  IconDots,
   IconAlertCircle,
   IconClipboardCheck,
-  IconFileInvoice,
 } from "@tabler/icons-react";
-import { LineChart, BarChart, PieChart } from "@mantine/charts";
+import { BarChart, PieChart } from "@mantine/charts";
 import { useRouter } from "next/navigation";
 import { getServerSession } from "@/better-auth/action";
 
@@ -442,7 +435,10 @@ const TenantDashboard = () => {
                   <Title order={3} size="h4" fw={600} c="gray.8">
                     Latest Announcements
                   </Title>
-                  <button className="bg-blue-500/90 p-1 rounded-sm text-white text-sm">
+                  <button
+                    className="bg-blue-500/90 p-1 rounded-sm text-white text-sm"
+                    onClick={() => router.push("/view-announcements")}
+                  >
                     Read More
                   </button>
                 </Group>

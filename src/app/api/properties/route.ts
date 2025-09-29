@@ -14,6 +14,8 @@ export interface CreatePropertyRequest {
   images?: string[];
   amenities?: string[];
   description?: string;
+  bedrooms?: number;
+  bathrooms?: number;
   sqft?: number;
 }
 
@@ -66,6 +68,8 @@ interface DBProperty {
   amenities: string[];
   description?: string;
   sqft?: number;
+  bedrooms?: number;
+  bathrooms?: number;
   created_by: string;
   created_at: Date;
   updated_at?: Date;
@@ -378,7 +382,9 @@ export async function POST(request: NextRequest) {
       amenities: Array.isArray(body.amenities) ? body.amenities : [],
       description: body.description?.trim() || "",
       sqft: body.sqft || 0,
-      inquiries: [], // Initialize empty inquiries array
+      bedrooms: body.bedrooms,
+      bathrooms: body.bathrooms,
+      inquiries: [],
       created_by: session.user.id,
       created_at: new Date(),
     };
@@ -538,6 +544,8 @@ export async function PUT(request: NextRequest) {
       amenities: Array.isArray(body.amenities) ? body.amenities : [],
       description: body.description?.trim() || "",
       sqft: body.sqft || 0,
+      bedrooms: body.bedrooms,
+      bathrooms: body.bathrooms,
       updated_at: new Date(),
     };
 
@@ -567,6 +575,8 @@ export async function PUT(request: NextRequest) {
       inquiries: updatedProperty!.inquiries || [],
       created_at: updatedProperty!.created_at,
       updated_at: updatedProperty!.updated_at,
+      bedrooms: updatedProperty!.bedrooms,
+      bathrooms: updatedProperty!.bathrooms,
     };
 
     return NextResponse.json(

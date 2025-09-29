@@ -57,17 +57,19 @@ const ServicePaymentSuccessPage = () => {
             description: paymentDetails.serviceRequest.description,
           };
         }
-        const { amount, description } = paymentInfo;
-        const verifyResponse = await fetch(`/api/create-payment/verify-payment`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            paymentIntentId,
-            requestId,
-          }),
-        });
+        const verifyResponse = await fetch(
+          `/api/create-payment/verify-payment`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              paymentIntentId,
+              requestId,
+            }),
+          }
+        );
         const verifyData = await verifyResponse.json();
         if (!verifyData.success) {
           if (verifyData.status === "pending") {

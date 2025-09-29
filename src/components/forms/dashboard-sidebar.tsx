@@ -153,6 +153,12 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
       description: "Maintenance Requests",
     },
     {
+      icon: IconSpeakerphone,
+      label: "Announcements",
+      href: "/view-announcements",
+      description: "Announcements",
+    },
+    {
       icon: IconReceipt,
       label: "Transactions",
       href: "/transactions",
