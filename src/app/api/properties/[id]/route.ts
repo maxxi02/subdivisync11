@@ -1,4 +1,5 @@
-// src/app/api/properties/[id]/route.ts
+// src/app/api/properties/[id]/route.ts with new POST for rejection
+
 import { getServerSession } from "@/better-auth/action";
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId, Collection } from "mongodb";
@@ -199,6 +200,132 @@ export async function PUT(
     console.error("Error updating property:", error);
     return NextResponse.json(
       { success: false, error: "Failed to update property" },
+      { status: 500 }
+    );
+  }
+}
+
+// POST - Reject an inquiry
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    await connectDB();
+    const propertiesCollection: Collection<DBProperty> =
+      db.collection("properties");
+    const { id } = await params;
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid property ID" },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+
+    if (body.action !== "reject") {
+      return NextResponse.json(
+        { success: false, error: "Invalid action" },
+        { status: 400 }
+      );
+    }
+
+    const { email, phone, reason } = body;
+
+    if (!email || !phone || !reason?.trim()) {
+      return NextResponse.json(
+        { success: false, error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    const property = await propertiesCollection.findOne({
+      _id: new ObjectId(id),
+    });
+
+    if (!property) {
+      return NextResponse.json(
+        { success: false, error: "Property not found" },
+        { status: 404 }
+      );
+    }
+
+    if (
+      session.user.role !== "admin" &&
+      property.created_by !== session.user.id
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 403 }
+      );
+    }
+
+    const inquiries = property.inquiries || [];
+    let updated = false;
+
+    const updatedInquiries = inquiries.map((inq: Inquiry) => {
+      if (
+        inq.email.toLowerCase() === email.toLowerCase() &&
+        inq.phone === phone &&
+        inq.status === "pending"
+      ) {
+        updated = true;
+        return {
+          ...inq,
+          status: "rejected" as const,
+          rejectionReason: reason.trim(),
+        };
+      }
+      return inq;
+    });
+
+    if (!updated) {
+      return NextResponse.json(
+        { success: false, error: "No pending inquiry found to reject" },
+        { status: 400 }
+      );
+    }
+
+    const hasPending = updatedInquiries.some((inq) => inq.status === "pending");
+
+    const newStatus = hasPending ? property.status : "CREATED";
+
+    const result = await propertiesCollection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          inquiries: updatedInquiries,
+          status: newStatus,
+          updated_at: new Date(),
+        },
+      }
+    );
+
+    if (result.modifiedCount === 0) {
+      return NextResponse.json(
+        { success: false, error: "Failed to reject inquiry" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Inquiry rejected successfully",
+    });
+  } catch (error) {
+    console.error("Error rejecting inquiry:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to reject inquiry" },
       { status: 500 }
     );
   }

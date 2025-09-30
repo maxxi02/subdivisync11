@@ -17,7 +17,6 @@ import {
   Search,
   RefreshCw,
 } from "lucide-react";
-import Image from "next/image";
 import { getServerSession } from "@/better-auth/action";
 import { Session } from "@/better-auth/auth-types";
 import { Center, Container, Loader } from "@mantine/core";
@@ -217,10 +216,12 @@ const ApplicationsPage = () => {
       months = Math.ceil(principalAmount / monthlyPaymentAmount);
       total = downPaymentAmount + months * monthlyPaymentAmount;
     } else {
-      if (monthlyPaymentAmount > principalAmount * monthlyRate) {
+      const interestThreshold = principalAmount * monthlyRate;
+      if (monthlyPaymentAmount > interestThreshold) {
         months = Math.ceil(
-          Math.log(1 + (principalAmount * monthlyRate) / monthlyPaymentAmount) /
-            Math.log(1 + monthlyRate)
+          Math.log(
+            monthlyPaymentAmount / (monthlyPaymentAmount - interestThreshold)
+          ) / Math.log(1 + monthlyRate)
         );
         total = downPaymentAmount + months * monthlyPaymentAmount;
       } else {
@@ -235,13 +236,7 @@ const ApplicationsPage = () => {
 
   useEffect(() => {
     calculateLeaseTerms();
-  }, [
-    selectedInquiry,
-    monthlyPayment,
-    interestRate,
-    downPayment,
-    calculateLeaseTerms,
-  ]);
+  }, [selectedInquiry, monthlyPayment, interestRate, downPayment]);
 
   const handleApprove = async (inquiry: InquiryWithProperty) => {
     if (!monthlyPayment || leaseDuration === 0) {
@@ -388,40 +383,18 @@ const ApplicationsPage = () => {
     try {
       setProcessingId(`${selectedInquiry.propertyId}-${selectedInquiry.email}`);
 
-      const propertyResponse = await fetch(
-        `/api/properties/${selectedInquiry.propertyId}`
-      );
-      const propertyData = await propertyResponse.json();
-
-      if (!propertyData.success) {
-        throw new Error("Failed to fetch property details");
-      }
-
-      const currentProperty = propertyData.property;
-      const updatedInquiries = currentProperty.inquiries.map((inq: Inquiry) => {
-        if (
-          inq.email === selectedInquiry.email &&
-          inq.phone === selectedInquiry.phone
-        ) {
-          return {
-            ...inq,
-            status: "rejected",
-            rejectionReason: rejectionReason.trim(),
-          };
-        }
-        return inq;
-      });
-
       const response = await fetch(
         `/api/properties/${selectedInquiry.propertyId}`,
         {
-          method: "PUT",
+          method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            ...currentProperty,
-            inquiries: updatedInquiries,
+            action: "reject",
+            email: selectedInquiry.email,
+            phone: selectedInquiry.phone,
+            reason: rejectionReason.trim(),
           }),
         }
       );
