@@ -554,15 +554,6 @@ const ServicesSection = () => {
                     <tr key={request.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Group>
-                          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <Image
-                              src={session?.user.image || "/placeholder.png"}
-                              alt="User Image"
-                              width={40}
-                              height={40}
-                              className="rounded-full object-cover"
-                            />
-                          </div>
                           <Stack gap={0}>
                             <Text size="sm" fw={500}>
                               {request.user_name}

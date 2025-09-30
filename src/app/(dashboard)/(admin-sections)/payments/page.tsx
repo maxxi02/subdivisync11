@@ -72,11 +72,13 @@ const PaymentsTrackingPage = () => {
   const [selectedPayment, setSelectedPayment] =
     useState<PaymentWithPlan | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Fetch payment plans and monthly payments
   const fetchPaymentData = async () => {
     try {
       setLoading(true);
+      setRefreshing(true);
 
       // Fetch payment plans
       const plansResponse = await fetch("/api/payment-plans/all");
@@ -102,6 +104,7 @@ const PaymentsTrackingPage = () => {
       console.error("Error fetching payment data:", error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -208,10 +211,17 @@ const PaymentsTrackingPage = () => {
             </div>
             <button
               onClick={fetchPaymentData}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              disabled={refreshing} // Disable button while refreshing
+              className={`px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 ${
+                refreshing
+                  ? "opacity-50 cursor-not-allowed"
+                  : "hover:bg-blue-700"
+              }`}
             >
-              <RefreshCw className="w-4 h-4" />
-              Refresh
+              <RefreshCw
+                className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+              />
+              {refreshing ? "Refreshing..." : "Refresh"}
             </button>
           </div>
         </div>
@@ -374,9 +384,6 @@ const PaymentsTrackingPage = () => {
                     <tr key={payment._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <User className="h-5 w-5 text-blue-600" />
-                          </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
                               {payment.paymentPlan?.tenant.fullName ||

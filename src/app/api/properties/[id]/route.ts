@@ -11,17 +11,15 @@ export interface Property {
   location: string;
   size: string;
   price: number;
-  type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
-  status: "CREATED" | "UNDER_INQUIRY" | "APPROVED" | "REJECTED" | "LEASED";
+  type: string;
+  status: string;
   images?: string[];
   amenities: string[];
   description?: string;
-  bedrooms?: number;
-  bathrooms?: number;
   sqft?: number;
   created_by: string;
-  created_at: Date;
-  updated_at?: Date;
+  created_at: string;
+  updated_at?: string;
   owner?: {
     fullName: string;
     email: string;
@@ -29,15 +27,34 @@ export interface Property {
     address?: string;
     paymentStatus: "paid" | "partial" | "pending";
     paymentMethod?: string;
+    paymentPlan?: PaymentPlan;
   };
-  inquiries?: {
-    fullName: string;
-    email: string;
-    phone: string;
-    reason: string;
-    submittedAt: string;
-    status: "pending" | "approved" | "rejected";
-  }[];
+  inquiries?: Inquiry[];
+}
+
+interface PaymentPlan {
+  propertyPrice: number;
+  downPayment: number;
+  monthlyPayment: number;
+  interestRate: number;
+  leaseDuration: number;
+  totalAmount: number;
+  startDate: string;
+  status: string;
+  currentMonth: number;
+  remainingBalance: number;
+  nextPaymentDate: string;
+  paymentPlanId?: string;
+}
+
+interface Inquiry {
+  fullName: string;
+  email: string;
+  phone: string;
+  reason: string;
+  submittedAt: string;
+  status: "pending" | "approved" | "rejected";
+  rejectionReason?: string;
 }
 
 interface DBProperty {
@@ -64,18 +81,11 @@ interface DBProperty {
     address?: string;
     paymentStatus: "paid" | "partial" | "pending";
     paymentMethod?: string;
+    paymentPlan?: PaymentPlan;
   };
-  inquiries?: {
-    fullName: string;
-    email: string;
-    phone: string;
-    reason: string;
-    submittedAt: string;
-    status: "pending" | "approved" | "rejected";
-  }[];
+  inquiries?: Inquiry[];
 }
 
-// Interface for PUT request body
 interface UpdatePropertyRequest extends Partial<Property> {
   owner_details?: {
     fullName: string;
@@ -84,16 +94,10 @@ interface UpdatePropertyRequest extends Partial<Property> {
     address?: string;
     paymentStatus?: "paid" | "partial" | "pending";
     paymentMethod?: string;
+    paymentPlan?: PaymentPlan;
   };
-  inquiry?: {
-    fullName: string;
-    email: string;
-    phone: string;
-    reason: string;
-    submittedAt: string;
-    status: "pending" | "approved" | "rejected";
-  };
-  isInquiry?: boolean; // Flag to indicate this is an inquiry submission
+  inquiry?: Inquiry;
+  isInquiry?: boolean;
 }
 
 // GET - Fetch a single property by ID
@@ -125,15 +129,14 @@ export async function GET(
       );
     }
 
-    // Convert ObjectId to string and ensure price is a number
     const enrichedProperty: Property = {
       ...property,
       _id: property._id.toString(),
       price: Number(property.price),
       amenities: property.amenities || [],
       images: property.images || [],
-      created_at: property.created_at,
-      updated_at: property.updated_at,
+      created_at: property.created_at.toISOString(),
+      updated_at: property.updated_at?.toISOString(),
       created_by: property.created_by || "",
       title: property.title,
       location: property.location,
@@ -179,12 +182,10 @@ export async function PUT(
 
     const body: UpdatePropertyRequest = await request.json();
 
-    // Check if this is an inquiry submission
     if (body.isInquiry && body.inquiry) {
       return handleInquirySubmission(propertiesCollection, id, body.inquiry);
     }
 
-    // Regular property update - requires authentication
     const session = await getServerSession();
     if (!session) {
       return NextResponse.json(
@@ -207,17 +208,9 @@ export async function PUT(
 async function handleInquirySubmission(
   propertiesCollection: Collection<DBProperty>,
   propertyId: string,
-  inquiry: {
-    fullName: string;
-    email: string;
-    phone: string;
-    reason: string;
-    submittedAt: string;
-    status: "pending" | "approved" | "rejected";
-  }
+  inquiry: Inquiry
 ) {
   try {
-    // Validate required fields
     const requiredFields = ["fullName", "email", "phone", "reason"];
     const missingFields = requiredFields.filter(
       (field) => !inquiry[field as keyof typeof inquiry]
@@ -233,7 +226,6 @@ async function handleInquirySubmission(
       );
     }
 
-    // Check if property exists and is available
     const existingProperty = await propertiesCollection.findOne({
       _id: new ObjectId(propertyId),
     });
@@ -252,7 +244,6 @@ async function handleInquirySubmission(
       );
     }
 
-    // Check for existing inquiry from same email
     const existingInquiries = existingProperty.inquiries || [];
     const hasExistingInquiry = existingInquiries.some(
       (inq) =>
@@ -264,13 +255,13 @@ async function handleInquirySubmission(
       return NextResponse.json(
         {
           success: false,
-          error: "You already have a pending inquiry for this property",
+          error:
+            "You already have a pending or approved inquiry for this property",
         },
         { status: 400 }
       );
     }
 
-    // Add inquiry to property
     const newInquiry = {
       fullName: inquiry.fullName.trim(),
       email: inquiry.email.toLowerCase().trim(),
@@ -280,7 +271,6 @@ async function handleInquirySubmission(
       status: "pending" as const,
     };
 
-    // Update property with inquiry and change status
     const result = await propertiesCollection.updateOne(
       { _id: new ObjectId(propertyId) },
       {
@@ -309,8 +299,8 @@ async function handleInquirySubmission(
       price: Number(updatedProperty!.price),
       amenities: updatedProperty!.amenities || [],
       images: updatedProperty!.images || [],
-      created_at: updatedProperty!.created_at,
-      updated_at: updatedProperty!.updated_at,
+      created_at: updatedProperty!.created_at.toISOString(),
+      updated_at: updatedProperty!.updated_at?.toISOString(),
       created_by: updatedProperty!.created_by || "",
       title: updatedProperty!.title,
       location: updatedProperty!.location,
@@ -345,7 +335,6 @@ async function handlePropertyUpdate(
   session: Session
 ) {
   try {
-    // Validate required fields for property update
     const requiredFields: (keyof Property)[] = [
       "title",
       "location",
@@ -368,7 +357,6 @@ async function handlePropertyUpdate(
       );
     }
 
-    // Validate property type
     const validTypes = [
       "residential-lot",
       "commercial",
@@ -382,7 +370,6 @@ async function handlePropertyUpdate(
       );
     }
 
-    // Validate status
     const validStatuses = [
       "CREATED",
       "UNDER_INQUIRY",
@@ -397,7 +384,6 @@ async function handlePropertyUpdate(
       );
     }
 
-    // Validate price
     if (isNaN(Number(body.price))) {
       return NextResponse.json(
         { success: false, error: "Invalid price format" },
@@ -405,7 +391,6 @@ async function handlePropertyUpdate(
       );
     }
 
-    // Check if property exists and user has permission
     const existingProperty = await propertiesCollection.findOne({
       _id: new ObjectId(propertyId),
     });
@@ -430,25 +415,32 @@ async function handlePropertyUpdate(
       );
     }
 
-    // Handle owner details
     const updateData: Partial<DBProperty> = {
       title: body.title!.trim(),
       location: body.location!.trim(),
       size: body.size!.trim(),
       price: Number(body.price),
-      type: body.type!,
-      status: body.status!,
+      type: body.type! as
+        | "residential-lot"
+        | "commercial"
+        | "house-and-lot"
+        | "condo",
+      status: body.status! as
+        | "CREATED"
+        | "UNDER_INQUIRY"
+        | "APPROVED"
+        | "REJECTED"
+        | "LEASED",
       updated_at: new Date(),
     };
 
-    // Include other optional fields if provided
     if (body.description !== undefined)
       updateData.description = body.description;
     if (body.amenities !== undefined) updateData.amenities = body.amenities;
     if (body.images !== undefined) updateData.images = body.images;
     if (body.sqft !== undefined) updateData.sqft = body.sqft;
+    if (body.inquiries !== undefined) updateData.inquiries = body.inquiries;
 
-    // If status is LEASED, include owner details
     if (updateData.status === "LEASED" && body.owner_details) {
       updateData.owner = {
         fullName: body.owner_details.fullName,
@@ -457,6 +449,7 @@ async function handlePropertyUpdate(
         address: body.owner_details.address || "",
         paymentStatus: body.owner_details.paymentStatus || "pending",
         paymentMethod: body.owner_details.paymentMethod || "installment",
+        paymentPlan: body.owner_details.paymentPlan,
       };
     } else if (updateData.status !== "LEASED") {
       updateData.owner = undefined;
@@ -484,8 +477,8 @@ async function handlePropertyUpdate(
       price: Number(updatedProperty!.price),
       amenities: updatedProperty!.amenities || [],
       images: updatedProperty!.images || [],
-      created_at: updatedProperty!.created_at,
-      updated_at: updatedProperty!.updated_at,
+      created_at: updatedProperty!.created_at.toISOString(),
+      updated_at: updatedProperty!.updated_at?.toISOString(),
       created_by: updatedProperty!.created_by || "",
       title: updatedProperty!.title,
       location: updatedProperty!.location,
@@ -494,8 +487,6 @@ async function handlePropertyUpdate(
       status: updatedProperty!.status,
       description: updatedProperty!.description,
       sqft: updatedProperty!.sqft,
-      bedrooms: updatedProperty!.bedrooms,
-      bathrooms: updatedProperty!.bathrooms,
       owner: updatedProperty!.owner,
       inquiries: updatedProperty!.inquiries || [],
     };
@@ -514,14 +505,13 @@ async function handlePropertyUpdate(
   }
 }
 
-// DELETE - Delete a property (Admin or creator only)
+// DELETE - Delete a property or a specific rejected inquiry
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession();
-
     if (!session) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
@@ -541,6 +531,9 @@ export async function DELETE(
       );
     }
 
+    const body = await request.json();
+    const { email } = body;
+
     const existingProperty = await propertiesCollection.findOne({
       _id: new ObjectId(id),
     });
@@ -559,13 +552,63 @@ export async function DELETE(
       return NextResponse.json(
         {
           success: false,
-          error: "Unauthorized - No permission to delete this property",
+          error: "Unauthorized - No permission to modify this property",
         },
         { status: 403 }
       );
     }
 
-    // Check for pending inquiries
+    // If email is provided, delete the specific rejected inquiry
+    if (email) {
+      const updatedInquiries = (existingProperty.inquiries || []).filter(
+        (inquiry) =>
+          !(
+            inquiry.email.toLowerCase() === email.toLowerCase() &&
+            inquiry.status === "rejected"
+          )
+      );
+
+      const newStatus =
+        updatedInquiries.length === 0 &&
+        existingProperty.status === "UNDER_INQUIRY"
+          ? "CREATED"
+          : existingProperty.status;
+
+      const result = await propertiesCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            inquiries: updatedInquiries,
+            status: newStatus,
+            updated_at: new Date(),
+          },
+        }
+      );
+
+      if (result.matchedCount === 0) {
+        return NextResponse.json(
+          { success: false, error: "Property not found" },
+          { status: 404 }
+        );
+      }
+
+      if (result.modifiedCount === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "No rejected inquiry found for the provided email",
+          },
+          { status: 400 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Rejected inquiry deleted successfully",
+      });
+    }
+
+    // Otherwise, delete the entire property
     const pendingInquiries =
       existingProperty.inquiries?.filter((inq) => inq.status === "pending") ||
       [];
@@ -596,9 +639,9 @@ export async function DELETE(
       message: "Property deleted successfully",
     });
   } catch (error) {
-    console.error("Error deleting property:", error);
+    console.error("Error deleting property or inquiry:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to delete property" },
+      { success: false, error: "Failed to delete property or inquiry" },
       { status: 500 }
     );
   }

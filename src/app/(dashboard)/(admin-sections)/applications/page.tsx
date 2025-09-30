@@ -89,16 +89,18 @@ const ApplicationsPage = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectionError, setRejectionError] = useState("");
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [monthlyPayment, setMonthlyPayment] = useState("");
   const [interestRate, setInterestRate] = useState("12");
   const [downPayment, setDownPayment] = useState("");
   const [leaseDuration, setLeaseDuration] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [filter, setFilter] = useState<
     "all" | "pending" | "approved" | "rejected"
   >("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [confirmReject, setConfirmReject] = useState(false);
 
   const [session, setSession] = useState<Session | null>(null);
   useEffect(() => {
@@ -374,12 +376,41 @@ const ApplicationsPage = () => {
 
   const handleReject = async () => {
     if (!selectedInquiry || !rejectionReason.trim()) {
-      alert("Please provide a rejection reason");
+      setRejectionError("Please provide a rejection reason.");
+      return;
+    }
+
+    if (!confirmReject) {
+      setConfirmReject(true);
       return;
     }
 
     try {
       setProcessingId(`${selectedInquiry.propertyId}-${selectedInquiry.email}`);
+
+      const propertyResponse = await fetch(
+        `/api/properties/${selectedInquiry.propertyId}`
+      );
+      const propertyData = await propertyResponse.json();
+
+      if (!propertyData.success) {
+        throw new Error("Failed to fetch property details");
+      }
+
+      const currentProperty = propertyData.property;
+      const updatedInquiries = currentProperty.inquiries.map((inq: Inquiry) => {
+        if (
+          inq.email === selectedInquiry.email &&
+          inq.phone === selectedInquiry.phone
+        ) {
+          return {
+            ...inq,
+            status: "rejected",
+            rejectionReason: rejectionReason.trim(),
+          };
+        }
+        return inq;
+      });
 
       const response = await fetch(
         `/api/properties/${selectedInquiry.propertyId}`,
@@ -389,11 +420,8 @@ const ApplicationsPage = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            inquiry: {
-              ...selectedInquiry,
-              status: "rejected",
-              rejectionReason: rejectionReason.trim(),
-            },
+            ...currentProperty,
+            inquiries: updatedInquiries,
           }),
         }
       );
@@ -405,11 +433,19 @@ const ApplicationsPage = () => {
         setShowRejectModal(false);
         setSelectedInquiry(null);
         setRejectionReason("");
+        setRejectionError("");
+        setConfirmReject(false);
         alert("Inquiry rejected successfully!");
+      } else {
+        throw new Error(data.error || "Failed to reject inquiry");
       }
     } catch (error) {
       console.error("Error rejecting inquiry:", error);
-      alert("Failed to reject inquiry. Please try again.");
+      setRejectionError(
+        `Failed to reject inquiry: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     } finally {
       setProcessingId(null);
     }
@@ -417,7 +453,7 @@ const ApplicationsPage = () => {
 
   const clearRejectedInquiries = async () => {
     if (
-      !confirm(
+      !window.confirm(
         "Are you sure you want to clear all rejected inquiries? This action cannot be undone."
       )
     ) {
@@ -430,8 +466,14 @@ const ApplicationsPage = () => {
         (inq) => inq.status === "rejected"
       );
 
-      for (const inquiry of rejectedInquiries) {
-        await fetch(`/api/properties/${inquiry.propertyId}/inquiries`, {
+      if (rejectedInquiries.length === 0) {
+        alert("No rejected inquiries to clear.");
+        setLoading(false);
+        return;
+      }
+
+      const deletePromises = rejectedInquiries.map((inquiry) =>
+        fetch(`/api/properties/${inquiry.propertyId}`, {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
@@ -439,14 +481,24 @@ const ApplicationsPage = () => {
           body: JSON.stringify({
             email: inquiry.email,
           }),
-        });
+        }).then((response) => response.json())
+      );
+
+      const results = await Promise.all(deletePromises);
+      const failedDeletions = results.filter((result) => !result.success);
+
+      if (failedDeletions.length > 0) {
+        console.error("Some inquiries failed to delete:", failedDeletions);
+        throw new Error("Some inquiries could not be deleted.");
       }
 
       await fetchInquiries();
-      alert("All rejected inquiries have been cleared!");
+      alert("All rejected inquiries have been cleared successfully!");
     } catch (error) {
       console.error("Error clearing rejected inquiries:", error);
-      alert("Failed to clear rejected inquiries. Please try again.");
+      alert(
+        "Failed to clear some or all rejected inquiries. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -691,15 +743,6 @@ const ApplicationsPage = () => {
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <Image
-                              className="h-10 w-10 rounded-full object-cover"
-                              src={session?.user.image || "/placeholder.png"}
-                              alt="User Image"
-                              width={40}
-                              height={40}
-                            />
-                          </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
                               {inquiry.fullName}
@@ -776,6 +819,9 @@ const ApplicationsPage = () => {
                                   onClick={() => {
                                     setSelectedInquiry(inquiry);
                                     setShowRejectModal(true);
+                                    setRejectionReason("");
+                                    setRejectionError("");
+                                    setConfirmReject(false);
                                   }}
                                   disabled={
                                     processingId ===
@@ -1356,7 +1402,7 @@ const ApplicationsPage = () => {
               <p className="text-sm text-gray-600 mb-4">
                 Rejecting application from{" "}
                 <strong>{selectedInquiry.fullName}</strong> for property{" "}
-                <strong>{selectedInquiry.propertyTitle}</strong>
+                <strong>{selectedInquiry.propertyTitle}</strong>.
               </p>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1364,29 +1410,59 @@ const ApplicationsPage = () => {
                 </label>
                 <textarea
                   value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Please provide a reason for rejection..."
-                  rows={3}
+                  onChange={(e) => {
+                    setRejectionReason(e.target.value);
+                    setRejectionError("");
+                  }}
+                  className={`w-full px-3 py-2 border ${
+                    rejectionError ? "border-red-500" : "border-gray-300"
+                  } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  placeholder="Please provide a reason for rejection (e.g., insufficient documentation, property already leased)..."
+                  rows={4}
                 />
+                {rejectionError && (
+                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {rejectionError}
+                  </p>
+                )}
               </div>
+              {confirmReject && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-yellow-700 flex items-center gap-1">
+                    <AlertCircle className="h-4 w-4" />
+                    Are you sure you want to reject this application? This
+                    action cannot be undone.
+                  </p>
+                </div>
+              )}
               <div className="flex gap-3">
                 <button
                   onClick={handleReject}
                   disabled={
-                    !rejectionReason.trim() ||
                     processingId ===
-                      `${selectedInquiry.propertyId}-${selectedInquiry.email}`
+                    `${selectedInquiry.propertyId}-${selectedInquiry.email}`
                   }
-                  className="flex-1 bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50"
+                  className="flex-1 bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  Reject Application
+                  {processingId ===
+                  `${selectedInquiry.propertyId}-${selectedInquiry.email}`
+                    ? "Processing..."
+                    : confirmReject
+                    ? "Confirm Rejection"
+                    : "Reject Application"}
+                  {processingId !==
+                    `${selectedInquiry.propertyId}-${selectedInquiry.email}` && (
+                    <X className="h-4 w-4" />
+                  )}
                 </button>
                 <button
                   onClick={() => {
                     setShowRejectModal(false);
                     setSelectedInquiry(null);
                     setRejectionReason("");
+                    setRejectionError("");
+                    setConfirmReject(false);
                   }}
                   className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
                 >
