@@ -2,18 +2,38 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
+  Container,
+  Title,
+  Text,
+  Table,
+  Badge,
+  Group,
+  Stack,
+  Button,
+  Modal,
+  Loader,
+  Center,
+  SimpleGrid,
+  Card,
+} from "@mantine/core";
+import {
   Calendar,
   DollarSign,
   Eye,
-  AlertCircle,
   MapPin,
   Clock,
   CreditCard,
   User,
+  Square,
+  Bed,
+  Bath,
+  AlertCircle,
 } from "lucide-react";
 import Image from "next/image";
+import { toast } from "react-hot-toast";
 import { getServerSession } from "@/better-auth/action";
 import { Session } from "@/better-auth/auth-types";
+import PropertyCarousel from "./_components/property-carousel";
 
 // Types
 interface Inquiry {
@@ -32,12 +52,14 @@ interface Property {
   location: string;
   size: string;
   price: number;
-  type: string;
+  type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
   status: string;
   images?: string[];
   amenities: string[];
   description?: string;
   sqft?: number;
+  bedrooms?: number;
+  bathrooms?: number;
   created_by: string;
   created_at: string;
   updated_at?: string;
@@ -58,6 +80,11 @@ interface InquiryWithProperty extends Inquiry {
   propertyPrice: number;
   propertyLocation: string;
   propertyStatus: string;
+  propertyType: string;
+  propertyImages?: string[];
+  sqft?: number;
+  bedrooms?: number;
+  bathrooms?: number;
 }
 
 interface PaymentPlan {
@@ -80,19 +107,50 @@ const MyApplication = () => {
   const [selectedInquiry, setSelectedInquiry] =
     useState<InquiryWithProperty | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
-  const [filter, setFilter] = useState<
-    "all" | "pending" | "approved" | "rejected"
-  >("all");
   const [session, setSession] = useState<Session | null>(null);
   const [paymentPlanData, setPaymentPlanData] = useState<PaymentPlan | null>(
     null
   );
+  const [isFetchingPayment, setIsFetchingPayment] = useState(false);
+
+  // Validate inquiry data
+  const validateInquiry = (inquiry: InquiryWithProperty) => {
+    const errors: string[] = [];
+
+    if (!inquiry.fullName || inquiry.fullName.trim().length < 2) {
+      errors.push("Full name is invalid (must be at least 2 characters)");
+    } else if (!/^[a-zA-Z\s-]+$/.test(inquiry.fullName)) {
+      errors.push("Full name contains invalid characters");
+    }
+
+    if (!inquiry.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inquiry.email)) {
+      errors.push("Email address is invalid");
+    }
+
+    if (
+      inquiry.phone &&
+      !/^\+?\d{10,12}$/.test(inquiry.phone.replace(/\s/g, ""))
+    ) {
+      errors.push("Phone number is invalid (must be 10-12 digits)");
+    }
+
+    if (!inquiry.reason || inquiry.reason.trim().length < 10) {
+      errors.push("Reason for application is too short");
+    }
+
+    return errors;
+  };
 
   // Fetch session
   useEffect(() => {
     const getSession = async () => {
-      const session = await getServerSession();
-      setSession(session);
+      try {
+        const session = await getServerSession();
+        setSession(session);
+        toast.success("Session loaded successfully");
+      } catch (error) {
+        toast.error("Failed to load session. Please try again.");
+      }
     };
     getSession();
   }, []);
@@ -100,16 +158,30 @@ const MyApplication = () => {
   // Fetch payment plan
   const fetchPaymentPlan = async (propertyId: string, tenantEmail: string) => {
     try {
+      setIsFetchingPayment(true);
       const response = await fetch(
         `/api/payments/create?propertyId=${propertyId}&tenantEmail=${tenantEmail}`
       );
       const data = await response.json();
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       if (data.success) {
         setPaymentPlanData(data.paymentPlan);
+        toast.success("Payment plan loaded successfully");
+      } else {
+        throw new Error(data.error || "Failed to fetch payment plan");
       }
     } catch (error) {
-      console.error("Error fetching payment plan:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch payment plan. Please try again."
+      );
+    } finally {
+      setIsFetchingPayment(false);
     }
   };
 
@@ -121,6 +193,10 @@ const MyApplication = () => {
       setLoading(true);
       const response = await fetch("/api/properties?myInquiries=true");
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
       if (data.success) {
         const userInquiries: InquiryWithProperty[] = [];
@@ -135,15 +211,27 @@ const MyApplication = () => {
                   propertyPrice: property.price,
                   propertyLocation: property.location,
                   propertyStatus: property.status,
+                  propertyType: property.type,
+                  propertyImages: property.images,
+                  sqft: property.sqft,
+                  bedrooms: property.bedrooms,
+                  bathrooms: property.bathrooms,
                 });
               }
             });
           }
         });
         setInquiries(userInquiries);
+        toast.success("Applications loaded successfully");
+      } else {
+        throw new Error(data.error || "Failed to fetch applications");
       }
     } catch (error) {
-      console.error("Error fetching inquiries:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch applications. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -155,111 +243,72 @@ const MyApplication = () => {
     }
   }, [session, fetchInquiries]);
 
-  // Filter inquiries based on selected filter
-  const filteredInquiries = inquiries.filter((inquiry) => {
-    if (filter === "all") return true;
-    if (filter === "approved") {
-      return (
-        inquiry.status === "approved" || inquiry.propertyStatus === "LEASED"
-      );
-    }
-    if (filter === "pending") {
-      return (
-        inquiry.status === "pending" && inquiry.propertyStatus !== "LEASED"
-      );
-    }
-    return inquiry.status === filter;
-  });
-
   const getStatusBadge = (status: string, propertyStatus?: string) => {
-    const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
-
     if (propertyStatus === "LEASED") {
-      return `${baseClasses} bg-blue-100 text-blue-800`;
+      return "blue";
     }
-
     switch (status) {
       case "pending":
-        return `${baseClasses} bg-yellow-100 text-yellow-800`;
+        return "yellow";
       case "approved":
-        return `${baseClasses} bg-green-100 text-green-800`;
+        return "green";
       case "rejected":
-        return `${baseClasses} bg-red-100 text-red-800`;
+        return "red";
       default:
-        return `${baseClasses} bg-gray-100 text-gray-800`;
+        return "gray";
     }
   };
 
   if (loading || !session) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your applications...</p>
-        </div>
-      </div>
+      <Container size="xl" py="xl">
+        <Center style={{ height: 400 }}>
+          <Stack align="center">
+            <Loader size="lg" />
+            <Text c="gray.6">Loading your applications...</Text>
+          </Stack>
+        </Center>
+      </Container>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <Container size="xl" py="xl">
+      <Stack gap="xl">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                My Applications
-              </h1>
-              <p className="text-gray-600 mt-2">
-                View your submitted property inquiries
-              </p>
-            </div>
-            <div className="flex gap-4">
-              <select
-                value={filter}
-                onChange={(e) =>
-                  setFilter(
-                    e.target.value as
-                      | "all"
-                      | "pending"
-                      | "approved"
-                      | "rejected"
-                  )
-                }
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Applications</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-              </select>
-            </div>
-          </div>
-        </div>
+        <Stack gap="xs">
+          <Title order={1} size="h2" fw={600} c="gray.9">
+            My Applications
+          </Title>
+          <Text c="gray.6" size="md" lh={1.5}>
+            View your submitted property inquiries
+          </Text>
+        </Stack>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">
+        <SimpleGrid cols={{ base: 1, md: 4 }} spacing="md">
+          <Card shadow="sm" padding="lg" radius="md" withBorder>
+            <Group justify="space-between" align="center">
+              <Stack gap="xs">
+                <Text size="sm" c="gray.6" fw={500}>
                   Total Applications
-                </p>
-                <p className="text-2xl font-bold text-gray-900">
+                </Text>
+                <Text size="xl" fw={700} c="gray.9">
                   {inquiries.length}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                </Text>
+              </Stack>
+              <Center className="h-12 w-12 bg-blue-100 rounded-lg">
                 <User className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-yellow-600">
+              </Center>
+            </Group>
+          </Card>
+          <Card shadow="sm" padding="lg" radius="md" withBorder>
+            <Group justify="space-between" align="center">
+              <Stack gap="xs">
+                <Text size="sm" c="gray.6" fw={500}>
+                  Pending
+                </Text>
+                <Text size="xl" fw={700} c="yellow.6">
                   {
                     inquiries.filter(
                       (inq) =>
@@ -267,20 +316,20 @@ const MyApplication = () => {
                         inq.propertyStatus !== "LEASED"
                     ).length
                   }
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                </Text>
+              </Stack>
+              <Center className="h-12 w-12 bg-yellow-100 rounded-lg">
                 <Clock className="h-6 w-6 text-yellow-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">
+              </Center>
+            </Group>
+          </Card>
+          <Card shadow="sm" padding="lg" radius="md" withBorder>
+            <Group justify="space-between" align="center">
+              <Stack gap="xs">
+                <Text size="sm" c="gray.6" fw={500}>
                   Approved/Leased
-                </p>
-                <p className="text-2xl font-bold text-green-600">
+                </Text>
+                <Text size="xl" fw={700} c="green.6">
                   {
                     inquiries.filter(
                       (inq) =>
@@ -288,161 +337,184 @@ const MyApplication = () => {
                         inq.propertyStatus === "LEASED"
                     ).length
                   }
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                </Text>
+              </Stack>
+              <Center className="h-12 w-12 bg-green-100 rounded-lg">
                 <CreditCard className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Rejected</p>
-                <p className="text-2xl font-bold text-red-600">
+              </Center>
+            </Group>
+          </Card>
+          <Card shadow="sm" padding="lg" radius="md" withBorder>
+            <Group justify="space-between" align="center">
+              <Stack gap="xs">
+                <Text size="sm" c="gray.6" fw={500}>
+                  Rejected
+                </Text>
+                <Text size="xl" fw={700} c="red.6">
                   {inquiries.filter((inq) => inq.status === "rejected").length}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                </Text>
+              </Stack>
+              <Center className="h-12 w-12 bg-red-100 rounded-lg">
                 <AlertCircle className="h-6 w-6 text-red-600" />
-              </div>
-            </div>
-          </div>
-        </div>
+              </Center>
+            </Group>
+          </Card>
+        </SimpleGrid>
 
         {/* Applications Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Property
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Application Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredInquiries.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={4}
-                      className="px-6 py-8 text-center text-gray-500"
-                    >
-                      No applications found
-                    </td>
-                  </tr>
-                ) : (
-                  filteredInquiries.map((inquiry, index) => (
-                    <tr
-                      key={`${inquiry.propertyId}-${inquiry.email}-${index}`}
-                      className="hover:bg-gray-50"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
+        <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <Table>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Property</Table.Th>
+                <Table.Th>Application Date</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th>Actions</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {inquiries.length === 0 ? (
+                <Table.Tr>
+                  <Table.Td colSpan={4} ta="center" py="xl">
+                    <Text c="gray.6">No applications found.</Text>
+                  </Table.Td>
+                </Table.Tr>
+              ) : (
+                inquiries.map((inquiry, index) => (
+                  <Table.Tr
+                    key={`${inquiry.propertyId}-${inquiry.email}-${index}`}
+                  >
+                    <Table.Td>
+                      <Stack gap="xs">
+                        <Text fw={500} c="gray.9">
                           {inquiry.propertyTitle}
-                        </div>
-                        <div className="text-sm text-gray-500 flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {inquiry.propertyLocation}
-                        </div>
-                        <div className="text-sm text-gray-500 flex items-center gap-1">
-                          <DollarSign className="h-3 w-3" />
-                          {new Intl.NumberFormat("en-PH", {
-                            style: "currency",
-                            currency: "PHP",
-                          }).format(inquiry.propertyPrice)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4 text-gray-400" />
+                        </Text>
+                        <Group gap="xs">
+                          <MapPin className="h-4 w-4 text-gray-400" />
+                          <Text size="sm" c="gray.6">
+                            {inquiry.propertyLocation}
+                          </Text>
+                        </Group>
+                        <Group gap="xs">
+                          <DollarSign className="h-4 w-4 text-gray-400" />
+                          <Text size="sm" c="gray.6">
+                            {new Intl.NumberFormat("en-PH", {
+                              style: "currency",
+                              currency: "PHP",
+                            }).format(inquiry.propertyPrice)}
+                          </Text>
+                        </Group>
+                      </Stack>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap="xs">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        <Text size="sm" c="gray.9">
                           {new Date(inquiry.submittedAt).toLocaleDateString()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={getStatusBadge(
-                            inquiry.status,
-                            inquiry.propertyStatus
-                          )}
-                        >
-                          {inquiry.propertyStatus === "LEASED"
-                            ? "Leased"
-                            : inquiry.status.charAt(0).toUpperCase() +
-                              inquiry.status.slice(1)}
-                        </span>
-                        {inquiry.status === "rejected" &&
-                          inquiry.rejectionReason && (
-                            <div className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                        </Text>
+                      </Group>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge
+                        color={getStatusBadge(
+                          inquiry.status,
+                          inquiry.propertyStatus
+                        )}
+                      >
+                        {inquiry.propertyStatus === "LEASED"
+                          ? "Leased"
+                          : inquiry.status.charAt(0).toUpperCase() +
+                            inquiry.status.slice(1)}
+                      </Badge>
+                      {inquiry.status === "rejected" &&
+                        inquiry.rejectionReason && (
+                          <Text size="xs" c="red.6" mt="xs">
+                            <Group gap="xs">
                               <AlertCircle className="h-3 w-3" />
                               {inquiry.rejectionReason}
-                            </div>
-                          )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={async () => {
-                            setSelectedInquiry(inquiry);
-                            setShowViewModal(true);
-                            if (
-                              inquiry.propertyStatus === "LEASED" ||
-                              inquiry.status === "approved"
-                            ) {
-                              await fetchPaymentPlan(
-                                inquiry.propertyId,
-                                inquiry.email
-                              );
-                            }
-                          }}
-                          className="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 flex items-center gap-1"
-                        >
-                          <Eye className="h-4 w-4" />
-                          View
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                            </Group>
+                          </Text>
+                        )}
+                    </Table.Td>
+                    <Table.Td>
+                      <Button
+                        size="xs"
+                        color="blue"
+                        onClick={async () => {
+                          const errors = validateInquiry(inquiry);
+                          if (errors.length > 0) {
+                            toast.error(errors[0]);
+                            return;
+                          }
+                          setSelectedInquiry(inquiry);
+                          setShowViewModal(true);
+                          toast.success("Viewing application details");
+                          if (
+                            inquiry.propertyStatus === "LEASED" ||
+                            inquiry.status === "approved"
+                          ) {
+                            await fetchPaymentPlan(
+                              inquiry.propertyId,
+                              inquiry.email
+                            );
+                          }
+                        }}
+                        disabled={isFetchingPayment}
+                        leftSection={<Eye className="h-4 w-4" />}
+                      >
+                        View
+                      </Button>
+                    </Table.Td>
+                  </Table.Tr>
+                ))
+              )}
+            </Table.Tbody>
+          </Table>
+        </Card>
 
         {/* View Details Modal */}
-        {showViewModal && selectedInquiry && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                Application Details
-              </h3>
-
+        <Modal
+          opened={showViewModal}
+          onClose={() => {
+            setShowViewModal(false);
+            setSelectedInquiry(null);
+            setPaymentPlanData(null);
+          }}
+          size="xl"
+          title={<Title order={2}>Application Details</Title>}
+          centered
+        >
+          {selectedInquiry && (
+            <Stack gap="md">
               {/* Status Badge */}
-              <div className="mb-6">
-                <span
-                  className={`${getStatusBadge(
-                    selectedInquiry.status,
-                    selectedInquiry.propertyStatus
-                  )} text-sm`}
-                >
-                  {selectedInquiry.propertyStatus === "LEASED"
-                    ? "Leased"
-                    : selectedInquiry.status.charAt(0).toUpperCase() +
-                      selectedInquiry.status.slice(1)}
-                </span>
-              </div>
+              <Badge
+                color={getStatusBadge(
+                  selectedInquiry.status,
+                  selectedInquiry.propertyStatus
+                )}
+                size="lg"
+              >
+                {selectedInquiry.propertyStatus === "LEASED"
+                  ? "Leased"
+                  : selectedInquiry.status.charAt(0).toUpperCase() +
+                    selectedInquiry.status.slice(1)}
+              </Badge>
+
+              {/* Property Images */}
+              {selectedInquiry.propertyImages &&
+                selectedInquiry.propertyImages.length > 0 && (
+                  <PropertyCarousel
+                    images={selectedInquiry.propertyImages}
+                    alt={selectedInquiry.propertyTitle}
+                    showIndicators={true}
+                    autoPlay={true}
+                    autoPlayInterval={4000}
+                  />
+                )}
 
               {/* Applicant Information */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Card shadow="sm" padding="lg" radius="md" withBorder>
+                <Group gap="xs" mb="md">
                   <Image
                     className="h-10 w-10 rounded-full object-cover"
                     src={session?.user.image || "/placeholder.svg"}
@@ -450,32 +522,49 @@ const MyApplication = () => {
                     width={40}
                     height={40}
                   />
-                  Applicant Information
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Full Name</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedInquiry.fullName}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Email Address</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedInquiry.email}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Phone Number</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedInquiry.phone || "N/A"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">
+                  <Text fw={600} c="gray.8">
+                    Applicant Information
+                  </Text>
+                </Group>
+                <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+                  <Stack gap="xs">
+                    <Text size="sm" c="gray.6">
+                      Full Name
+                    </Text>
+                    <Text fw={500} c="gray.9">
+                      {validateInquiry(selectedInquiry).length === 0 &&
+                      selectedInquiry.fullName
+                        ? selectedInquiry.fullName
+                        : "Not provided"}
+                    </Text>
+                  </Stack>
+                  <Stack gap="xs">
+                    <Text size="sm" c="gray.6">
+                      Email Address
+                    </Text>
+                    <Text fw={500} c="gray.9">
+                      {validateInquiry(selectedInquiry).length === 0 &&
+                      selectedInquiry.email
+                        ? selectedInquiry.email
+                        : "Not provided"}
+                    </Text>
+                  </Stack>
+                  <Stack gap="xs">
+                    <Text size="sm" c="gray.6">
+                      Phone Number
+                    </Text>
+                    <Text fw={500} c="gray.9">
+                      {validateInquiry(selectedInquiry).length === 0 &&
+                      selectedInquiry.phone
+                        ? selectedInquiry.phone
+                        : "Not provided"}
+                    </Text>
+                  </Stack>
+                  <Stack gap="xs">
+                    <Text size="sm" c="gray.6">
                       Application Date
-                    </p>
-                    <p className="font-medium text-gray-900">
+                    </Text>
+                    <Text fw={500} c="gray.9">
                       {new Date(selectedInquiry.submittedAt).toLocaleDateString(
                         "en-US",
                         {
@@ -486,160 +575,224 @@ const MyApplication = () => {
                           minute: "2-digit",
                         }
                       )}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                    </Text>
+                  </Stack>
+                </SimpleGrid>
+              </Card>
 
               {/* Property Information */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <MapPin className="h-5 w-5" />
-                  Property Information
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Property Title</p>
-                    <p className="font-medium text-gray-900">
+              <Card shadow="sm" padding="lg" radius="md" withBorder>
+                <Group gap="xs" mb="md">
+                  <MapPin className="h-5 w-5 text-gray-400" />
+                  <Text fw={600} c="gray.8">
+                    Property Information
+                  </Text>
+                </Group>
+                <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+                  <Stack gap="xs">
+                    <Text size="sm" c="gray.6">
+                      Property Title
+                    </Text>
+                    <Text fw={500} c="gray.9">
                       {selectedInquiry.propertyTitle}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Location</p>
-                    <p className="font-medium text-gray-900">
+                    </Text>
+                  </Stack>
+                  <Stack gap="xs">
+                    <Text size="sm" c="gray.6">
+                      Location
+                    </Text>
+                    <Text fw={500} c="gray.9">
                       {selectedInquiry.propertyLocation}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Price</p>
-                    <p className="font-medium text-gray-900">
+                    </Text>
+                  </Stack>
+                  <Stack gap="xs">
+                    <Text size="sm" c="gray.6">
+                      Price
+                    </Text>
+                    <Text fw={500} c="gray.9">
                       {new Intl.NumberFormat("en-PH", {
                         style: "currency",
                         currency: "PHP",
                       }).format(selectedInquiry.propertyPrice)}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                    </Text>
+                  </Stack>
+                  <Stack gap="xs">
+                    <Text size="sm" c="gray.6">
+                      Type
+                    </Text>
+                    <Text fw={500} c="gray.9">
+                      {selectedInquiry.propertyType
+                        .replace("-", " ")
+                        .replace(/\b\w/g, (l) => l.toUpperCase())}
+                    </Text>
+                  </Stack>
+                  {(selectedInquiry.propertyType === "house-and-lot" ||
+                    selectedInquiry.propertyType === "condo") && (
+                    <>
+                      {(selectedInquiry.bedrooms ?? 0) > 0 && (
+                        <Stack gap="xs">
+                          <Text size="sm" c="gray.6">
+                            Bedrooms
+                          </Text>
+                          <Text fw={500} c="gray.9">
+                            {selectedInquiry.bedrooms} Bedroom
+                            {selectedInquiry.bedrooms !== 1 ? "s" : ""}
+                          </Text>
+                        </Stack>
+                      )}
+                      {(selectedInquiry.bathrooms ?? 0) > 0 && (
+                        <Stack gap="xs">
+                          <Text size="sm" c="gray.6">
+                            Bathrooms
+                          </Text>
+                          <Text fw={500} c="gray.9">
+                            {selectedInquiry.bathrooms} Bathroom
+                            {selectedInquiry.bathrooms !== 1 ? "s" : ""}
+                          </Text>
+                        </Stack>
+                      )}
+                      {(selectedInquiry.sqft ?? 0) > 0 && (
+                        <Stack gap="xs">
+                          <Text size="sm" c="gray.6">
+                            Square Footage
+                          </Text>
+                          <Text fw={500} c="gray.9">
+                            {selectedInquiry.sqft} sq ft
+                          </Text>
+                        </Stack>
+                      )}
+                    </>
+                  )}
+                </SimpleGrid>
+              </Card>
 
               {/* Application Reason */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 className="font-semibold text-gray-900 mb-3">
+              <Card shadow="sm" padding="lg" radius="md" withBorder>
+                <Text fw={600} c="gray.8" mb="md">
                   Reason for Application
-                </h4>
-                <p className="text-gray-700">{selectedInquiry.reason}</p>
-              </div>
+                </Text>
+                <Text c="gray.7">
+                  {validateInquiry(selectedInquiry).length === 0 &&
+                  selectedInquiry.reason
+                    ? selectedInquiry.reason
+                    : "Not provided"}
+                </Text>
+              </Card>
 
               {/* Rejection Reason (if rejected) */}
               {selectedInquiry.status === "rejected" &&
                 selectedInquiry.rejectionReason && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                    <h4 className="font-semibold text-red-900 mb-3 flex items-center gap-2">
-                      <AlertCircle className="h-5 w-5" />
-                      Rejection Reason
-                    </h4>
-                    <p className="text-red-700">
-                      {selectedInquiry.rejectionReason}
-                    </p>
-                  </div>
+                  <Card shadow="sm" padding="lg" radius="md" withBorder>
+                    <Group gap="xs" mb="md">
+                      <AlertCircle className="h-5 w-5 text-red-600" />
+                      <Text fw={600} c="red.8">
+                        Rejection Reason
+                      </Text>
+                    </Group>
+                    <Text c="red.7">{selectedInquiry.rejectionReason}</Text>
+                  </Card>
                 )}
 
               {/* Approval Status (if approved) */}
               {selectedInquiry.status === "approved" && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                  <h4 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    Application Status
-                  </h4>
-                  <p className="text-green-700">
+                <Card shadow="sm" padding="lg" radius="md" withBorder>
+                  <Group gap="xs" mb="md">
+                    <CreditCard className="h-5 w-5 text-green-600" />
+                    <Text fw={600} c="green.8">
+                      Application Status
+                    </Text>
+                  </Group>
+                  <Text c="green.7">
                     This application has been approved and a payment plan has
                     been created.
-                  </p>
-                </div>
+                  </Text>
+                </Card>
               )}
 
               {/* Payment Plan Details (if leased or approved) */}
               {(selectedInquiry.propertyStatus === "LEASED" ||
                 selectedInquiry.status === "approved") &&
                 paymentPlanData && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                    <h4 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
-                      <CreditCard className="h-5 w-5" />
-                      Payment Plan Details
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-green-600 mb-1">
+                  <Card shadow="sm" padding="lg" radius="md" withBorder>
+                    <Group gap="xs" mb="md">
+                      <CreditCard className="h-5 w-5 text-green-600" />
+                      <Text fw={600} c="green.8">
+                        Payment Plan Details
+                      </Text>
+                    </Group>
+                    <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+                      <Stack gap="xs">
+                        <Text size="sm" c="green.6">
                           Property Price
-                        </p>
-                        <p className="font-medium text-green-900">
+                        </Text>
+                        <Text fw={500} c="green.9">
                           {new Intl.NumberFormat("en-PH", {
                             style: "currency",
                             currency: "PHP",
                           }).format(paymentPlanData.propertyPrice)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        </Text>
+                      </Stack>
+                      <Stack gap="xs">
+                        <Text size="sm" c="green.6">
                           Down Payment
-                        </p>
-                        <p className="font-medium text-green-900">
+                        </Text>
+                        <Text fw={500} c="green.9">
                           {new Intl.NumberFormat("en-PH", {
                             style: "currency",
                             currency: "PHP",
                           }).format(paymentPlanData.downPayment)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        </Text>
+                      </Stack>
+                      <Stack gap="xs">
+                        <Text size="sm" c="green.6">
                           Monthly Payment
-                        </p>
-                        <p className="font-medium text-green-900">
+                        </Text>
+                        <Text fw={500} c="green.9">
                           {new Intl.NumberFormat("en-PH", {
                             style: "currency",
                             currency: "PHP",
                           }).format(paymentPlanData.monthlyPayment)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        </Text>
+                      </Stack>
+                      <Stack gap="xs">
+                        <Text size="sm" c="green.6">
                           Interest Rate
-                        </p>
-                        <p className="font-medium text-green-900">
+                        </Text>
+                        <Text fw={500} c="green.9">
                           {paymentPlanData.interestRate}% per annum
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        </Text>
+                      </Stack>
+                      <Stack gap="xs">
+                        <Text size="sm" c="green.6">
                           Lease Duration
-                        </p>
-                        <p className="font-medium text-green-900">
+                        </Text>
+                        <Text fw={500} c="green.9">
                           {paymentPlanData.leaseDuration} months
-                          <span className="text-sm text-green-600">
+                          <Text size="sm" c="green.6" component="span">
                             {" "}
                             ({Math.floor(
                               paymentPlanData.leaseDuration / 12
                             )}{" "}
                             years {paymentPlanData.leaseDuration % 12} months)
-                          </span>
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-green-600 mb-1">
+                          </Text>
+                        </Text>
+                      </Stack>
+                      <Stack gap="xs">
+                        <Text size="sm" c="green.6">
                           Total Amount
-                        </p>
-                        <p className="font-medium text-green-900">
+                        </Text>
+                        <Text fw={500} c="green.9">
                           {new Intl.NumberFormat("en-PH", {
                             style: "currency",
                             currency: "PHP",
                           }).format(paymentPlanData.totalAmount)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        </Text>
+                      </Stack>
+                      <Stack gap="xs">
+                        <Text size="sm" c="green.6">
                           Start Date
-                        </p>
-                        <p className="font-medium text-green-900">
+                        </Text>
+                        <Text fw={500} c="green.9">
                           {new Date(
                             paymentPlanData.startDate
                           ).toLocaleDateString("en-US", {
@@ -647,48 +800,49 @@ const MyApplication = () => {
                             month: "long",
                             day: "numeric",
                           })}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        </Text>
+                      </Stack>
+                      <Stack gap="xs">
+                        <Text size="sm" c="green.6">
                           Plan Status
-                        </p>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        </Text>
+                        <Badge
+                          color={
                             paymentPlanData.status === "active"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-gray-100 text-gray-800"
-                          }`}
+                              ? "green"
+                              : "gray"
+                          }
+                          size="sm"
                         >
                           {paymentPlanData.status.charAt(0).toUpperCase() +
                             paymentPlanData.status.slice(1)}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        </Badge>
+                      </Stack>
+                      <Stack gap="xs">
+                        <Text size="sm" c="green.6">
                           Current Month
-                        </p>
-                        <p className="font-medium text-green-900">
+                        </Text>
+                        <Text fw={500} c="green.9">
                           {paymentPlanData.currentMonth} of{" "}
                           {paymentPlanData.leaseDuration}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        </Text>
+                      </Stack>
+                      <Stack gap="xs">
+                        <Text size="sm" c="green.6">
                           Remaining Balance
-                        </p>
-                        <p className="font-medium text-green-900">
+                        </Text>
+                        <Text fw={500} c="green.9">
                           {new Intl.NumberFormat("en-PH", {
                             style: "currency",
                             currency: "PHP",
                           }).format(paymentPlanData.remainingBalance)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        </Text>
+                      </Stack>
+                      <Stack gap="xs">
+                        <Text size="sm" c="green.6">
                           Next Payment Date
-                        </p>
-                        <p className="font-medium text-green-900">
+                        </Text>
+                        <Text fw={500} c="green.9">
                           {new Date(
                             paymentPlanData.nextPaymentDate
                           ).toLocaleDateString("en-US", {
@@ -696,13 +850,13 @@ const MyApplication = () => {
                             month: "long",
                             day: "numeric",
                           })}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-green-600 mb-1">
+                        </Text>
+                      </Stack>
+                      <Stack gap="xs">
+                        <Text size="sm" c="green.6">
                           Total Interest
-                        </p>
-                        <p className="font-medium text-orange-600">
+                        </Text>
+                        <Text fw={500} c="orange.6">
                           {new Intl.NumberFormat("en-PH", {
                             style: "currency",
                             currency: "PHP",
@@ -710,41 +864,44 @@ const MyApplication = () => {
                             paymentPlanData.totalAmount -
                               paymentPlanData.propertyPrice
                           )}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                        </Text>
+                      </Stack>
+                    </SimpleGrid>
+                  </Card>
                 )}
 
+              {/* Property Status (if leased) */}
               {selectedInquiry.propertyStatus === "LEASED" && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                  <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    Property Status
-                  </h4>
-                  <p className="text-blue-700">
+                <Card shadow="sm" padding="lg" radius="md" withBorder>
+                  <Group gap="xs" mb="md">
+                    <CreditCard className="h-5 w-5 text-blue-600" />
+                    <Text fw={600} c="blue.8">
+                      Property Status
+                    </Text>
+                  </Group>
+                  <Text c="blue.7">
                     This property has been leased and a payment plan is active.
-                  </p>
-                </div>
+                  </Text>
+                </Card>
               )}
 
-              <div className="flex justify-end">
-                <button
-                  onClick={() => {
-                    setShowViewModal(false);
-                    setSelectedInquiry(null);
-                    setPaymentPlanData(null);
-                  }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+              <Button
+                onClick={() => {
+                  setShowViewModal(false);
+                  setSelectedInquiry(null);
+                  setPaymentPlanData(null);
+                }}
+                variant="outline"
+                color="gray"
+                fullWidth
+              >
+                Close
+              </Button>
+            </Stack>
+          )}
+        </Modal>
+      </Stack>
+    </Container>
   );
 };
 

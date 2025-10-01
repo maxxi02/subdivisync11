@@ -18,7 +18,6 @@ import {
   Grid,
   TextInput,
   Divider,
-  Image as MantineImage,
   Box,
 } from "@mantine/core";
 import {
@@ -38,6 +37,7 @@ import { Dropzone } from "@mantine/dropzone";
 import { useDisclosure } from "@mantine/hooks";
 import axios from "axios";
 import Image from "next/image";
+import ServiceRequestCarousel from "./_components/serveice-carousel";
 
 interface ServiceRequest {
   _id?: string;
@@ -260,29 +260,6 @@ const ServiceRequestsSection = () => {
     setFiles(files.filter((_, i) => i !== index));
     setImagePreviewUrls(imagePreviewUrls.filter((_, i) => i !== index));
   };
-
-  // const handleDeleteRequest = async (id: string) => {
-  //   if (!confirm("Are you sure you want to delete this request?")) return;
-  //   try {
-  //     const response = await axios.delete(
-  //       `/api/service-requests?requestId=${id}`
-  //     );
-  //     if (response.data.success) {
-  //       setRequests(requests.filter((request) => request.id !== id));
-  //       showNotification("Service request deleted successfully");
-  //     } else {
-  //       showNotification(
-  //         response.data.error || "Failed to delete service request",
-  //         true
-  //       );
-  //     }
-  //   } catch (err) {
-  //     const errorMessage = axios.isAxiosError(err)
-  //       ? err.message
-  //       : "Failed to delete service request";
-  //     showNotification(errorMessage, true);
-  //   }
-  // };
 
   const handleCancelRequest = async (id: string) => {
     if (!confirm("Are you sure you want to cancel this request?")) return;
@@ -997,18 +974,13 @@ const ServiceRequestsSection = () => {
                   <Text size="sm" fw={500} mb="sm">
                     Attached Images
                   </Text>
-                  <SimpleGrid cols={2} spacing="md">
-                    {selectedRequest.images.map((imageUrl, index) => (
-                      <MantineImage
-                        key={index}
-                        src={imageUrl}
-                        alt={`Issue image ${index + 1}`}
-                        height={200}
-                        fit="cover"
-                        radius="md"
-                      />
-                    ))}
-                  </SimpleGrid>
+                  <ServiceRequestCarousel
+                    images={selectedRequest.images}
+                    alt={`${selectedRequest.category} issue`}
+                    showIndicators={true}
+                    autoPlay={true}
+                    autoPlayInterval={4000}
+                  />
                 </Box>
               )}
 

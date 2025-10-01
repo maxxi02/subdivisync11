@@ -435,12 +435,12 @@ const TenantDashboard = () => {
                   <Title order={3} size="h4" fw={600} c="gray.8">
                     Latest Announcements
                   </Title>
-                  <button
-                    className="bg-blue-500/90 p-1 rounded-sm text-white text-sm"
+                  <span
+                    className="text-blue-500 p-1 text-sm cursor-pointer hover:underline"
                     onClick={() => router.push("/view-announcements")}
                   >
                     Read More
-                  </button>
+                  </span>
                 </Group>
                 <Stack gap="lg">
                   {announcements.length === 0 ? (

@@ -17,7 +17,6 @@ import {
   Select,
   Loader,
   Center,
-  Alert,
   AspectRatio,
 } from "@mantine/core";
 import {
@@ -31,10 +30,9 @@ import {
   IconBarbell,
   IconShield,
   IconTrees,
-  IconAlertCircle,
-  IconCheck,
   IconSearch,
 } from "@tabler/icons-react";
+import { toast } from "react-hot-toast";
 import { useSession } from "@/lib/auth-client";
 import { CustomCarousel } from "./_components/custom-carousel";
 
@@ -78,17 +76,13 @@ const PropertyListingPage = () => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
-  const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(
     null
   );
   const [submitting, setSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string>(""); // New state for user email
-
+  const [userEmail, setUserEmail] = useState<string>("");
   const [inquiryForm, setInquiryForm] = useState<InquiryRequest>({
     fullName: "",
     email: "",
@@ -113,8 +107,6 @@ const PropertyListingPage = () => {
     const loadProperties = async () => {
       try {
         setLoading(true);
-        setError(null);
-
         const params = new URLSearchParams({
           public: "true",
           limit: "50",
@@ -140,9 +132,13 @@ const PropertyListingPage = () => {
 
         setProperties(data.properties || []);
         setFilteredProperties(data.properties || []);
+        toast.success("Properties loaded successfully");
       } catch (err) {
         console.error("Error loading properties:", err);
-        setError((err as Error).message || "Failed to load properties");
+        toast.error(
+          (err as Error).message ||
+            "Failed to load properties. Please try again."
+        );
       } finally {
         setLoading(false);
       }
@@ -151,7 +147,7 @@ const PropertyListingPage = () => {
     loadProperties();
   }, []);
 
-  // Filter properties based on search and filters
+  // Filter properties based on search and type
   useEffect(() => {
     let filtered = properties;
 
@@ -170,14 +166,33 @@ const PropertyListingPage = () => {
       filtered = filtered.filter((property) => property.type === selectedType);
     }
 
-    if (selectedStatus !== "all") {
-      filtered = filtered.filter(
-        (property) => property.status === selectedStatus
-      );
+    setFilteredProperties(filtered);
+  }, [properties, searchQuery, selectedType]);
+
+  // Validate inquiry form
+  const validateInquiryForm = (form: InquiryRequest) => {
+    const errors: string[] = [];
+
+    if (!form.fullName || form.fullName.trim().length < 2) {
+      errors.push("Full name must be at least 2 characters");
+    } else if (!/^[a-zA-Z\s-]+$/.test(form.fullName)) {
+      errors.push("Full name can only contain letters, spaces, and hyphens");
     }
 
-    setFilteredProperties(filtered);
-  }, [properties, searchQuery, selectedType, selectedStatus]);
+    if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      errors.push("Please enter a valid email address");
+    }
+
+    if (!form.phone || !/^\+?\d{10,12}$/.test(form.phone.replace(/\s/g, ""))) {
+      errors.push("Please enter a valid phone number (10-12 digits)");
+    }
+
+    if (!form.reason || form.reason.trim().length < 10) {
+      errors.push("Reason for inquiry must be at least 10 characters");
+    }
+
+    return errors;
+  };
 
   const handleInputChange = (field: keyof InquiryRequest, value: string) => {
     setInquiryForm((prev) => ({
@@ -187,22 +202,9 @@ const PropertyListingPage = () => {
   };
 
   const handleSubmit = async (propertyId: string) => {
-    setError(null);
-    setSuccessMessage(null);
-
-    const requiredFields: (keyof InquiryRequest)[] = [
-      "fullName",
-      "email",
-      "phone",
-      "reason",
-    ];
-
-    const missingFields = requiredFields.filter((field) => !inquiryForm[field]);
-
-    if (missingFields.length > 0) {
-      setError(
-        `Please fill in all required fields: ${missingFields.join(", ")}`
-      );
+    const validationErrors = validateInquiryForm(inquiryForm);
+    if (validationErrors.length > 0) {
+      toast.error(validationErrors[0]);
       return;
     }
 
@@ -216,10 +218,10 @@ const PropertyListingPage = () => {
         },
         body: JSON.stringify({
           inquiry: {
-            fullName: inquiryForm.fullName,
-            email: inquiryForm.email,
-            phone: inquiryForm.phone,
-            reason: inquiryForm.reason,
+            fullName: inquiryForm.fullName.trim(),
+            email: inquiryForm.email.trim(),
+            phone: inquiryForm.phone.trim(),
+            reason: inquiryForm.reason.trim(),
             submittedAt: new Date().toISOString(),
             status: "pending",
           },
@@ -237,7 +239,7 @@ const PropertyListingPage = () => {
         throw new Error(data.error || "Failed to submit inquiry");
       }
 
-      setSuccessMessage("Your inquiry has been submitted successfully!");
+      toast.success("Your inquiry has been submitted successfully!");
       setSelectedProperty(null);
       setInquiryForm({
         fullName: "",
@@ -271,7 +273,7 @@ const PropertyListingPage = () => {
       }
     } catch (err) {
       console.error("Error submitting inquiry:", err);
-      setError(
+      toast.error(
         (err as Error).message || "Failed to submit inquiry. Please try again."
       );
     } finally {
@@ -340,18 +342,6 @@ const PropertyListingPage = () => {
     );
   }
 
-  if (error) {
-    return (
-      <Container size="xl" py="xl">
-        <Center style={{ height: 400 }}>
-          <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-            {error}
-          </Alert>
-        </Center>
-      </Container>
-    );
-  }
-
   return (
     <Container size="xl" px="md">
       <Stack gap="xl">
@@ -364,7 +354,7 @@ const PropertyListingPage = () => {
           </Text>
         </Stack>
 
-        <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
           <TextInput
             placeholder="Search by title, location, or description..."
             value={searchQuery}
@@ -380,18 +370,6 @@ const PropertyListingPage = () => {
               { value: "commercial", label: "Commercial" },
               { value: "house-and-lot", label: "House and Lot" },
               { value: "condo", label: "Condo" },
-            ]}
-          />
-          <Select
-            value={selectedStatus}
-            onChange={(value) => setSelectedStatus(value || "all")}
-            data={[
-              { value: "all", label: "All Status" },
-              { value: "CREATED", label: "Available" },
-              { value: "UNDER_INQUIRY", label: "Under Inquiry" },
-              { value: "APPROVED", label: "Approved" },
-              { value: "REJECTED", label: "Rejected" },
-              { value: "LEASED", label: "Leased" },
             ]}
           />
         </SimpleGrid>
@@ -460,21 +438,36 @@ const PropertyListingPage = () => {
                       {property.size}
                     </Text>
                   </Group>
-                  {(property.bedrooms ?? 0) > 0 && (
-                    <Group gap="xs">
-                      <IconBed size={16} color="gray" />
-                      <Text size="sm" c="gray.7">
-                        {property.bedrooms} Bedrooms
-                      </Text>
-                    </Group>
-                  )}
-                  {(property.bathrooms ?? 0) > 0 && (
-                    <Group gap="xs">
-                      <IconBath size={16} color="gray" />
-                      <Text size="sm" c="gray.7">
-                        {property.bathrooms} Bathrooms
-                      </Text>
-                    </Group>
+                  {(property.type === "house-and-lot" ||
+                    property.type === "condo") && (
+                    <>
+                      {(property.bedrooms ?? 0) > 0 && (
+                        <Group gap="xs">
+                          <IconBed size={16} color="gray" />
+                          <Text size="sm" c="gray.7">
+                            {property.bedrooms} Bedroom
+                            {property.bedrooms !== 1 ? "s" : ""}
+                          </Text>
+                        </Group>
+                      )}
+                      {(property.bathrooms ?? 0) > 0 && (
+                        <Group gap="xs">
+                          <IconBath size={16} color="gray" />
+                          <Text size="sm" c="gray.7">
+                            {property.bathrooms} Bathroom
+                            {property.bathrooms !== 1 ? "s" : ""}
+                          </Text>
+                        </Group>
+                      )}
+                      {(property.sqft ?? 0) > 0 && (
+                        <Group gap="xs">
+                          <IconSquare size={16} color="gray" />
+                          <Text size="sm" c="gray.7">
+                            {property.sqft} sq ft
+                          </Text>
+                        </Group>
+                      )}
+                    </>
                   )}
                 </SimpleGrid>
 
@@ -520,7 +513,9 @@ const PropertyListingPage = () => {
             <Stack align="center">
               <IconBuilding size={48} color="gray" />
               <Text c="gray.6" size="md">
-                No properties found matching your criteria.
+                {searchQuery || selectedType !== "all"
+                  ? "No properties match your search or type."
+                  : "No properties found."}
               </Text>
             </Stack>
           </Center>
@@ -580,21 +575,36 @@ const PropertyListingPage = () => {
                     {selectedProperty.size}
                   </Text>
                 </Group>
-                {(selectedProperty.bedrooms ?? 0) > 0 && (
-                  <Group gap="xs">
-                    <IconBed size={18} color="gray" />
-                    <Text size="md" c="gray.7">
-                      {selectedProperty.bedrooms} Bedrooms
-                    </Text>
-                  </Group>
-                )}
-                {(selectedProperty.bathrooms ?? 0) > 0 && (
-                  <Group gap="xs">
-                    <IconBath size={18} color="gray" />
-                    <Text size="md" c="gray.7">
-                      {selectedProperty.bathrooms} Bathrooms
-                    </Text>
-                  </Group>
+                {(selectedProperty.type === "house-and-lot" ||
+                  selectedProperty.type === "condo") && (
+                  <>
+                    {(selectedProperty.bedrooms ?? 0) > 0 && (
+                      <Group gap="xs">
+                        <IconBed size={18} color="gray" />
+                        <Text size="md" c="gray.7">
+                          {selectedProperty.bedrooms} Bedroom
+                          {selectedProperty.bedrooms !== 1 ? "s" : ""}
+                        </Text>
+                      </Group>
+                    )}
+                    {(selectedProperty.bathrooms ?? 0) > 0 && (
+                      <Group gap="xs">
+                        <IconBath size={18} color="gray" />
+                        <Text size="md" c="gray.7">
+                          {selectedProperty.bathrooms} Bathroom
+                          {selectedProperty.bathrooms !== 1 ? "s" : ""}
+                        </Text>
+                      </Group>
+                    )}
+                    {(selectedProperty.sqft ?? 0) > 0 && (
+                      <Group gap="xs">
+                        <IconSquare size={18} color="gray" />
+                        <Text size="md" c="gray.7">
+                          {selectedProperty.sqft} sq ft
+                        </Text>
+                      </Group>
+                    )}
+                  </>
                 )}
               </SimpleGrid>
 
@@ -636,26 +646,6 @@ const PropertyListingPage = () => {
                     Submit Inquiry
                   </Title>
 
-                  {error && (
-                    <Alert
-                      icon={<IconAlertCircle size={16} />}
-                      title="Error"
-                      color="red"
-                    >
-                      {error}
-                    </Alert>
-                  )}
-
-                  {successMessage && (
-                    <Alert
-                      icon={<IconCheck size={16} />}
-                      title="Success"
-                      color="green"
-                    >
-                      {successMessage}
-                    </Alert>
-                  )}
-
                   <TextInput
                     label="Full Name"
                     placeholder="Enter your full name"
@@ -664,6 +654,7 @@ const PropertyListingPage = () => {
                       handleInputChange("fullName", e.currentTarget.value)
                     }
                     required
+                    disabled={submitting}
                   />
 
                   <TextInput
@@ -675,6 +666,7 @@ const PropertyListingPage = () => {
                       handleInputChange("email", e.currentTarget.value)
                     }
                     required
+                    disabled={submitting || !!session?.user?.email}
                   />
 
                   <TextInput
@@ -685,6 +677,7 @@ const PropertyListingPage = () => {
                       handleInputChange("phone", e.currentTarget.value)
                     }
                     required
+                    disabled={submitting}
                   />
 
                   <Textarea
@@ -696,12 +689,14 @@ const PropertyListingPage = () => {
                     }
                     minRows={4}
                     required
+                    disabled={submitting}
                   />
 
                   <Button
                     onClick={() => handleSubmit(selectedProperty._id)}
                     loading={submitting}
                     fullWidth
+                    disabled={submitting}
                   >
                     {submitting ? "Submitting..." : "Submit Inquiry"}
                   </Button>
