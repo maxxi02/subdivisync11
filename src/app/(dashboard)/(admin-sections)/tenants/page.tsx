@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState, useEffect } from "react";
 import {
   Table,
@@ -18,7 +19,6 @@ import {
   Container,
   Flex,
   Box,
-  Notification,
   PasswordInput,
 } from "@mantine/core";
 import {
@@ -26,10 +26,9 @@ import {
   IconEdit,
   IconUsers,
   IconSearch,
-  IconX,
-  IconCheck,
 } from "@tabler/icons-react";
 import { authClient } from "@/lib/auth-client";
+import { toast } from "react-hot-toast";
 
 interface Tenant {
   _id: string;
@@ -38,6 +37,14 @@ interface Tenant {
   user_email: string;
   status: string;
   created_at: string;
+  property?: {
+    title: string;
+    location: string;
+    type: string;
+    sqft?: number;
+    bedrooms?: number;
+    bathrooms?: number;
+  };
 }
 
 interface UserWithData {
@@ -47,6 +54,14 @@ interface UserWithData {
   createdAt: Date;
   data?: {
     status?: string;
+    property?: {
+      title: string;
+      location: string;
+      type: string;
+      sqft?: number;
+      bedrooms?: number;
+      bathrooms?: number;
+    };
     [key: string]: unknown;
   };
 }
@@ -64,13 +79,7 @@ const TenantsSection = () => {
   const [loading, setLoading] = useState(true);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [filter, setFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [notification, setNotification] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
-
   const [editForm, setEditForm] = useState(defaultForm);
   const [formErrors, setFormErrors] = useState<{
     full_name?: string;
@@ -82,11 +91,6 @@ const TenantsSection = () => {
   useEffect(() => {
     fetchTenants();
   }, []);
-
-  const showNotification = (type: "success" | "error", message: string) => {
-    setNotification({ type, message });
-    setTimeout(() => setNotification(null), 5000);
-  };
 
   const fetchTenants = async () => {
     try {
@@ -111,12 +115,14 @@ const TenantsSection = () => {
         user_email: user.email,
         status: user.data?.status || "Active",
         created_at: user.createdAt.toISOString(),
+        property: user.data?.property,
       }));
 
       setTenants(mappedTenants);
+      toast.success("Tenants fetched successfully");
     } catch (error) {
       console.error("Error fetching tenants:", error);
-      showNotification("error", "Failed to fetch tenants. Please try again.");
+      toast.error("Failed to fetch tenants. Please try again.");
       setTenants([]);
     } finally {
       setLoading(false);
@@ -182,7 +188,6 @@ const TenantsSection = () => {
 
     if (editingTenant) {
       // Update
-
       try {
         const { data: updatedUser, error } = await authClient.admin.updateUser({
           userId: editingTenant._id,
@@ -211,16 +216,16 @@ const TenantsSection = () => {
         );
         setShowEditModal(false);
         setEditingTenant(null);
-        showNotification("success", "Tenant updated successfully!");
+        toast.success("Tenant updated successfully!");
       } catch (error) {
         console.error("Error updating tenant:", error);
-        showNotification("error", "Failed to update tenant. Please try again.");
+        toast.error("Failed to update tenant. Please try again.");
       }
     } else {
       // Create
       try {
         if (!editForm.password) {
-          showNotification("error", "Password is required for new tenants.");
+          toast.error("Password is required for new tenants.");
           return;
         }
 
@@ -252,12 +257,11 @@ const TenantsSection = () => {
         };
 
         setTenants((prev) => [...prev, newTenant]);
-        
         setShowEditModal(false);
-        showNotification("success", "Tenant created successfully!");
+        toast.success("Tenant created successfully!");
       } catch (error) {
         console.error("Error creating tenant:", error);
-        showNotification("error", "Failed to create tenant. Please try again.");
+        toast.error("Failed to create tenant. Please try again.");
       }
     }
   };
@@ -277,10 +281,10 @@ const TenantsSection = () => {
       }
 
       setTenants((prev) => prev.filter((t) => t._id !== tenantId));
-      showNotification("success", "Tenant deleted successfully!");
+      toast.success("Tenant deleted successfully!");
     } catch (error) {
       console.error("Error deleting tenant:", error);
-      showNotification("error", "Failed to delete tenant. Please try again.");
+      toast.error("Failed to delete tenant. Please try again.");
     }
   };
 
@@ -301,17 +305,13 @@ const TenantsSection = () => {
     );
   };
 
-  const filteredTenants = tenants
-    .filter((tenant) => filter === "all" || tenant.status === filter)
-    .filter(
-      (tenant) =>
-        (tenant.user_name || "")
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        (tenant.user_email || "")
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase())
-    );
+  const filteredTenants = tenants.filter(
+    (tenant) =>
+      (tenant.user_name || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      (tenant.user_email || "").toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -325,25 +325,6 @@ const TenantsSection = () => {
 
   return (
     <Container size="xl" py="md">
-      {/* Notification */}
-      {notification && (
-        <Notification
-          icon={
-            notification.type === "success" ? (
-              <IconCheck size={18} />
-            ) : (
-              <IconX size={18} />
-            )
-          }
-          color={notification.type === "success" ? "green" : "red"}
-          title={notification.type === "success" ? "Success" : "Error"}
-          onClose={() => setNotification(null)}
-          style={{ position: "fixed", top: 20, right: 20, zIndex: 1000 }}
-        >
-          {notification.message}
-        </Notification>
-      )}
-
       {/* Header */}
       <Group mb="xl" justify="space-between">
         <Group>
@@ -364,31 +345,15 @@ const TenantsSection = () => {
         </Button>
       </Group>
 
-      {/* Filters and Search */}
+      {/* Search */}
       <Paper p="md" mb="md" shadow="sm">
-        <Flex justify="space-between" align="center" gap="md" wrap="wrap">
-          <Group>
-            {["all", "Active", "Inactive", "Evicted", "Moved Out"].map(
-              (status) => (
-                <Button
-                  key={status}
-                  variant={filter === status ? "filled" : "light"}
-                  onClick={() => setFilter(status)}
-                  size="sm"
-                >
-                  {status === "all" ? "All Tenants" : status}
-                </Button>
-              )
-            )}
-          </Group>
-          <TextInput
-            placeholder="Search tenants..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.currentTarget.value)}
-            leftSection={<IconSearch size={16} />}
-            style={{ minWidth: 250 }}
-          />
-        </Flex>
+        <TextInput
+          placeholder="Search tenants by name or email..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.currentTarget.value)}
+          leftSection={<IconSearch size={16} />}
+          style={{ maxWidth: 400 }}
+        />
       </Paper>
 
       {/* Table */}
@@ -451,7 +416,7 @@ const TenantsSection = () => {
               <Text c="dimmed">
                 {searchTerm
                   ? "Try adjusting your search terms."
-                  : "No tenants match the selected filter."}
+                  : "No tenants available."}
               </Text>
             </Stack>
           </Center>
@@ -473,6 +438,67 @@ const TenantsSection = () => {
         size="lg"
       >
         <Stack>
+          {editingTenant?.property && (
+            <Box className="bg-gray-50 rounded-lg p-4">
+              <Text size="sm" fw={500} mb="sm">
+                Property Information
+              </Text>
+              <Group>
+                <Box>
+                  <Text size="xs" c="dimmed">
+                    Property Title
+                  </Text>
+                  <Text size="sm">{editingTenant.property.title}</Text>
+                </Box>
+                <Box>
+                  <Text size="xs" c="dimmed">
+                    Location
+                  </Text>
+                  <Text size="sm">{editingTenant.property.location}</Text>
+                </Box>
+                {(editingTenant.property.type === "house-and-lot" ||
+                  editingTenant.property.type === "condo") && (
+                  <>
+                    {editingTenant.property.bedrooms &&
+                      editingTenant.property.bedrooms > 0 && (
+                        <Box>
+                          <Text size="xs" c="dimmed">
+                            Bedrooms
+                          </Text>
+                          <Text size="sm">
+                            {editingTenant.property.bedrooms} Bedroom
+                            {editingTenant.property.bedrooms > 1 ? "s" : ""}
+                          </Text>
+                        </Box>
+                      )}
+                    {editingTenant.property.bathrooms &&
+                      editingTenant.property.bathrooms > 0 && (
+                        <Box>
+                          <Text size="xs" c="dimmed">
+                            Bathrooms
+                          </Text>
+                          <Text size="sm">
+                            {editingTenant.property.bathrooms} Bathroom
+                            {editingTenant.property.bathrooms > 1 ? "s" : ""}
+                          </Text>
+                        </Box>
+                      )}
+                    {editingTenant.property.sqft &&
+                      editingTenant.property.sqft > 0 && (
+                        <Box>
+                          <Text size="xs" c="dimmed">
+                            Square Footage
+                          </Text>
+                          <Text size="sm">
+                            {editingTenant.property.sqft} sq ft
+                          </Text>
+                        </Box>
+                      )}
+                  </>
+                )}
+              </Group>
+            </Box>
+          )}
           <TextInput
             label="Full Name"
             value={editForm.full_name}

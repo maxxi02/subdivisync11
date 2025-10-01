@@ -1,4 +1,5 @@
 "use client";
+
 import { getServerSession } from "@/better-auth/action";
 import React, { useEffect, useState } from "react";
 import { Session } from "@/better-auth/auth-types";
@@ -10,20 +11,18 @@ import {
   Text,
   Paper,
   Avatar,
-  Alert,
   Loader,
   Stack,
   Divider,
 } from "@mantine/core";
-import { IconUpload, IconAlertCircle } from "@tabler/icons-react";
+import { IconUpload } from "@tabler/icons-react";
 import { useForm } from "@mantine/form";
-import { notifications } from "@mantine/notifications";
+import { toast } from "react-hot-toast";
 import { authClient } from "@/lib/auth-client";
 
 const AdminProfilePage = () => {
   const [session, setSession] = useState<null | Session>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>("");
   const [imagePreview, setImagePreview] = useState<string>("");
 
   const profileForm = useForm({
@@ -80,11 +79,15 @@ const AdminProfilePage = () => {
 
   useEffect(() => {
     const fetchTenantProfile = async () => {
-      const session = await getServerSession();
-      setSession(session);
-
-      profileForm.setValues({ name: session?.user?.name || "" });
-      setImagePreview(session?.user?.image || "");
+      try {
+        const session = await getServerSession();
+        setSession(session);
+        profileForm.setValues({ name: session?.user?.name || "" });
+        setImagePreview(session?.user?.image || "");
+        toast.success("Profile data loaded successfully");
+      } catch (error) {
+        toast.error("Failed to load profile data. Please try again.");
+      }
     };
 
     fetchTenantProfile();
@@ -110,20 +113,18 @@ const AdminProfilePage = () => {
     } else {
       setImagePreview(session?.user?.image || "");
     }
-    if (error) setError("");
   };
 
   const handleProfileSubmit = async (values: typeof profileForm.values) => {
     const validationError = profileForm.validate();
     if (validationError.hasErrors) {
-      setError(
+      toast.error(
         String(Object.values(validationError.errors)[0]) || "Invalid input"
       );
       return;
     }
 
     setLoading(true);
-    setError("");
 
     try {
       let imageData = session?.user?.image || "";
@@ -140,21 +141,11 @@ const AdminProfilePage = () => {
       setSession(updatedSession);
       setImagePreview(updatedSession?.user?.image || "");
 
-      notifications.show({
-        title: "Success",
-        message: "Profile updated successfully",
-        color: "green",
-      });
+      toast.success("Profile updated successfully");
     } catch (error) {
-      setError(
+      toast.error(
         error instanceof Error ? error.message : "Failed to update profile"
       );
-      notifications.show({
-        title: "Error",
-        message:
-          error instanceof Error ? error.message : "Failed to update profile",
-        color: "red",
-      });
     } finally {
       setLoading(false);
     }
@@ -163,14 +154,13 @@ const AdminProfilePage = () => {
   const handlePasswordSubmit = async (values: typeof passwordForm.values) => {
     const validationError = passwordForm.validate();
     if (validationError.hasErrors) {
-      setError(
+      toast.error(
         String(Object.values(validationError.errors)[0]) || "Invalid input"
       );
       return;
     }
 
     setLoading(true);
-    setError("");
 
     try {
       const { error: authError } = await authClient.changePassword({
@@ -180,31 +170,16 @@ const AdminProfilePage = () => {
       });
 
       if (authError) {
-        setError(authError.message || "Failed to change password");
-        notifications.show({
-          title: "Error",
-          message: authError.message || "Failed to change password",
-          color: "red",
-        });
+        toast.error(authError.message || "Failed to change password");
         return;
       }
 
-      notifications.show({
-        title: "Success",
-        message: "Password changed successfully",
-        color: "green",
-      });
+      toast.success("Password changed successfully");
       passwordForm.reset();
     } catch (error) {
-      setError(
+      toast.error(
         error instanceof Error ? error.message : "Failed to change password"
       );
-      notifications.show({
-        title: "Error",
-        message:
-          error instanceof Error ? error.message : "Failed to change password",
-        color: "red",
-      });
     } finally {
       setLoading(false);
     }
@@ -213,31 +188,24 @@ const AdminProfilePage = () => {
   const handleTwoFactorSubmit = async (values: typeof twoFactorForm.values) => {
     const validationError = twoFactorForm.validate();
     if (validationError.hasErrors) {
-      setError(
+      toast.error(
         String(Object.values(validationError.errors)[0]) || "Invalid input"
       );
       return;
     }
 
     setLoading(true);
-    setError("");
 
     try {
-      const { data, error: authError } = await authClient.twoFactor.enable({
+      const { error: authError } = await authClient.twoFactor.enable({
         password: values.password,
         issuer: "TenantApp",
       });
 
       if (authError) {
-        setError(
+        toast.error(
           authError.message || "Failed to enable two-factor authentication"
         );
-        notifications.show({
-          title: "Error",
-          message:
-            authError.message || "Failed to enable two-factor authentication",
-          color: "red",
-        });
         return;
       }
 
@@ -245,26 +213,14 @@ const AdminProfilePage = () => {
       const updatedSession = await getServerSession();
       setSession(updatedSession);
 
-      notifications.show({
-        title: "Success",
-        message: "Two-factor authentication enabled successfully",
-        color: "green",
-      });
+      toast.success("Two-factor authentication enabled successfully");
       twoFactorForm.reset();
     } catch (error) {
-      setError(
+      toast.error(
         error instanceof Error
           ? error.message
           : "Failed to enable two-factor authentication"
       );
-      notifications.show({
-        title: "Error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Failed to enable two-factor authentication",
-        color: "red",
-      });
     } finally {
       setLoading(false);
     }
@@ -301,16 +257,6 @@ const AdminProfilePage = () => {
       </Text>
 
       <Stack gap="md">
-        {error && (
-          <Alert
-            icon={<IconAlertCircle size="1rem" />}
-            color="red"
-            variant="light"
-          >
-            {error}
-          </Alert>
-        )}
-
         {/* Profile Update Section */}
         <form onSubmit={profileForm.onSubmit(handleProfileSubmit)}>
           <Stack gap="md">

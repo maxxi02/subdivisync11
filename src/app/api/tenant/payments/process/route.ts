@@ -170,10 +170,17 @@ export async function POST(request: NextRequest) {
                 "dob",
                 "qrph",
               ],
-              success_url: `${process.env.BETTER_AUTH_URL}/payments/success?payment_id=${paymentId}`,
-              cancel_url: `${process.env.BETTER_AUTH_URL}/payments/cancel?payment_id=${paymentId}`,
+              success_url: `${
+                process.env.NODE_ENV === "production"
+                  ? process.env.NEXT_PUBLIC_URL
+                  : process.env.BETTER_AUTH_URL
+              }/payments/success?payment_id=${paymentId}`,
+              cancel_url: `${
+                process.env.NODE_ENV === "production"
+                  ? process.env.NEXT_PUBLIC_URL
+                  : process.env.BETTER_AUTH_URL
+              }/payments/cancel?payment_id=${paymentId}`,
 
-              // Optional fields - remove the problematic ones
               description: `Property Payment for Month ${payment.monthNumber}`,
               send_email_receipt: true,
               show_description: true,

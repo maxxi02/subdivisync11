@@ -158,8 +158,18 @@ async function createPayMongoCheckout(params: {
               },
             ],
             payment_method_types: ["card", "gcash", "grab_pay"],
-            success_url: `${process.env.BETTER_AUTH_URL}/services/success?payment_intent_id=${paymentIntentId}&request_id=${params.requestId}`,
-            cancel_url: `${process.env.BETTER_AUTH_URL}/services/cancel?request_id=${params.requestId}`,
+            success_url: `${
+              process.env.NODE_ENV === "production"
+                ? process.env.NEXT_PUBLIC_URL
+                : process.env.BETTER_AUTH_URL
+            }/services/success?payment_intent_id=${paymentIntentId}&request_id=${
+              params.requestId
+            }`,
+            cancel_url: `${
+              process.env.NODE_ENV === "production"
+                ? process.env.NEXT_PUBLIC_URL
+                : process.env.BETTER_AUTH_URL
+            }/services/cancel?request_id=${params.requestId}`,
           },
         },
       }),

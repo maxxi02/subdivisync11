@@ -1,4 +1,3 @@
-// src/components/PaymentsTrackingPage.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -16,6 +15,7 @@ import {
   Search,
   RefreshCw,
 } from "lucide-react";
+import { toast } from "react-hot-toast";
 
 interface PaymentPlan {
   _id: string;
@@ -38,6 +38,14 @@ interface PaymentPlan {
     phone: string;
   };
   created_at: string;
+  property?: {
+    title: string;
+    location: string;
+    type: string;
+    sqft?: number;
+    bedrooms?: number;
+    bathrooms?: number;
+  };
 }
 
 interface MonthlyPayment {
@@ -65,9 +73,6 @@ interface PaymentWithPlan extends MonthlyPayment {
 const PaymentsTrackingPage = () => {
   const [payments, setPayments] = useState<PaymentWithPlan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<
-    "all" | "paid" | "pending" | "overdue" | "partial"
-  >("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPayment, setSelectedPayment] =
     useState<PaymentWithPlan | null>(null);
@@ -88,20 +93,27 @@ const PaymentsTrackingPage = () => {
       const paymentsResponse = await fetch("/api/monthly-payments");
       const paymentsData = await paymentsResponse.json();
 
-      if (paymentsData.success) {
-        // Combine payments with their payment plans
-        const paymentsWithPlans = paymentsData.payments.map(
-          (payment: MonthlyPayment) => {
-            const plan = plansData.paymentPlans?.find(
-              (p: PaymentPlan) => p._id === payment.paymentPlanId
-            );
-            return { ...payment, paymentPlan: plan };
-          }
-        );
-        setPayments(paymentsWithPlans);
+      if (!plansData.success) {
+        throw new Error(plansData.error || "Failed to fetch payment plans");
       }
+      if (!paymentsData.success) {
+        throw new Error(paymentsData.error || "Failed to fetch payments");
+      }
+
+      // Combine payments with their payment plans
+      const paymentsWithPlans = paymentsData.payments.map(
+        (payment: MonthlyPayment) => {
+          const plan = plansData.paymentPlans?.find(
+            (p: PaymentPlan) => p._id === payment.paymentPlanId
+          );
+          return { ...payment, paymentPlan: plan };
+        }
+      );
+      setPayments(paymentsWithPlans);
+      toast.success("Payment data fetched successfully");
     } catch (error) {
       console.error("Error fetching payment data:", error);
+      toast.error("Failed to fetch payment data. Please try again.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -111,6 +123,17 @@ const PaymentsTrackingPage = () => {
   useEffect(() => {
     fetchPaymentData();
   }, []);
+
+  // Handle remind action (placeholder)
+  const handleRemind = async (payment: PaymentWithPlan) => {
+    try {
+      // Placeholder: Implement actual reminder logic (e.g., send email)
+      toast.success(`Reminder sent to ${payment.tenantEmail}`);
+    } catch (error) {
+      console.error("Error sending reminder:", error);
+      toast.error("Failed to send reminder. Please try again.");
+    }
+  };
 
   // Calculate overdue payments
   const updateOverduePayments = () => {
@@ -126,10 +149,6 @@ const PaymentsTrackingPage = () => {
   // Get filtered payments
   const getFilteredPayments = () => {
     let filtered = updateOverduePayments();
-
-    if (filter !== "all") {
-      filtered = filtered.filter((p) => p.status === filter);
-    }
 
     if (searchTerm) {
       filtered = filtered.filter(
@@ -211,7 +230,7 @@ const PaymentsTrackingPage = () => {
             </div>
             <button
               onClick={fetchPaymentData}
-              disabled={refreshing} // Disable button while refreshing
+              disabled={refreshing}
               className={`px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 ${
                 refreshing
                   ? "opacity-50 cursor-not-allowed"
@@ -308,41 +327,17 @@ const PaymentsTrackingPage = () => {
           </div>
         )}
 
-        {/* Filters and Search */}
+        {/* Search */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex flex-col sm:flex-row gap-4 justify-between">
-            <div className="flex gap-4">
-              <select
-                value={filter}
-                onChange={(e) =>
-                  setFilter(
-                    e.target.value as
-                      | "all"
-                      | "paid"
-                      | "pending"
-                      | "overdue"
-                      | "partial"
-                  )
-                }
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Payments</option>
-                <option value="paid">Paid</option>
-                <option value="pending">Pending</option>
-                <option value="overdue">Overdue</option>
-                <option value="partial">Partial</option>
-              </select>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search tenants or properties..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 w-64"
-              />
-            </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search tenants or properties..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 w-full max-w-md"
+            />
           </div>
         </div>
 
@@ -376,7 +371,9 @@ const PaymentsTrackingPage = () => {
                       colSpan={5}
                       className="px-6 py-8 text-center text-gray-500"
                     >
-                      No payments found
+                      {searchTerm
+                        ? "No payments match your search."
+                        : "No payments found."}
                     </td>
                   </tr>
                 ) : (
@@ -445,7 +442,10 @@ const PaymentsTrackingPage = () => {
                             View
                           </button>
                           {payment.status === "pending" && (
-                            <button className="bg-yellow-600 text-white px-3 py-1 rounded-md hover:bg-yellow-700 flex items-center gap-1">
+                            <button
+                              onClick={() => handleRemind(payment)}
+                              className="bg-yellow-600 text-white px-3 py-1 rounded-md hover:bg-yellow-700 flex items-center gap-1"
+                            >
                               <Send className="h-4 w-4" />
                               Remind
                             </button>
@@ -462,7 +462,7 @@ const PaymentsTrackingPage = () => {
 
         {/* Payment Details Modal */}
         {showDetailsModal && selectedPayment && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
               <h3 className="text-xl font-semibold text-gray-900 mb-4">
                 Payment Details
@@ -516,6 +516,82 @@ const PaymentsTrackingPage = () => {
                   )}
                 </div>
               </div>
+
+              {/* Property Information */}
+              {selectedPayment.paymentPlan?.property && (
+                <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Home className="h-5 w-5" />
+                    Property Information
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Title</p>
+                      <p className="font-medium text-gray-900">
+                        {selectedPayment.paymentPlan.property.title}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Location</p>
+                      <p className="font-medium text-gray-900">
+                        {selectedPayment.paymentPlan.property.location}
+                      </p>
+                    </div>
+                    {(selectedPayment.paymentPlan.property.type ===
+                      "house-and-lot" ||
+                      selectedPayment.paymentPlan.property.type ===
+                        "condo") && (
+                      <>
+                        {selectedPayment.paymentPlan.property.bedrooms &&
+                          selectedPayment.paymentPlan.property.bedrooms > 0 && (
+                            <div>
+                              <p className="text-sm text-gray-600 mb-1">
+                                Bedrooms
+                              </p>
+                              <p className="font-medium text-gray-900">
+                                {selectedPayment.paymentPlan.property.bedrooms}{" "}
+                                Bedroom
+                                {selectedPayment.paymentPlan.property.bedrooms >
+                                1
+                                  ? "s"
+                                  : ""}
+                              </p>
+                            </div>
+                          )}
+                        {selectedPayment.paymentPlan.property.bathrooms &&
+                          selectedPayment.paymentPlan.property.bathrooms >
+                            0 && (
+                            <div>
+                              <p className="text-sm text-gray-600 mb-1">
+                                Bathrooms
+                              </p>
+                              <p className="font-medium text-gray-900">
+                                {selectedPayment.paymentPlan.property.bathrooms}{" "}
+                                Bathroom
+                                {selectedPayment.paymentPlan.property
+                                  .bathrooms > 1
+                                  ? "s"
+                                  : ""}
+                              </p>
+                            </div>
+                          )}
+                        {selectedPayment.paymentPlan.property.sqft &&
+                          selectedPayment.paymentPlan.property.sqft > 0 && (
+                            <div>
+                              <p className="text-sm text-gray-600 mb-1">
+                                Square Footage
+                              </p>
+                              <p className="font-medium text-gray-900">
+                                {selectedPayment.paymentPlan.property.sqft} sq
+                                ft
+                              </p>
+                            </div>
+                          )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Tenant Information */}
               {selectedPayment.paymentPlan && (

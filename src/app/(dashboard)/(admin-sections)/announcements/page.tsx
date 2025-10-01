@@ -1,10 +1,12 @@
 "use client";
+
 import { getServerSession } from "@/better-auth/action";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
+import { toast } from "react-hot-toast";
 
 interface Announcement {
   _id: string;
@@ -17,6 +19,14 @@ interface Announcement {
   created_by: string;
   created_at: string;
   updated_at?: string;
+  property?: {
+    title: string;
+    location: string;
+    type: string;
+    sqft?: number;
+    bedrooms?: number;
+    bathrooms?: number;
+  };
 }
 
 const AnnouncementCard = ({
@@ -84,21 +94,56 @@ const AnnouncementCard = ({
         <p className="mt-2 text-gray-500 text-sm leading-5">
           {announcement.content}
         </p>
-        <p className="mt-2 text-sm text-gray-400">
-          Category:{" "}
-          <Badge className="bg-blue-500/90 border-none text-black">
-            {announcement.category}
-          </Badge>{" "}
-          | Priority:{" "}
-          <Badge className="bg-blue-500/90 border-none text-black">
-            {announcement.priority}
-          </Badge>{" "}
-          | Scheduled:{" "}
-          <Badge className="bg-blue-500/90 border-none text-black">
-            {new Date(announcement.scheduledDate).toLocaleDateString()}
-          </Badge>
-          {new Date(announcement.scheduledDate).toLocaleDateString()}
-        </p>
+        <div className="mt-2 text-sm text-gray-400">
+          <p>
+            Category:{" "}
+            <Badge className="text-gray-500 bg-gray-100">
+              {announcement.category}
+            </Badge>
+          </p>
+          <p>
+            Priority:{" "}
+            <Badge className="text-gray-500 bg-gray-100">
+              {announcement.priority}
+            </Badge>
+          </p>
+          <p>
+            Scheduled:{" "}
+            <Badge className="text-gray-500 bg-gray-100">
+              {new Date(announcement.scheduledDate).toLocaleDateString()}
+            </Badge>
+          </p>
+          {announcement.property && (
+            <div className="mt-2">
+              <p className="font-medium">Property Information:</p>
+              <p>Title: {announcement.property.title}</p>
+              <p>Location: {announcement.property.location}</p>
+              {(announcement.property.type === "house-and-lot" ||
+                announcement.property.type === "condo") && (
+                <>
+                  {announcement.property.bedrooms &&
+                    announcement.property.bedrooms > 0 && (
+                      <p>
+                        Bedrooms: {announcement.property.bedrooms} Bedroom
+                        {announcement.property.bedrooms > 1 ? "s" : ""}
+                      </p>
+                    )}
+                  {announcement.property.bathrooms &&
+                    announcement.property.bathrooms > 0 && (
+                      <p>
+                        Bathrooms: {announcement.property.bathrooms} Bathroom
+                        {announcement.property.bathrooms > 1 ? "s" : ""}
+                      </p>
+                    )}
+                  {announcement.property.sqft &&
+                    announcement.property.sqft > 0 && (
+                      <p>Square Footage: {announcement.property.sqft} sq ft</p>
+                    )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
         <div className="mt-4 flex gap-2">
           <button
             onClick={() => onEdit(announcement)}
@@ -122,7 +167,6 @@ const ManageAnnouncementSection = () => {
   const router = useRouter();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [formData, setFormData] = useState({
     id: "",
@@ -159,11 +203,12 @@ const ManageAnnouncementSection = () => {
         const data = await response.json();
         if (data.success) {
           setAnnouncements(data.announcements);
+          toast.success("Announcements fetched successfully");
         } else {
-          setError(data.error || "Failed to fetch announcements");
+          toast.error(data.error || "Failed to fetch announcements");
         }
       } catch (err) {
-        setError("An error occurred while fetching announcements");
+        toast.error("An error occurred while fetching announcements");
       } finally {
         setIsLoading(false);
       }
@@ -223,7 +268,16 @@ const ManageAnnouncementSection = () => {
   // Handle form submission (create or update)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+
+    if (
+      !formData.title ||
+      !formData.content ||
+      !formData.category ||
+      !formData.scheduledDate
+    ) {
+      toast.error("Please fill all required fields");
+      return;
+    }
 
     const form = new FormData();
     form.append("title", formData.title);
@@ -254,16 +308,18 @@ const ManageAnnouncementSection = () => {
               ann._id === data.announcement._id ? data.announcement : ann
             )
           );
+          toast.success("Announcement updated successfully");
         } else {
           setAnnouncements((prev) => [data.announcement, ...prev]);
+          toast.success("Announcement created successfully");
         }
         resetForm();
       } else {
-        setError(data.error || "Failed to save announcement");
+        toast.error(data.error || "Failed to save announcement");
       }
     } catch (err) {
-      setError("An error occurred while saving the announcement");
-    } 
+      toast.error("An error occurred while saving the announcement");
+    }
   };
 
   // Handle edit button click
@@ -295,11 +351,12 @@ const ManageAnnouncementSection = () => {
 
       if (data.success) {
         setAnnouncements((prev) => prev.filter((ann) => ann._id !== id));
+        toast.success("Announcement deleted successfully");
       } else {
-        setError(data.error || "Failed to delete announcement");
+        toast.error(data.error || "Failed to delete announcement");
       }
     } catch (err) {
-      setError("An error occurred while deleting the announcement");
+      toast.error("An error occurred while deleting the announcement");
     }
   };
 
@@ -319,7 +376,6 @@ const ManageAnnouncementSection = () => {
         <h2 className="text-xl font-semibold mb-4">
           {isEditing ? "Edit Announcement" : "Create Announcement"}
         </h2>
-        {error && <p className="text-red-500 mb-4">{error}</p>}
 
         <div className="mb-4">
           <label htmlFor="title" className="block text-sm font-medium">

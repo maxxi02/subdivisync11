@@ -1,9 +1,7 @@
-// src/components/PropertyManagement.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,14 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -57,6 +47,7 @@ import {
 import { uploadImageToServer, validateImageFile } from "@/lib/upload";
 import CustomCarousel from "./_components/carousel";
 import Image from "next/image";
+import { toast } from "react-hot-toast";
 
 // Types
 interface PropertyOwner {
@@ -120,12 +111,6 @@ interface UpdatePropertyRequest extends CreatePropertyRequest {
   };
 }
 
-interface InquiryRequest {
-  propertyId: string;
-  reason: string;
-  duration: string;
-}
-
 interface Pagination {
   total: number;
   page: number;
@@ -143,6 +128,94 @@ interface ImageUploadPreviewProps {
 
 type ImageType = "existing" | "new";
 
+// Custom Modal Component
+interface CustomModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  description?: string | React.ReactNode;
+  children: React.ReactNode;
+}
+
+const CustomModal: React.FC<CustomModalProps> = ({
+  isOpen,
+  onClose,
+  title,
+  description,
+  children,
+}) => {
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("keydown", handleKeyDown);
+      document.addEventListener("mousedown", handleClickOutside);
+      document.body.style.overflow = "hidden";
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.body.style.overflow = "auto";
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div
+        ref={modalRef}
+        className="w-full max-w-4xl max-h-[90vh] bg-white rounded-lg shadow-xl overflow-y-auto mx-4"
+      >
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+              {description && (
+                <p className="text-sm text-gray-600">{description}</p>
+              )}
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+          <div>{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Image Upload Preview Component
 const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
   images,
   selectedImages,
@@ -153,12 +226,23 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
+      const validationErrors = files
+        .map((file) => validateImageFile(file))
+        .filter((v) => !v.valid);
+      if (validationErrors.length > 0) {
+        toast.error(validationErrors[0].error || "Invalid image file");
+        return;
+      }
       onImageChange(files, isEdit);
+      toast.success(
+        `${files.length} image${files.length > 1 ? "s" : ""} selected`
+      );
     }
   };
 
   const handleRemoveClick = (index: number, type: ImageType): void => {
     onRemoveImage(index, type);
+    toast.success("Image removed");
   };
 
   const inputId = isEdit ? "edit-images" : "images";
@@ -254,6 +338,7 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
   );
 };
 
+// Main Component
 const PropertyManagement = () => {
   const [ownerDetails, setOwnerDetails] = useState({
     fullName: "",
@@ -266,7 +351,7 @@ const PropertyManagement = () => {
     null
   );
   const [loading, setLoading] = useState(true);
-  const [createLoading, setCreateLoading] = useState(false); // New loading state for create button
+  const [createLoading, setCreateLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -315,7 +400,7 @@ const PropertyManagement = () => {
 
   const fetchProperties = async (page: number = 1) => {
     try {
-      // setLoading(true);
+      setLoading(true);
       setError(null);
       const params = new URLSearchParams({
         page: page.toString(),
@@ -339,7 +424,10 @@ const PropertyManagement = () => {
       setPagination(data.pagination);
     } catch (error) {
       console.error("Error fetching properties:", error);
-      setError((error as Error).message || "Failed to fetch properties");
+      const errorMessage =
+        (error as Error).message || "Failed to fetch properties";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -372,6 +460,16 @@ const PropertyManagement = () => {
     fetchProperties();
   }, [searchQuery]);
 
+  const validateForm = (data: CreatePropertyRequest): string | null => {
+    if (!data.title.trim()) return "Property title is required";
+    if (!data.location.trim()) return "Location is required";
+    if (!data.size.trim()) return "Size is required";
+    if (!data.price.trim()) return "Price is required";
+    if (!/^\d+(\.\d+)?$/.test(data.price))
+      return "Price must be a valid number";
+    return null;
+  };
+
   const handleImageChange = (files: File[], isEdit: boolean): void => {
     setSelectedImages((prevImages) => [...prevImages, ...files]);
   };
@@ -395,7 +493,14 @@ const PropertyManagement = () => {
 
   const handleCreateProperty = async (): Promise<void> => {
     try {
-      setCreateLoading(true); // Set loading state
+      const validationError = validateForm(formData);
+      if (validationError) {
+        setError(validationError);
+        toast.error(validationError);
+        return;
+      }
+
+      setCreateLoading(true);
       setError(null);
 
       let imageUrls: string[] = [];
@@ -452,7 +557,6 @@ const PropertyManagement = () => {
 
       setProperties([...properties, data.property]);
       setCreateModalOpen(false);
-
       setFormData({
         title: "",
         location: "",
@@ -468,18 +572,27 @@ const PropertyManagement = () => {
         sqft: 0,
       });
       setSelectedImages([]);
+      toast.success("Property created successfully");
     } catch (error) {
       console.error("Error creating property:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Failed to create property";
       setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
-      setCreateLoading(false); // Reset loading state
+      setCreateLoading(false);
     }
   };
 
   const handleEditProperty = async (): Promise<void> => {
     try {
+      const validationError = validateForm(editFormData);
+      if (validationError) {
+        setError(validationError);
+        toast.error(validationError);
+        return;
+      }
+
       setError(null);
       let newImageUrls: string[] = [];
 
@@ -523,6 +636,13 @@ const PropertyManagement = () => {
       };
 
       if (editFormData.status === "LEASED") {
+        if (!ownerDetails.fullName.trim() || !ownerDetails.email.trim()) {
+          const errorMessage =
+            "Owner name and email are required for leased properties";
+          setError(errorMessage);
+          toast.error(errorMessage);
+          return;
+        }
         requestBody.owner_details = {
           fullName: ownerDetails.fullName,
           email: ownerDetails.email,
@@ -566,11 +686,13 @@ const PropertyManagement = () => {
       });
       setSelectedImages([]);
       setOwnerDetails({ fullName: "", email: "", phone: "" });
+      toast.success("Property updated successfully");
     } catch (error) {
       console.error("Error updating property:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Failed to update property";
       setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -591,9 +713,13 @@ const PropertyManagement = () => {
       }
 
       setProperties(properties.filter((p) => p._id !== id));
+      toast.success("Property deleted successfully");
     } catch (error) {
       console.error("Error deleting property:", error);
-      setError((error as Error).message || "Failed to delete property");
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to delete property";
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -656,6 +782,11 @@ const PropertyManagement = () => {
       } else {
         setFormData({ ...formData, amenities: newAmenities });
       }
+      toast.success(
+        `${value
+          .replace("-", " ")
+          .replace(/\b\w/g, (l) => l.toUpperCase())} removed from amenities`
+      );
     } else {
       const newAmenities = [...currentAmenities, value];
       if (isEdit) {
@@ -663,6 +794,11 @@ const PropertyManagement = () => {
       } else {
         setFormData({ ...formData, amenities: newAmenities });
       }
+      toast.success(
+        `${value
+          .replace("-", " ")
+          .replace(/\b\w/g, (l) => l.toUpperCase())} added to amenities`
+      );
     }
   };
 
@@ -713,259 +849,13 @@ const PropertyManagement = () => {
               </p>
             </div>
             <div className="flex gap-4">
-              <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
-                <DialogTrigger asChild>
-                  <Button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-                    <Plus className="w-4 h-4" />
-                    Add Property
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-lg">
-                  <DialogHeader>
-                    <DialogTitle className="text-xl font-semibold">
-                      Add New Property
-                    </DialogTitle>
-                    <DialogDescription>
-                      Create a new property listing
-                    </DialogDescription>
-                  </DialogHeader>
-                  {error && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                      <div className="flex items-center gap-3">
-                        <AlertTriangle className="h-5 w-5 text-red-600" />
-                        <p className="text-sm text-red-700">{error}</p>
-                      </div>
-                    </div>
-                  )}
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="title">Property Title *</Label>
-                      <Input
-                        id="title"
-                        value={formData.title}
-                        onChange={(e) =>
-                          setFormData({ ...formData, title: e.target.value })
-                        }
-                        placeholder="Enter property title"
-                        required
-                        className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="location">Location/Address *</Label>
-                      <Input
-                        id="location"
-                        value={formData.location}
-                        onChange={(e) =>
-                          setFormData({ ...formData, location: e.target.value })
-                        }
-                        placeholder="Enter property location"
-                        required
-                        className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="size">Size *</Label>
-                      <Input
-                        id="size"
-                        value={formData.size}
-                        onChange={(e) =>
-                          setFormData({ ...formData, size: e.target.value })
-                        }
-                        placeholder="e.g., 300 sqm"
-                        required
-                        className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="price">Price *</Label>
-                      <Input
-                        id="price"
-                        value={formData.price}
-                        onChange={(e) =>
-                          setFormData({ ...formData, price: e.target.value })
-                        }
-                        placeholder="e.g., ₱2,500,000"
-                        required
-                        className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="type">Property Type *</Label>
-                      <Select
-                        value={formData.type}
-                        onValueChange={(value) =>
-                          setFormData({ ...formData, type: value })
-                        }
-                      >
-                        <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="residential-lot">
-                            Residential Lot
-                          </SelectItem>
-                          <SelectItem value="commercial">Commercial</SelectItem>
-                          <SelectItem value="house-and-lot">
-                            House and Lot
-                          </SelectItem>
-                          <SelectItem value="condo">Condominium</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="status">Status</Label>
-                      <Select
-                        value={formData.status}
-                        onValueChange={(value) =>
-                          setFormData({
-                            ...formData,
-                            status: value as
-                              | "CREATED"
-                              | "UNDER_INQUIRY"
-                              | "APPROVED"
-                              | "REJECTED"
-                              | "LEASED",
-                          })
-                        }
-                      >
-                        <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="CREATED">Available</SelectItem>
-                          <SelectItem value="UNDER_INQUIRY">
-                            Under Inquiry
-                          </SelectItem>
-                          <SelectItem value="APPROVED">Approved</SelectItem>
-                          <SelectItem value="REJECTED">Rejected</SelectItem>
-                          <SelectItem value="LEASED">Leased</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <ImageUploadPreview
-                      images={formData.images}
-                      selectedImages={selectedImages}
-                      onImageChange={handleImageChange}
-                      onRemoveImage={handleRemoveImage}
-                    />
-                    <div>
-                      <Label htmlFor="description">Description</Label>
-                      <Textarea
-                        id="description"
-                        value={formData.description}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            description: e.target.value,
-                          })
-                        }
-                        placeholder="Enter property description"
-                        className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="amenities">Amenities</Label>
-                      <Select
-                        onValueChange={(value) => handleAmenitiesChange(value)}
-                      >
-                        <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                          <SelectValue placeholder="Select amenities" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[
-                            "parking",
-                            "gym",
-                            "security",
-                            "internet-ready",
-                            "garden",
-                          ].map((amenity) => (
-                            <SelectItem key={amenity} value={amenity}>
-                              <div className="flex items-center space-x-2">
-                                {getAmenityIcon(amenity)}
-                                <span>
-                                  {amenity
-                                    .replace("-", " ")
-                                    .replace(/\b\w/g, (l) => l.toUpperCase())}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {formData.amenities?.map((amenity) => (
-                          <Badge key={amenity} variant="secondary">
-                            {amenity
-                              .replace("-", " ")
-                              .replace(/\b\w/g, (l) => l.toUpperCase())}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    {(formData.type === "house-and-lot" ||
-                      formData.type === "condo") && (
-                      <>
-                        <div>
-                          <Label htmlFor="bedrooms">Bedrooms</Label>
-                          <Input
-                            id="bedrooms"
-                            type="number"
-                            value={formData.bedrooms || ""}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                bedrooms: e.target.value
-                                  ? parseInt(e.target.value)
-                                  : undefined,
-                              })
-                            }
-                            placeholder="e.g., 3"
-                            className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="bathrooms">Bathrooms</Label>
-                          <Input
-                            id="bathrooms"
-                            type="number"
-                            value={formData.bathrooms || ""}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                bathrooms: e.target.value
-                                  ? parseInt(e.target.value)
-                                  : undefined,
-                              })
-                            }
-                            placeholder="e.g., 2"
-                            className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                      </>
-                    )}
-                    <Button
-                      onClick={handleCreateProperty}
-                      disabled={createLoading}
-                      className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 ${
-                        createLoading ? "opacity-50 cursor-not-allowed" : ""
-                      }`}
-                    >
-                      {createLoading ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          Creating...
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="w-4 h-4" />
-                          Create Property
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button
+                onClick={() => setCreateModalOpen(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Property
+              </Button>
             </div>
           </div>
         </div>
@@ -1210,506 +1100,716 @@ const PropertyManagement = () => {
           </div>
         </div>
 
-        <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white rounded-lg">
-            {selectedProperty && (
+        {/* Create Modal */}
+        <CustomModal
+          isOpen={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          title="Add New Property"
+          description="Create a new property listing"
+        >
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="title">Property Title *</Label>
+              <Input
+                id="title"
+                value={formData.title}
+                onChange={(e) =>
+                  setFormData({ ...formData, title: e.target.value })
+                }
+                placeholder="Enter property title"
+                required
+                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <Label htmlFor="location">Location/Address *</Label>
+              <Input
+                id="location"
+                value={formData.location}
+                onChange={(e) =>
+                  setFormData({ ...formData, location: e.target.value })
+                }
+                placeholder="Enter property location"
+                required
+                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <Label htmlFor="size">Size *</Label>
+              <Input
+                id="size"
+                value={formData.size}
+                onChange={(e) =>
+                  setFormData({ ...formData, size: e.target.value })
+                }
+                placeholder="e.g., 300 sqm"
+                required
+                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <Label htmlFor="price">Price *</Label>
+              <Input
+                id="price"
+                value={formData.price}
+                onChange={(e) =>
+                  setFormData({ ...formData, price: e.target.value })
+                }
+                placeholder="e.g., ₱2,500,000"
+                required
+                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <Label htmlFor="type">Property Type *</Label>
+              <Select
+                value={formData.type}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, type: value })
+                }
+              >
+                <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="residential-lot">
+                    Residential Lot
+                  </SelectItem>
+                  <SelectItem value="commercial">Commercial</SelectItem>
+                  <SelectItem value="house-and-lot">House and Lot</SelectItem>
+                  <SelectItem value="condo">Condominium</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    status: value as
+                      | "CREATED"
+                      | "UNDER_INQUIRY"
+                      | "APPROVED"
+                      | "REJECTED"
+                      | "LEASED",
+                  })
+                }
+              >
+                <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CREATED">Available</SelectItem>
+                  <SelectItem value="UNDER_INQUIRY">Under Inquiry</SelectItem>
+                  <SelectItem value="APPROVED">Approved</SelectItem>
+                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                  <SelectItem value="LEASED">Leased</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <ImageUploadPreview
+              images={formData.images}
+              selectedImages={selectedImages}
+              onImageChange={handleImageChange}
+              onRemoveImage={handleRemoveImage}
+            />
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                placeholder="Enter property description"
+                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <Label htmlFor="amenities">Amenities</Label>
+              <Select onValueChange={(value) => handleAmenitiesChange(value)}>
+                <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <SelectValue placeholder="Select amenities" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[
+                    "parking",
+                    "gym",
+                    "security",
+                    "internet-ready",
+                    "garden",
+                  ].map((amenity) => (
+                    <SelectItem key={amenity} value={amenity}>
+                      <div className="flex items-center space-x-2">
+                        {getAmenityIcon(amenity)}
+                        <span>
+                          {amenity
+                            .replace("-", " ")
+                            .replace(/\b\w/g, (l) => l.toUpperCase())}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {formData.amenities?.map((amenity) => (
+                  <Badge key={amenity} variant="secondary">
+                    {amenity
+                      .replace("-", " ")
+                      .replace(/\b\w/g, (l) => l.toUpperCase())}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            {(formData.type === "house-and-lot" ||
+              formData.type === "condo") && (
               <>
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-semibold text-gray-900">
-                    {selectedProperty.title}
-                  </DialogTitle>
-                  <DialogDescription className="flex items-center space-x-2 text-gray-600">
-                    <MapPin className="w-4 h-4" />
-                    <span>{selectedProperty.location}</span>
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-6">
-                  {selectedProperty.images &&
-                  selectedProperty.images.length > 0 ? (
-                    <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
-                      <CustomCarousel
-                        images={selectedProperty.images}
-                        height={400}
-                        alt={selectedProperty.title}
-                      />
-                    </div>
-                  ) : (
-                    <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
-                      <div className="text-center">
-                        <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                        <p className="text-gray-500">No images available</p>
-                      </div>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2 space-y-6">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-2xl font-bold text-green-600">
-                          {formatCurrency(selectedProperty.price)}
-                        </h3>
-                        <Badge
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                            selectedProperty.status
-                          )}`}
-                        >
-                          {selectedProperty.status}
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="flex items-center space-x-2">
-                          <Building2 className="w-5 h-5 text-gray-400" />
-                          <span className="text-sm text-gray-600">
-                            {selectedProperty.type
-                              .replace("-", " ")
-                              .toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Square className="w-5 h-5 text-gray-400" />
-                          <span className="text-sm text-gray-600">
-                            {selectedProperty.size}
-                          </span>
-                        </div>
-                      </div>
-                      {(selectedProperty.type === "house-and-lot" ||
-                        selectedProperty.type === "condo") && (
-                        <div className="flex items-center space-x-6">
-                          {selectedProperty.bedrooms &&
-                            selectedProperty.bedrooms > 0 && (
-                              <div className="flex items-center space-x-2">
-                                <Bed className="w-5 h-5 text-gray-400" />
-                                <span className="text-sm text-gray-600">
-                                  {selectedProperty.bedrooms} Bedroom
-                                  {selectedProperty.bedrooms > 1 ? "s" : ""}
-                                </span>
-                              </div>
-                            )}
-                          {selectedProperty.bathrooms &&
-                            selectedProperty.bathrooms > 0 && (
-                              <div className="flex items-center space-x-2">
-                                <Bath className="w-5 h-5 text-gray-400" />
-                                <span className="text-sm text-gray-600">
-                                  {selectedProperty.bathrooms} Bathroom
-                                  {selectedProperty.bathrooms > 1 ? "s" : ""}
-                                </span>
-                              </div>
-                            )}
-                          {selectedProperty.sqft &&
-                            selectedProperty.sqft > 0 && (
-                              <div className="flex items-center space-x-2">
-                                <Square className="w-5 h-5 text-gray-400" />
-                                <span className="text-sm text-gray-600">
-                                  {selectedProperty.sqft} sq ft
-                                </span>
-                              </div>
-                            )}
-                        </div>
-                      )}
-                      {selectedProperty.description && (
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                            <FileText className="h-5 w-5" />
-                            Description
-                          </h4>
-                          <p className="text-gray-600 leading-relaxed">
-                            {selectedProperty.description}
-                          </p>
-                        </div>
-                      )}
-                      {selectedProperty.amenities &&
-                        selectedProperty.amenities.length > 0 && (
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                              <Home className="h-5 w-5" />
-                              Amenities & Features
-                            </h4>
-                            <div className="grid grid-cols-2 gap-2">
-                              {selectedProperty.amenities.map(
-                                (amenity, index) => (
-                                  <div
-                                    key={index}
-                                    className="flex items-center space-x-2 text-sm text-gray-600"
-                                  >
-                                    {getAmenityIcon(amenity)}
-                                    <span>
-                                      {amenity
-                                        .replace("-", " ")
-                                        .replace(/\b\w/g, (l) =>
-                                          l.toUpperCase()
-                                        )}
-                                    </span>
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      {selectedProperty.inquiry && (
-                        <div className="bg-blue-50 rounded-lg p-4">
-                          <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                            <FileText className="h-5 w-5" />
-                            Inquiry Status
-                          </h4>
-                          <div className="space-y-2">
-                            <p className="text-sm text-blue-600">
-                              <strong>Reason:</strong>{" "}
-                              {selectedProperty.inquiry.reason}
-                            </p>
-                            <p className="text-sm text-blue-600">
-                              <strong>Duration:</strong>{" "}
-                              {selectedProperty.inquiry.duration}
-                            </p>
-                            <p className="text-sm text-blue-600">
-                              <strong>Status:</strong>{" "}
-                              {selectedProperty.inquiry.status}
-                            </p>
-                            {selectedProperty.inquiry.status === "REJECTED" &&
-                              selectedProperty.inquiry.rejectionReason && (
-                                <p className="text-sm text-red-600">
-                                  <strong>Rejection Reason:</strong>{" "}
-                                  {selectedProperty.inquiry.rejectionReason}
-                                </p>
-                              )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="lg:col-span-1">
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                          <Users className="h-5 w-5" />
-                          Owner Information
-                        </h4>
-                        {selectedProperty.owner ? (
-                          <div className="space-y-4">
-                            <div className="flex items-center space-x-2">
-                              <Users className="w-4 h-4 text-gray-400" />
-                              <span className="font-medium text-gray-900">
-                                {selectedProperty.owner.fullName}
-                              </span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Mail className="w-4 h-4 text-gray-400" />
-                              <span className="text-sm text-gray-600">
-                                {selectedProperty.owner.email}
-                              </span>
-                            </div>
-                            {selectedProperty.owner.phone && (
-                              <div className="flex items-center space-x-2">
-                                <Phone className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm text-gray-600">
-                                  {selectedProperty.owner.phone}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="text-gray-500">No owner assigned</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => setViewModalOpen(false)}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md bg-gray-50"
-                    >
-                      Close
-                    </button>
-                  </div>
+                <div>
+                  <Label htmlFor="bedrooms">Bedrooms</Label>
+                  <Input
+                    id="bedrooms"
+                    type="number"
+                    value={formData.bedrooms || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        bedrooms: e.target.value
+                          ? parseInt(e.target.value)
+                          : undefined,
+                      })
+                    }
+                    placeholder="e.g., 3"
+                    className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="bathrooms">Bathrooms</Label>
+                  <Input
+                    id="bathrooms"
+                    type="number"
+                    value={formData.bathrooms || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        bathrooms: e.target.value
+                          ? parseInt(e.target.value)
+                          : undefined,
+                      })
+                    }
+                    placeholder="e.g., 2"
+                    className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
               </>
             )}
-          </DialogContent>
-        </Dialog>
+            <Button
+              onClick={handleCreateProperty}
+              disabled={createLoading}
+              className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 ${
+                createLoading ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+            >
+              {createLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  Create Property
+                </>
+              )}
+            </Button>
+          </div>
+        </CustomModal>
 
-        <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-lg">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-semibold">
-                Edit Property
-              </DialogTitle>
-              <DialogDescription>Update the property listing</DialogDescription>
-            </DialogHeader>
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                <div className="flex items-center gap-3">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                  <p className="text-sm text-red-700">{error}</p>
+        {/* View Modal */}
+        <CustomModal
+          isOpen={viewModalOpen}
+          onClose={() => setViewModalOpen(false)}
+          title={selectedProperty?.title || "Property Details"}
+          description={
+            selectedProperty ? (
+              <div className="flex items-center space-x-2 text-gray-600">
+                <MapPin className="w-4 h-4" />
+                <span>{selectedProperty.location}</span>
+              </div>
+            ) : undefined
+          }
+        >
+          {selectedProperty && (
+            <div className="space-y-6">
+              {selectedProperty.images && selectedProperty.images.length > 0 ? (
+                <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
+                  <CustomCarousel
+                    images={selectedProperty.images}
+                    height={400}
+                    alt={selectedProperty.title}
+                  />
+                </div>
+              ) : (
+                <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
+                  <div className="text-center">
+                    <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500">No images available</p>
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-2xl font-bold text-green-600">
+                      {formatCurrency(selectedProperty.price)}
+                    </h3>
+                    <Badge
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                        selectedProperty.status
+                      )}`}
+                    >
+                      {selectedProperty.status}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Building2 className="w-5 h-5 text-gray-400" />
+                      <span className="text-sm text-gray-600">
+                        {selectedProperty.type.replace("-", " ").toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Square className="w-5 h-5 text-gray-400" />
+                      <span className="text-sm text-gray-600">
+                        {selectedProperty.size}
+                      </span>
+                    </div>
+                  </div>
+                  {(selectedProperty.type === "house-and-lot" ||
+                    selectedProperty.type === "condo") && (
+                    <div className="flex items-center space-x-6">
+                      {selectedProperty.bedrooms &&
+                        selectedProperty.bedrooms > 0 && (
+                          <div className="flex items-center space-x-2">
+                            <Bed className="w-5 h-5 text-gray-400" />
+                            <span className="text-sm text-gray-600">
+                              {selectedProperty.bedrooms} Bedroom
+                              {selectedProperty.bedrooms > 1 ? "s" : ""}
+                            </span>
+                          </div>
+                        )}
+                      {selectedProperty.bathrooms &&
+                        selectedProperty.bathrooms > 0 && (
+                          <div className="flex items-center space-x-2">
+                            <Bath className="w-5 h-5 text-gray-400" />
+                            <span className="text-sm text-gray-600">
+                              {selectedProperty.bathrooms} Bathroom
+                              {selectedProperty.bathrooms > 1 ? "s" : ""}
+                            </span>
+                          </div>
+                        )}
+
+                      {selectedProperty.type === "house-and-lot" ||
+                      selectedProperty.type === "condo" ? (
+                        <div className="flex items-center space-x-2"></div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <Bath className="w-5 h-5 text-gray-400" />
+                          <span className="text-sm text-gray-600">
+                            {selectedProperty.sqft} sq ft
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {selectedProperty.description && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        Description
+                      </h4>
+                      <p className="text-gray-600 leading-relaxed">
+                        {selectedProperty.description}
+                      </p>
+                    </div>
+                  )}
+                  {selectedProperty.amenities &&
+                    selectedProperty.amenities.length > 0 && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                          <Home className="h-5 w-5" />
+                          Amenities & Features
+                        </h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          {selectedProperty.amenities.map((amenity, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center space-x-2 text-sm text-gray-600"
+                            >
+                              {getAmenityIcon(amenity)}
+                              <span>
+                                {amenity
+                                  .replace("-", " ")
+                                  .replace(/\b\w/g, (l) => l.toUpperCase())}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  {selectedProperty.inquiry && (
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        Inquiry Status
+                      </h4>
+                      <div className="space-y-2">
+                        <p className="text-sm text-blue-600">
+                          <strong>Reason:</strong>{" "}
+                          {selectedProperty.inquiry.reason}
+                        </p>
+                        <p className="text-sm text-blue-600">
+                          <strong>Duration:</strong>{" "}
+                          {selectedProperty.inquiry.duration}
+                        </p>
+                        <p className="text-sm text-blue-600">
+                          <strong>Status:</strong>{" "}
+                          {selectedProperty.inquiry.status}
+                        </p>
+                        {selectedProperty.inquiry.status === "REJECTED" &&
+                          selectedProperty.inquiry.rejectionReason && (
+                            <p className="text-sm text-red-600">
+                              <strong>Rejection Reason:</strong>{" "}
+                              {selectedProperty.inquiry.rejectionReason}
+                            </p>
+                          )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="lg:col-span-1">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      Owner Information
+                    </h4>
+                    {selectedProperty.owner ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center space-x-2">
+                          <Users className="w-4 h-4 text-gray-400" />
+                          <span className="font-medium text-gray-900">
+                            {selectedProperty.owner.fullName}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Mail className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm text-gray-600">
+                            {selectedProperty.owner.email}
+                          </span>
+                        </div>
+                        {selectedProperty.owner.phone && (
+                          <div className="flex items-center space-x-2">
+                            <Phone className="w-4 h-4 text-gray-400" />
+                            <span className="text-sm text-gray-600">
+                              {selectedProperty.owner.phone}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500">No owner assigned</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setViewModalOpen(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md bg-gray-50 hover:bg-gray-100"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+        </CustomModal>
+
+        {/* Edit Modal */}
+        <CustomModal
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          title="Edit Property"
+          description="Update the property listing"
+        >
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-title">Property Title *</Label>
+              <Input
+                id="edit-title"
+                value={editFormData.title}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, title: e.target.value })
+                }
+                placeholder="Enter property title"
+                required
+                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-location">Location/Address *</Label>
+              <Input
+                id="edit-location"
+                value={editFormData.location}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, location: e.target.value })
+                }
+                placeholder="Enter property location"
+                required
+                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-size">Size *</Label>
+              <Input
+                id="edit-size"
+                value={editFormData.size}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, size: e.target.value })
+                }
+                placeholder="e.g., 300 sqm"
+                required
+                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-price">Price *</Label>
+              <Input
+                id="edit-price"
+                value={editFormData.price}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, price: e.target.value })
+                }
+                placeholder="e.g., ₱2,500,000"
+                required
+                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-type">Property Type *</Label>
+              <Select
+                value={editFormData.type}
+                onValueChange={(value) =>
+                  setEditFormData({ ...editFormData, type: value })
+                }
+              >
+                <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="residential-lot">
+                    Residential Lot
+                  </SelectItem>
+                  <SelectItem value="commercial">Commercial</SelectItem>
+                  <SelectItem value="house-and-lot">House and Lot</SelectItem>
+                  <SelectItem value="condo">Condominium</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-status">Status</Label>
+              <Select
+                value={editFormData.status}
+                onValueChange={(value) =>
+                  setEditFormData({
+                    ...editFormData,
+                    status: value as
+                      | "CREATED"
+                      | "UNDER_INQUIRY"
+                      | "APPROVED"
+                      | "REJECTED"
+                      | "LEASED",
+                  })
+                }
+              >
+                <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CREATED">Available</SelectItem>
+                  <SelectItem value="UNDER_INQUIRY">Under Inquiry</SelectItem>
+                  <SelectItem value="APPROVED">Approved</SelectItem>
+                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                  <SelectItem value="LEASED">Leased</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {editFormData.status === "LEASED" && (
+              <div className="space-y-4 border-t pt-4">
+                <h4 className="font-semibold text-gray-900">Owner Details</h4>
+                <div>
+                  <Label htmlFor="owner-name">Full Name *</Label>
+                  <Input
+                    id="owner-name"
+                    value={ownerDetails.fullName}
+                    onChange={(e) =>
+                      setOwnerDetails({
+                        ...ownerDetails,
+                        fullName: e.target.value,
+                      })
+                    }
+                    placeholder="Enter owner's full name"
+                    required
+                    className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="owner-email">Email *</Label>
+                  <Input
+                    id="owner-email"
+                    type="email"
+                    value={ownerDetails.email}
+                    onChange={(e) =>
+                      setOwnerDetails({
+                        ...ownerDetails,
+                        email: e.target.value,
+                      })
+                    }
+                    placeholder="Enter owner's email"
+                    required
+                    className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="owner-phone">Phone</Label>
+                  <Input
+                    id="owner-phone"
+                    value={ownerDetails.phone}
+                    onChange={(e) =>
+                      setOwnerDetails({
+                        ...ownerDetails,
+                        phone: e.target.value,
+                      })
+                    }
+                    placeholder="Enter owner's phone"
+                    className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
               </div>
             )}
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="edit-title">Property Title *</Label>
-                <Input
-                  id="edit-title"
-                  value={editFormData.title}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, title: e.target.value })
-                  }
-                  placeholder="Enter property title"
-                  required
-                  className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-location">Location/Address *</Label>
-                <Input
-                  id="edit-location"
-                  value={editFormData.location}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      location: e.target.value,
-                    })
-                  }
-                  placeholder="Enter property location"
-                  required
-                  className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-size">Size *</Label>
-                <Input
-                  id="edit-size"
-                  value={editFormData.size}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, size: e.target.value })
-                  }
-                  placeholder="e.g., 300 sqm"
-                  required
-                  className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-price">Price *</Label>
-                <Input
-                  id="edit-price"
-                  value={editFormData.price}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, price: e.target.value })
-                  }
-                  placeholder="e.g., ₱2,500,000"
-                  required
-                  className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-type">Property Type *</Label>
-                <Select
-                  value={editFormData.type}
-                  onValueChange={(value) =>
-                    setEditFormData({ ...editFormData, type: value })
-                  }
-                >
-                  <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="residential-lot">
-                      Residential Lot
-                    </SelectItem>
-                    <SelectItem value="commercial">Commercial</SelectItem>
-                    <SelectItem value="house-and-lot">House and Lot</SelectItem>
-                    <SelectItem value="condo">Condominium</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="edit-status">Status</Label>
-                <Select
-                  value={editFormData.status}
-                  onValueChange={(value) =>
-                    setEditFormData({
-                      ...editFormData,
-                      status: value as
-                        | "CREATED"
-                        | "UNDER_INQUIRY"
-                        | "APPROVED"
-                        | "REJECTED"
-                        | "LEASED",
-                    })
-                  }
-                >
-                  <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CREATED">Available</SelectItem>
-                    <SelectItem value="UNDER_INQUIRY">Under Inquiry</SelectItem>
-                    <SelectItem value="APPROVED">Approved</SelectItem>
-                    <SelectItem value="REJECTED">Rejected</SelectItem>
-                    <SelectItem value="LEASED">Leased</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
 
-              {editFormData.status === "LEASED" && (
-                <div className="space-y-4 border-t pt-4">
-                  <h4 className="font-semibold text-gray-900">Owner Details</h4>
-                  <div>
-                    <Label htmlFor="owner-name">Full Name *</Label>
-                    <Input
-                      id="owner-name"
-                      value={ownerDetails.fullName}
-                      onChange={(e) =>
-                        setOwnerDetails({
-                          ...ownerDetails,
-                          fullName: e.target.value,
-                        })
-                      }
-                      placeholder="Enter owner's full name"
-                      required
-                      className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="owner-email">Email *</Label>
-                    <Input
-                      id="owner-email"
-                      type="email"
-                      value={ownerDetails.email}
-                      onChange={(e) =>
-                        setOwnerDetails({
-                          ...ownerDetails,
-                          email: e.target.value,
-                        })
-                      }
-                      placeholder="Enter owner's email"
-                      required
-                      className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="owner-phone">Phone</Label>
-                    <Input
-                      id="owner-phone"
-                      value={ownerDetails.phone}
-                      onChange={(e) =>
-                        setOwnerDetails({
-                          ...ownerDetails,
-                          phone: e.target.value,
-                        })
-                      }
-                      placeholder="Enter owner's phone"
-                      className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <ImageUploadPreview
-                images={editFormData.images}
-                selectedImages={selectedImages}
-                onImageChange={handleImageChange}
-                onRemoveImage={handleRemoveImage}
-                isEdit
+            <ImageUploadPreview
+              images={editFormData.images}
+              selectedImages={selectedImages}
+              onImageChange={handleImageChange}
+              onRemoveImage={handleRemoveImage}
+              isEdit
+            />
+            <div>
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editFormData.description}
+                onChange={(e) =>
+                  setEditFormData({
+                    ...editFormData,
+                    description: e.target.value,
+                  })
+                }
+                placeholder="Enter property description"
+                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
-              <div>
-                <Label htmlFor="edit-description">Description</Label>
-                <Textarea
-                  id="edit-description"
-                  value={editFormData.description}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      description: e.target.value,
-                    })
-                  }
-                  placeholder="Enter property description"
-                  className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-amenities">Amenities</Label>
-                <Select
-                  onValueChange={(value) => handleAmenitiesChange(value, true)}
-                >
-                  <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <SelectValue placeholder="Select amenities" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[
-                      "parking",
-                      "gym",
-                      "security",
-                      "internet-ready",
-                      "garden",
-                    ].map((amenity) => (
-                      <SelectItem key={amenity} value={amenity}>
-                        <div className="flex items-center space-x-2">
-                          {getAmenityIcon(amenity)}
-                          <span>
-                            {amenity
-                              .replace("-", " ")
-                              .replace(/\b\w/g, (l) => l.toUpperCase())}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {editFormData.amenities?.map((amenity) => (
-                    <Badge key={amenity} variant="secondary">
-                      {amenity
-                        .replace("-", " ")
-                        .replace(/\b\w/g, (l) => l.toUpperCase())}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-              {(editFormData.type === "house-and-lot" ||
-                editFormData.type === "condo") && (
-                <>
-                  <div>
-                    <Label htmlFor="edit-bedrooms">Bedrooms</Label>
-                    <Input
-                      id="edit-bedrooms"
-                      type="number"
-                      value={editFormData.bedrooms || ""}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          bedrooms: e.target.value
-                            ? parseInt(e.target.value)
-                            : undefined,
-                        })
-                      }
-                      placeholder="e.g., 3"
-                      className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-bathrooms">Bathrooms</Label>
-                    <Input
-                      id="edit-bathrooms"
-                      type="number"
-                      value={editFormData.bathrooms || ""}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          bathrooms: e.target.value
-                            ? parseInt(e.target.value)
-                            : undefined,
-                        })
-                      }
-                      placeholder="e.g., 2"
-                      className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </>
-              )}
-              <Button
-                onClick={handleEditProperty}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Update Property
-              </Button>
             </div>
-          </DialogContent>
-        </Dialog>
+            <div>
+              <Label htmlFor="edit-amenities">Amenities</Label>
+              <Select
+                onValueChange={(value) => handleAmenitiesChange(value, true)}
+              >
+                <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <SelectValue placeholder="Select amenities" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[
+                    "parking",
+                    "gym",
+                    "security",
+                    "internet-ready",
+                    "garden",
+                  ].map((amenity) => (
+                    <SelectItem key={amenity} value={amenity}>
+                      <div className="flex items-center space-x-2">
+                        {getAmenityIcon(amenity)}
+                        <span>
+                          {amenity
+                            .replace("-", " ")
+                            .replace(/\b\w/g, (l) => l.toUpperCase())}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {editFormData.amenities?.map((amenity) => (
+                  <Badge key={amenity} variant="secondary">
+                    {amenity
+                      .replace("-", " ")
+                      .replace(/\b\w/g, (l) => l.toUpperCase())}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            {(editFormData.type === "house-and-lot" ||
+              editFormData.type === "condo") && (
+              <>
+                <div>
+                  <Label htmlFor="edit-bedrooms">Bedrooms</Label>
+                  <Input
+                    id="edit-bedrooms"
+                    type="number"
+                    value={editFormData.bedrooms || ""}
+                    onChange={(e) =>
+                      setEditFormData({
+                        ...editFormData,
+                        bedrooms: e.target.value
+                          ? parseInt(e.target.value)
+                          : undefined,
+                      })
+                    }
+                    placeholder="e.g., 3"
+                    className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-bathrooms">Bathrooms</Label>
+                  <Input
+                    id="edit-bathrooms"
+                    type="number"
+                    value={editFormData.bathrooms || ""}
+                    onChange={(e) =>
+                      setEditFormData({
+                        ...editFormData,
+                        bathrooms: e.target.value
+                          ? parseInt(e.target.value)
+                          : undefined,
+                      })
+                    }
+                    placeholder="e.g., 2"
+                    className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </>
+            )}
+            <Button
+              onClick={handleEditProperty}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Update Property
+            </Button>
+          </div>
+        </CustomModal>
       </div>
     </div>
   );

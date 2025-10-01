@@ -13,7 +13,6 @@ import {
   TextInput,
   NumberInput,
   LoadingOverlay,
-  Notification,
   Box,
   Stack,
   Grid,
@@ -36,6 +35,8 @@ import Image from "next/image";
 import { Session } from "@/better-auth/auth-types";
 import { getServerSession } from "@/better-auth/action";
 import { useRouter } from "next/navigation";
+import { toast } from "react-hot-toast";
+
 interface ServiceRequest {
   _id?: string;
   id: string;
@@ -62,14 +63,22 @@ interface ServiceRequest {
   payment_intent_id?: string;
   payment_id?: string;
   paid_at?: string;
+  property?: {
+    title: string;
+    location: string;
+    type: string;
+    sqft?: number;
+    bedrooms?: number;
+    bathrooms?: number;
+  };
 }
 
 const ServicesSection = () => {
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [session, setSession] = useState<Session | null>(null);
   const [assignModalOpened, { open: openAssign, close: closeAssign }] =
     useDisclosure(false);
   const [estimateModalOpened, { open: openEstimate, close: closeEstimate }] =
@@ -88,8 +97,6 @@ const ServicesSection = () => {
   const [finalCost, setFinalCost] = useState<number | string>("");
   const [completionNotes, setCompletionNotes] = useState("");
   const [assignmentMessage, setAssignmentMessage] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [session, setSession] = useState<Session | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -106,6 +113,7 @@ const ServicesSection = () => {
 
   useEffect(() => {
     fetchServiceRequests();
+    toast.success("Service requests fetched successfully");
   }, []);
 
   const fetchServiceRequests = async () => {
@@ -125,31 +133,18 @@ const ServicesSection = () => {
         );
         setRequests(transformedRequests);
       } else {
-        showNotification(
-          response.data.error || "Failed to fetch service requests",
-          true
+        throw new Error(
+          response.data.error || "Failed to fetch service requests"
         );
       }
     } catch (err) {
       const errorMessage = axios.isAxiosError(err)
         ? err.message
-        : "An error occurred";
-      showNotification(errorMessage, true);
+        : "An error occurred while fetching service requests";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
-
-  const showNotification = (message: string, isError: boolean = false) => {
-    if (isError) {
-      setError(message);
-    } else {
-      setSuccessMessage(message);
-    }
-    setTimeout(() => {
-      setError(null);
-      setSuccessMessage(null);
-    }, 5000);
   };
 
   const assignTechnician = async () => {
@@ -159,7 +154,7 @@ const ServicesSection = () => {
       !scheduledDate ||
       !assignmentMessage
     ) {
-      showNotification("Please fill all required fields", true);
+      toast.error("Please fill all required fields");
       return;
     }
     try {
@@ -184,7 +179,7 @@ const ServicesSection = () => {
             : request
         );
         setRequests(updatedRequests);
-        showNotification(
+        toast.success(
           `Technician assigned successfully. ${
             response.data.notificationSent ? "Notification sent to tenant." : ""
           }`
@@ -192,16 +187,13 @@ const ServicesSection = () => {
         closeAssign();
         resetModalFields();
       } else {
-        showNotification(
-          response.data.error || "Failed to assign technician",
-          true
-        );
+        throw new Error(response.data.error || "Failed to assign technician");
       }
     } catch (err) {
       const errorMessage = axios.isAxiosError(err)
         ? err.message
         : "Failed to assign technician";
-      showNotification(errorMessage, true);
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -209,7 +201,7 @@ const ServicesSection = () => {
 
   const provideEstimate = async () => {
     if (!selectedRequest || estimatedCost === "") {
-      showNotification("Please provide an estimated cost", true);
+      toast.error("Please provide an estimated cost");
       return;
     }
     try {
@@ -231,7 +223,7 @@ const ServicesSection = () => {
             : request
         );
         setRequests(updatedRequests);
-        showNotification(
+        toast.success(
           `Estimate provided successfully. ${
             response.data.notificationSent ? "Notification sent to tenant." : ""
           }`
@@ -239,16 +231,13 @@ const ServicesSection = () => {
         closeEstimate();
         resetModalFields();
       } else {
-        showNotification(
-          response.data.error || "Failed to provide estimate",
-          true
-        );
+        throw new Error(response.data.error || "Failed to provide estimate");
       }
     } catch (err) {
       const errorMessage = axios.isAxiosError(err)
         ? err.message
         : "Failed to provide estimate";
-      showNotification(errorMessage, true);
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -256,7 +245,7 @@ const ServicesSection = () => {
 
   const completeRequest = async () => {
     if (!selectedRequest || finalCost === "") {
-      showNotification("Please provide a final cost", true);
+      toast.error("Please provide a final cost");
       return;
     }
     try {
@@ -280,7 +269,7 @@ const ServicesSection = () => {
             : request
         );
         setRequests(updatedRequests);
-        showNotification(
+        toast.success(
           `Request marked as completed. ${
             response.data.notificationSent ? "Notification sent to tenant." : ""
           }`
@@ -288,16 +277,13 @@ const ServicesSection = () => {
         closeComplete();
         resetModalFields();
       } else {
-        showNotification(
-          response.data.error || "Failed to complete request",
-          true
-        );
+        throw new Error(response.data.error || "Failed to complete request");
       }
     } catch (err) {
       const errorMessage = axios.isAxiosError(err)
         ? err.message
         : "Failed to complete request";
-      showNotification(errorMessage, true);
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -368,28 +354,6 @@ const ServicesSection = () => {
       <Container size="xl" py="md">
         <LoadingOverlay visible={loading} />
         <Stack gap="xl">
-          {/* Notifications */}
-          {error && (
-            <Notification
-              icon={<IconExclamationMark size={18} />}
-              color="red"
-              title="Error"
-              onClose={() => setError(null)}
-            >
-              {error}
-            </Notification>
-          )}
-          {successMessage && (
-            <Notification
-              icon={<IconCheck size={18} />}
-              color="green"
-              title="Success"
-              onClose={() => setSuccessMessage(null)}
-            >
-              {successMessage}
-            </Notification>
-          )}
-
           {/* Header */}
           <div className="bg-white rounded-lg shadow-sm p-6">
             <Group justify="space-between" align="center">
@@ -767,6 +731,72 @@ const ServicesSection = () => {
                   )}
                 </Grid>
               </Box>
+
+              {selectedRequest?.property && (
+                <Box className="bg-gray-50 rounded-lg p-4">
+                  <Text size="sm" fw={500} mb="sm">
+                    Property Information
+                  </Text>
+                  <Grid>
+                    <Grid.Col span={6}>
+                      <Text size="xs" c="dimmed">
+                        Property Title
+                      </Text>
+                      <Text size="sm">{selectedRequest.property.title}</Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="xs" c="dimmed">
+                        Location
+                      </Text>
+                      <Text size="sm">{selectedRequest.property.location}</Text>
+                    </Grid.Col>
+                    {(selectedRequest.property.type === "house-and-lot" ||
+                      selectedRequest.property.type === "condo") && (
+                      <>
+                        {selectedRequest.property.bedrooms &&
+                          selectedRequest.property.bedrooms > 0 && (
+                            <Grid.Col span={6}>
+                              <Text size="xs" c="dimmed">
+                                Bedrooms
+                              </Text>
+                              <Text size="sm">
+                                {selectedRequest.property.bedrooms} Bedroom
+                                {selectedRequest.property.bedrooms > 1
+                                  ? "s"
+                                  : ""}
+                              </Text>
+                            </Grid.Col>
+                          )}
+                        {selectedRequest.property.bathrooms &&
+                          selectedRequest.property.bathrooms > 0 && (
+                            <Grid.Col span={6}>
+                              <Text size="xs" c="dimmed">
+                                Bathrooms
+                              </Text>
+                              <Text size="sm">
+                                {selectedRequest.property.bathrooms} Bathroom
+                                {selectedRequest.property.bathrooms > 1
+                                  ? "s"
+                                  : ""}
+                              </Text>
+                            </Grid.Col>
+                          )}
+                        {selectedRequest.property.sqft &&
+                          selectedRequest.property.sqft > 0 && (
+                            <Grid.Col span={6}>
+                              <Text size="xs" c="dimmed">
+                                Square Footage
+                              </Text>
+                              <Text size="sm">
+                                {selectedRequest.property.sqft} sq ft
+                              </Text>
+                            </Grid.Col>
+                          )}
+                      </>
+                    )}
+                  </Grid>
+                </Box>
+              )}
 
               <Divider />
 

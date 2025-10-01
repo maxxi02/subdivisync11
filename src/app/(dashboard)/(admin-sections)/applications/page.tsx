@@ -16,10 +16,12 @@ import {
   User,
   Search,
   RefreshCw,
+  Square,
 } from "lucide-react";
 import { getServerSession } from "@/better-auth/action";
 import { Session } from "@/better-auth/auth-types";
 import { Center, Container, Loader } from "@mantine/core";
+import { toast } from "react-hot-toast";
 
 interface Inquiry {
   fullName: string;
@@ -43,6 +45,8 @@ interface Property {
   amenities: string[];
   description?: string;
   sqft?: number;
+  bedrooms?: number;
+  bathrooms?: number;
   created_by: string;
   created_at: string;
   updated_at?: string;
@@ -63,6 +67,10 @@ interface InquiryWithProperty extends Inquiry {
   propertyPrice: number;
   propertyLocation: string;
   propertyStatus: string;
+  propertyType: string;
+  sqft?: number;
+  bedrooms?: number;
+  bathrooms?: number;
 }
 
 interface PaymentPlan {
@@ -123,9 +131,14 @@ const ApplicationsPage = () => {
 
       if (data.success) {
         setPaymentPlanData(data.paymentPlan);
+      } else {
+        throw new Error(data.error || "Failed to fetch payment plan");
       }
     } catch (error) {
       console.error("Error fetching payment plan:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to fetch payment plan"
+      );
     }
   };
 
@@ -147,14 +160,23 @@ const ApplicationsPage = () => {
                 propertyPrice: property.price,
                 propertyLocation: property.location,
                 propertyStatus: property.status,
+                propertyType: property.type,
+                sqft: property.sqft,
+                bedrooms: property.bedrooms,
+                bathrooms: property.bathrooms,
               });
             });
           }
         });
         setInquiries(allInquiries);
+      } else {
+        throw new Error(data.error || "Failed to fetch inquiries");
       }
     } catch (error) {
       console.error("Error fetching inquiries:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to fetch inquiries"
+      );
     } finally {
       setLoading(false);
     }
@@ -162,6 +184,7 @@ const ApplicationsPage = () => {
 
   useEffect(() => {
     fetchInquiries();
+    toast.success("Inquiries fetched successfully");
   }, []);
 
   const filteredInquiries = inquiries
@@ -240,7 +263,7 @@ const ApplicationsPage = () => {
 
   const handleApprove = async (inquiry: InquiryWithProperty) => {
     if (!monthlyPayment || leaseDuration === 0) {
-      alert("Please enter valid payment details");
+      toast.error("Please enter valid payment details");
       return;
     }
 
@@ -315,6 +338,8 @@ const ApplicationsPage = () => {
             amenities: currentProperty.amenities,
             images: currentProperty.images,
             sqft: currentProperty.sqft,
+            bedrooms: currentProperty.bedrooms,
+            bathrooms: currentProperty.bathrooms,
             inquiries: updatedInquiries,
             owner_details: {
               fullName: inquiry.fullName,
@@ -342,17 +367,14 @@ const ApplicationsPage = () => {
       if (updateData.success) {
         await fetchInquiries();
         resetPaymentModal();
-        alert("Inquiry approved and payment plan created successfully!");
+        toast.success("Inquiry approved and payment plan created successfully");
       } else {
-        console.error("Property update failed:", updateData);
         throw new Error(updateData.error || "Failed to update property");
       }
     } catch (error) {
       console.error("Error approving inquiry:", error);
-      alert(
-        `Failed to approve inquiry: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
+      toast.error(
+        error instanceof Error ? error.message : "Failed to approve inquiry"
       );
     } finally {
       setProcessingId(null);
@@ -371,7 +393,8 @@ const ApplicationsPage = () => {
 
   const handleReject = async () => {
     if (!selectedInquiry || !rejectionReason.trim()) {
-      setRejectionError("Please provide a rejection reason.");
+      setRejectionError("Please provide a rejection reason");
+      toast.error("Please provide a rejection reason");
       return;
     }
 
@@ -408,16 +431,17 @@ const ApplicationsPage = () => {
         setRejectionReason("");
         setRejectionError("");
         setConfirmReject(false);
-        alert("Inquiry rejected successfully!");
+        toast.success("Inquiry rejected successfully");
       } else {
         throw new Error(data.error || "Failed to reject inquiry");
       }
     } catch (error) {
       console.error("Error rejecting inquiry:", error);
       setRejectionError(
-        `Failed to reject inquiry: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
+        error instanceof Error ? error.message : "Failed to reject inquiry"
+      );
+      toast.error(
+        error instanceof Error ? error.message : "Failed to reject inquiry"
       );
     } finally {
       setProcessingId(null);
@@ -440,7 +464,7 @@ const ApplicationsPage = () => {
       );
 
       if (rejectedInquiries.length === 0) {
-        alert("No rejected inquiries to clear.");
+        toast("No rejected inquiries to clear");
         setLoading(false);
         return;
       }
@@ -462,15 +486,17 @@ const ApplicationsPage = () => {
 
       if (failedDeletions.length > 0) {
         console.error("Some inquiries failed to delete:", failedDeletions);
-        throw new Error("Some inquiries could not be deleted.");
+        throw new Error("Some inquiries could not be deleted");
       }
 
       await fetchInquiries();
-      alert("All rejected inquiries have been cleared successfully!");
+      toast.success("All rejected inquiries cleared successfully");
     } catch (error) {
       console.error("Error clearing rejected inquiries:", error);
-      alert(
-        "Failed to clear some or all rejected inquiries. Please try again."
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to clear rejected inquiries"
       );
     } finally {
       setLoading(false);
@@ -927,6 +953,45 @@ const ApplicationsPage = () => {
                       {formatCurrency(selectedInquiry.propertyPrice)}
                     </p>
                   </div>
+                  {(selectedInquiry.propertyType === "house-and-lot" ||
+                    selectedInquiry.propertyType === "condo") && (
+                    <>
+                      {selectedInquiry.bedrooms &&
+                        selectedInquiry.bedrooms > 0 && (
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">
+                              Bedrooms
+                            </p>
+                            <p className="font-medium text-gray-900">
+                              {selectedInquiry.bedrooms} Bedroom
+                              {selectedInquiry.bedrooms > 1 ? "s" : ""}
+                            </p>
+                          </div>
+                        )}
+                      {selectedInquiry.bathrooms &&
+                        selectedInquiry.bathrooms > 0 && (
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">
+                              Bathrooms
+                            </p>
+                            <p className="font-medium text-gray-900">
+                              {selectedInquiry.bathrooms} Bathroom
+                              {selectedInquiry.bathrooms > 1 ? "s" : ""}
+                            </p>
+                          </div>
+                        )}
+                      {selectedInquiry.sqft && selectedInquiry.sqft > 0 && (
+                        <div>
+                          <p className="text-sm text-gray-600 mb-1">
+                            Square Footage
+                          </p>
+                          <p className="font-medium text-gray-900">
+                            {selectedInquiry.sqft} sq ft
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -1115,6 +1180,45 @@ const ApplicationsPage = () => {
                     <p className="font-medium text-gray-900">
                       {formatCurrency(selectedInquiry.propertyPrice)}
                     </p>
+                    {(selectedInquiry.propertyType === "house-and-lot" ||
+                      selectedInquiry.propertyType === "condo") && (
+                      <>
+                        {selectedInquiry.bedrooms &&
+                          selectedInquiry.bedrooms > 0 && (
+                            <div>
+                              <p className="text-sm text-gray-600 mb-1">
+                                Bedrooms
+                              </p>
+                              <p className="font-medium text-gray-900">
+                                {selectedInquiry.bedrooms} Bedroom
+                                {selectedInquiry.bedrooms > 1 ? "s" : ""}
+                              </p>
+                            </div>
+                          )}
+                        {selectedInquiry.bathrooms &&
+                          selectedInquiry.bathrooms > 0 && (
+                            <div>
+                              <p className="text-sm text-gray-600 mb-1">
+                                Bathrooms
+                              </p>
+                              <p className="font-medium text-gray-900">
+                                {selectedInquiry.bathrooms} Bathroom
+                                {selectedInquiry.bathrooms > 1 ? "s" : ""}
+                              </p>
+                            </div>
+                          )}
+                        {selectedInquiry.sqft && selectedInquiry.sqft > 0 && (
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">
+                              Square Footage
+                            </p>
+                            <p className="font-medium text-gray-900">
+                              {selectedInquiry.sqft} sq ft
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Applicant Name</p>

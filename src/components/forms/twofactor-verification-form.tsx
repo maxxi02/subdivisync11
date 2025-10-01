@@ -1,6 +1,5 @@
 "use client";
 import type React from "react";
-
 import {
   Button,
   Text,
@@ -12,22 +11,24 @@ import {
   Loader,
   Alert,
 } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
 import { IconLock, IconAlertCircle } from "@tabler/icons-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import Link from "next/link";
+import { toast } from "react-hot-toast";
+
+interface TwoFactorVerificationFormProps extends React.ComponentProps<"div"> {
+  email?: string;
+  password?: string;
+  onBack?: () => void;
+}
 
 export function TwoFactorVerificationForm({
   className,
   email,
   ...props
-}: React.ComponentProps<"div"> & {
-  email?: string;
-  password?: string;
-  onBack?: () => void;
-}) {
+}: TwoFactorVerificationFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -59,6 +60,7 @@ export function TwoFactorVerificationForm({
   async function onSubmit() {
     const validationError = validateCode(code);
     if (validationError) {
+      toast.error(validationError);
       setError(validationError);
       return;
     }
@@ -67,87 +69,60 @@ export function TwoFactorVerificationForm({
       setIsLoading(true);
       setError("");
 
-      // Complete the 2FA verification
       const { error } = await authClient.twoFactor.verifyOtp({
         code: code,
       });
 
       if (error) {
-        setError(error.message || "Failed to verify code");
-        notifications.show({
-          title: "Error",
-          message: "Failed to verify code",
-          color: "red",
-        });
+        const errorMessage = error.message || "Failed to verify code";
+        setError(errorMessage);
+        toast.error(errorMessage);
         return;
       }
 
-      notifications.show({
-        title: "Success",
-        message: "Two-factor authentication verified successfully",
-        color: "green",
-      });
-
-      // Redirect to dashboard after successful verification
+      toast.success("Two-factor authentication verified successfully");
       push("/dashboard");
     } catch (error) {
       const errorMessage =
         (error as Error).message ||
         "Invalid verification code. Please try again.";
       setError(errorMessage);
-      notifications.show({
-        title: "Error",
-        message: errorMessage,
-        color: "red",
-      });
+      toast.error(errorMessage);
       console.error("2FA verification error:", error);
     } finally {
       setIsLoading(false);
     }
   }
 
-  // async function handleResendCode() {
-  //   if (!email || countdown > 0) return;
+  async function handleResendCode() {
+    if (!email || countdown > 0) return;
 
-  //   try {
-  //     setIsResending(true);
-  //     setError(""); // Clear any existing errors
+    try {
+      setIsResending(true);
+      setError("");
 
-  //     // Resend the 2FA code
-  //     const { error } = await authClient.twoFactor.sendOtp();
-  //     if (error) {
-  //       setError("Failed to resend verification code");
-  //       notifications.show({
-  //         title: "Error",
-  //         message: "Failed to resend verification code",
-  //         color: "red",
-  //       });
-  //       return;
-  //     }
+      const { error } = await authClient.twoFactor.sendOtp();
+      if (error) {
+        const errorMessage =
+          error.message || "Failed to resend verification code";
+        setError(errorMessage);
+        toast.error(errorMessage);
+        return;
+      }
 
-  //     notifications.show({
-  //       title: "Success",
-  //       message: "Verification code sent to your device",
-  //       color: "green",
-  //     });
-
-  //     // Start 60-second countdown
-  //     setCountdown(60);
-  //   } catch (error) {
-  //     const errorMessage =
-  //       (error as Error).message ||
-  //       "Failed to resend verification code. Please try again.";
-  //     setError(errorMessage);
-  //     notifications.show({
-  //       title: "Error",
-  //       message: errorMessage,
-  //       color: "red",
-  //     });
-  //     console.error("Resend 2FA error:", error);
-  //   } finally {
-  //     setIsResending(false);
-  //   }
-  // }
+      toast.success("Verification code sent to your device");
+      setCountdown(60);
+    } catch (error) {
+      const errorMessage =
+        (error as Error).message ||
+        "Failed to resend verification code. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
+      console.error("Resend 2FA error:", error);
+    } finally {
+      setIsResending(false);
+    }
+  }
 
   const handleCodeChange = (value: string) => {
     setCode(value);
@@ -156,7 +131,6 @@ export function TwoFactorVerificationForm({
 
   const handleCodeComplete = (value: string) => {
     setCode(value);
-    // Auto-submit when 6 digits are entered
     if (value.length === 6) {
       onSubmit();
     }
@@ -168,14 +142,14 @@ export function TwoFactorVerificationForm({
         <ThemeIcon size={48} radius="xl" color="blue">
           <IconLock size={24} />
         </ThemeIcon>
-        <Title order={2} ta="center">
+        <Title order={2} ta="center" c="white">
           Two-Factor Authentication
         </Title>
-        <Text size="sm" c="dimmed" ta="center">
-          Enter 6 digit code that we sent to your device.
+        <Text size="sm" c="white" ta="center">
+          Enter the 6-digit code sent to your device.
         </Text>
         {email && (
-          <Text size="xs" c="dimmed">
+          <Text size="xs" c="white">
             Signed in as: {email}
           </Text>
         )}
@@ -193,7 +167,7 @@ export function TwoFactorVerificationForm({
         )}
 
         <Stack gap="xs">
-          <Text size="sm" fw={500}>
+          <Text size="sm" fw={500} c="white">
             Verification Code
           </Text>
           <PinInput
@@ -215,6 +189,7 @@ export function TwoFactorVerificationForm({
           disabled={isLoading || code.length !== 6}
           leftSection={isLoading ? <Loader size="xs" /> : null}
           size="md"
+          className="bg-blue-600 hover:bg-blue-700"
         >
           {isLoading ? "Verifying..." : "Verify Code"}
         </Button>
@@ -224,18 +199,10 @@ export function TwoFactorVerificationForm({
         <Group justify="center">
           <Button
             variant="subtle"
-            onClick={async () => {
-              try {
-                await authClient.twoFactor.sendOtp();
-                console.log(`OTP request sent!`);
-              } catch (error) {
-                console.error(
-                  `Something went wrong requesting OTP ${error as Error}`
-                );
-              }
-            }}
+            onClick={handleResendCode}
             disabled={countdown > 0 || isResending}
             size="sm"
+            c="white"
             leftSection={isResending ? <Loader size="xs" /> : null}
           >
             {isResending
@@ -247,12 +214,12 @@ export function TwoFactorVerificationForm({
         </Group>
 
         <Stack
-          gap={"xs"}
+          gap="xs"
           align="center"
-          className="hover:text-white text-white/40"
+          className="text-white/40 hover:text-white"
         >
-          <Link href={"/login"} className="text-md">
-            Login another account
+          <Link href="/login" className="text-md text-white hover:underline">
+            Login with another account
           </Link>
         </Stack>
       </Stack>
