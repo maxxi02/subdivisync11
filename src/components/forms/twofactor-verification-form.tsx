@@ -95,7 +95,7 @@ export function TwoFactorVerificationForm({
   }
 
   async function handleResendCode() {
-    if (!email || countdown > 0) return;
+    if (countdown > 0) return;
 
     try {
       setIsResending(true);
@@ -110,7 +110,7 @@ export function TwoFactorVerificationForm({
         return;
       }
 
-      toast.success("Verification code sent to your device");
+      toast.success("Verification code sent to your email");
       setCountdown(60);
     } catch (error) {
       const errorMessage =
@@ -140,7 +140,7 @@ export function TwoFactorVerificationForm({
     const sendOTP = async () => {
       await authClient.twoFactor.sendOtp();
     };
-    
+
     sendOTP();
     toast("Verification code sent to your email");
   }, []);
@@ -211,7 +211,7 @@ export function TwoFactorVerificationForm({
             onClick={handleResendCode}
             disabled={countdown > 0 || isResending}
             size="sm"
-            c="white"
+            c="black"
             leftSection={isResending ? <Loader size="xs" /> : null}
           >
             {isResending
