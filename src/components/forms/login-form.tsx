@@ -86,7 +86,10 @@ export function LoginForm() {
         {
           async onSuccess(context) {
             if (context.data.twoFactorRedirect) {
-              toast.success("Two-factor authentication required");
+              await authClient.twoFactor.sendOtp();
+              toast.success(
+                "Two-factor authentication code sent to your email"
+              );
               router.push("/2fa-verification");
             } else {
               toast.success("Successfully signed in!");

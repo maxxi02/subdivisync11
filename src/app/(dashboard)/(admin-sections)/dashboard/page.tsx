@@ -18,6 +18,9 @@ import {
   Loader,
   Center,
   Notification,
+  useMantineTheme,
+  useMantineColorScheme,
+  rgba,
 } from "@mantine/core";
 import {
   IconHome,
@@ -115,6 +118,8 @@ interface NotificationType {
 }
 
 export default function Dashboard() {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const router = useRouter();
   const [properties, setProperties] = useState<Property[]>([]);
   const [payments, setPayments] = useState<MonthlyPayment[]>([]);
@@ -430,6 +435,22 @@ export default function Dashboard() {
     setRecentActivity(activities);
   };
 
+  // Theme-aware shadow helper
+  const getHoverShadow = () => {
+    const baseShadow = "0 4px 12px";
+    const opacity = colorScheme === "dark" ? 0.3 : 0.15;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
+  const getDefaultShadow = () => {
+    const baseShadow = "0 1px 3px";
+    const opacity = colorScheme === "dark" ? 0.2 : 0.12;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
+  // Primary text color (white in dark mode, dark in light mode)
+  const primaryTextColor = colorScheme === "dark" ? "white" : "dark.9";
+
   if (loading) {
     return (
       <Container size="xl" py="xl">
@@ -461,10 +482,10 @@ export default function Dashboard() {
       )}
       <Stack gap="xl">
         <Box py="md">
-          <Title order={1} size="h2" fw={600} c="gray.9" mb="xs">
+          <Title order={1} size="h2" fw={600} c={primaryTextColor} mb="xs">
             Property Management Dashboard
           </Title>
-          <Text c="gray.6" size="md" lh={1.5}>
+          <Text c="dimmed" size="md" lh={1.5}>
             Welcome back! Here&#39;s what&#39;s happening with your properties
             today.
           </Text>
@@ -485,22 +506,21 @@ export default function Dashboard() {
               style={{
                 transition: "transform 0.2s ease, box-shadow 0.2s ease",
                 cursor: "pointer",
+                boxShadow: getDefaultShadow(),
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow =
-                  "0 4px 12px rgba(0, 0, 0, 0.15)";
+                e.currentTarget.style.boxShadow = getHoverShadow();
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow =
-                  "0 1px 3px rgba(0, 0, 0, 0.12)";
+                e.currentTarget.style.boxShadow = getDefaultShadow();
               }}
             >
               <Flex justify="space-between" align="flex-start" gap="md">
                 <Stack gap="xs" flex={1}>
                   <Text
-                    c="gray.6"
+                    c="dimmed"
                     size="sm"
                     tt="uppercase"
                     fw={600}
@@ -510,7 +530,7 @@ export default function Dashboard() {
                   >
                     {stat.title}
                   </Text>
-                  <Text fw={700} size="xl" c="gray.9" lh={1.2}>
+                  <Text fw={700} size="xl" c={primaryTextColor} lh={1.2}>
                     {stat.value}
                   </Text>
                   <Badge
@@ -548,10 +568,10 @@ export default function Dashboard() {
             >
               <Stack gap="lg" h="100%">
                 <Group justify="space-between" align="center">
-                  <Title order={3} size="h4" fw={600} c="gray.8">
+                  <Title order={3} size="h4" fw={600} c={primaryTextColor}>
                     Tenant Growth Trend
                   </Title>
-                  <Text size="sm" c="gray.6">
+                  <Text size="sm" c="dimmed">
                     Last 6 months
                   </Text>
                 </Group>
@@ -588,10 +608,10 @@ export default function Dashboard() {
             >
               <Stack gap="lg" h="100%">
                 <Group justify="space-between" align="center">
-                  <Title order={3} size="h4" fw={600} c="gray.8">
+                  <Title order={3} size="h4" fw={600} c={primaryTextColor}>
                     Monthly Revenue
                   </Title>
-                  <Text size="sm" c="gray.6">
+                  <Text size="sm" c="dimmed">
                     PHP
                   </Text>
                 </Group>
@@ -621,7 +641,7 @@ export default function Dashboard() {
           <Grid.Col span={{ base: 12, md: 5 }}>
             <Card padding="xl" radius="lg" withBorder shadow="sm">
               <Stack gap="lg">
-                <Title order={3} size="h4" fw={600} c="gray.8">
+                <Title order={3} size="h4" fw={600} c={primaryTextColor}>
                   Occupancy Overview
                 </Title>
                 <Box>
@@ -644,7 +664,7 @@ export default function Dashboard() {
                       style={{ borderRadius: 3 }}
                       aria-hidden="true"
                     />
-                    <Text size="sm" c="gray.7" fw={500}>
+                    <Text size="sm" c={primaryTextColor} fw={500}>
                       Occupied ({occupancyData[0].value})
                     </Text>
                   </Group>
@@ -656,7 +676,7 @@ export default function Dashboard() {
                       style={{ borderRadius: 3 }}
                       aria-hidden="true"
                     />
-                    <Text size="sm" c="gray.7" fw={500}>
+                    <Text size="sm" c={primaryTextColor} fw={500}>
                       Vacant ({occupancyData[1].value})
                     </Text>
                   </Group>
@@ -669,7 +689,7 @@ export default function Dashboard() {
             <Card padding="xl" radius="lg" withBorder shadow="sm">
               <Stack gap="lg">
                 <Group justify="space-between" align="center">
-                  <Title order={3} size="h4" fw={600} c="gray.8">
+                  <Title order={3} size="h4" fw={600} c={primaryTextColor}>
                     Recent Activity
                   </Title>
                   <ActionIcon
@@ -689,10 +709,10 @@ export default function Dashboard() {
                       gap="md"
                     >
                       <Stack gap={4} flex={1}>
-                        <Text size="sm" fw={500} c="gray.8" lh={1.4}>
+                        <Text size="sm" fw={500} c={primaryTextColor} lh={1.4}>
                           {activity.text}
                         </Text>
-                        <Text size="xs" c="gray.5">
+                        <Text size="xs" c="dimmed">
                           {activity.time}
                         </Text>
                       </Stack>
@@ -713,7 +733,7 @@ export default function Dashboard() {
         </Grid>
 
         <Card padding="xl" radius="lg" withBorder shadow="sm">
-          <Title order={3} size="h4" fw={600} c="gray.8" mb="md">
+          <Title order={3} size="h4" fw={600} c={primaryTextColor} mb="md">
             Recent Payments
           </Title>
           <Table striped highlightOnHover>
@@ -774,7 +794,7 @@ export default function Dashboard() {
         </Card>
 
         <Card padding="xl" radius="lg" withBorder shadow="sm">
-          <Title order={3} size="h4" fw={600} c="gray.8" mb="md">
+          <Title order={3} size="h4" fw={600} c={primaryTextColor} mb="md">
             Recent Tenants
           </Title>
           <Table striped highlightOnHover>

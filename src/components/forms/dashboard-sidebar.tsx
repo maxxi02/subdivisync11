@@ -17,6 +17,7 @@ import {
   Tooltip,
   Modal,
   Button,
+  useMantineColorScheme,
 } from "@mantine/core";
 import {
   IconDashboard,
@@ -34,6 +35,8 @@ import {
   IconTool,
   IconReceipt,
   IconToolsKitchen,
+  IconSun,
+  IconMoonStars,
 } from "@tabler/icons-react";
 import { signOut } from "@/lib/auth-client";
 import type { Session } from "@/better-auth/auth-types";
@@ -49,6 +52,9 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+
+  // Dark mode toggle logic
+  const { colorScheme, toggleColorScheme } = useMantineColorScheme();
 
   // Get user role with fallback
   const getUserRole = (role: string | undefined): "admin" | "tenant" => {
@@ -217,23 +223,36 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
                 </Badge>
               </div>
             )}
-            <Tooltip
-              label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              position="right"
-              visibleFrom="sm"
-            >
-              <ActionIcon
-                variant="subtle"
-                onClick={() => setCollapsed(!collapsed)}
-                visibleFrom="sm"
+            <Group gap="xs" visibleFrom="sm">
+              <Tooltip
+                label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                position="right"
               >
-                {collapsed ? (
-                  <IconMenu2 size="1.2rem" />
-                ) : (
-                  <IconChevronLeft size="1.2rem" />
-                )}
-              </ActionIcon>
-            </Tooltip>
+                <ActionIcon
+                  variant="subtle"
+                  onClick={() => setCollapsed(!collapsed)}
+                >
+                  {collapsed ? (
+                    <IconMenu2 size="1.2rem" />
+                  ) : (
+                    <IconChevronLeft size="1.2rem" />
+                  )}
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Toggle color scheme" position="right">
+                <ActionIcon
+                  variant="subtle"
+                  onClick={() => toggleColorScheme()}
+                  size="lg"
+                >
+                  {colorScheme === 'dark' ? (
+                    <IconSun size="1.2rem" stroke={1.5} />
+                  ) : (
+                    <IconMoonStars size="1.2rem" stroke={1.5} />
+                  )}
+                </ActionIcon>
+              </Tooltip>
+            </Group>
           </Group>
         </AppShell.Section>
 
@@ -284,15 +303,15 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
               </Group>
             </Tooltip>
           ) : (
-            <Group>
+            <Group wrap="nowrap" gap="xs">
               <Avatar src={userImage} radius="xl" size="sm">
                 {!userImage && userName.charAt(0).toUpperCase()}
               </Avatar>
-              <div style={{ flex: 1 }}>
-                <Text size="sm" fw={500}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <Text size="sm" fw={500} truncate>
                   {userName}
                 </Text>
-                <Text c="dimmed" size="xs">
+                <Text c="dimmed" size="xs" truncate>
                   {userEmail || userTitle}
                 </Text>
               </div>

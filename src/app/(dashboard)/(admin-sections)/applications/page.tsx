@@ -2,26 +2,60 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  DollarSign,
-  Eye,
-  Check,
-  X,
-  Trash2,
-  AlertCircle,
-  Phone,
-  Mail,
-  MapPin,
-  Clock,
-  CreditCard,
-  User,
-  Search,
-  RefreshCw,
-  Square,
-} from "lucide-react";
+  Title,
+  Text,
+  Card,
+  Stack,
+  Group,
+  Badge,
+  Table,
+  Loader,
+  Center,
+  Container,
+  Notification,
+  Select,
+  Modal,
+  TextInput,
+  Textarea,
+  Button as MantineButton,
+  NumberInput,
+  Grid,
+  ThemeIcon,
+  ActionIcon,
+  SimpleGrid,
+  useMantineTheme,
+  useMantineColorScheme,
+  Box,
+  Flex,
+  Alert,
+  Divider,
+  useMantineColorScheme as useMantineColorSchemeHook,
+  rgba,
+} from "@mantine/core";
+import {
+  IconUser,
+  IconClock,
+  IconCheck,
+  IconX,
+  IconTrash,
+  IconAlertCircle,
+  IconPhone,
+  IconMail,
+  IconMapPin,
+  IconSearch,
+  IconRefresh,
+  IconSquare,
+  IconCreditCard,
+  IconBuilding,
+  IconBed,
+  IconDroplet,
+  IconFileText,
+  IconEye,
+} from "@tabler/icons-react";
 import { getServerSession } from "@/better-auth/action";
 import { Session } from "@/better-auth/auth-types";
-import { Center, Container, Loader } from "@mantine/core";
 import { toast } from "react-hot-toast";
+import { DollarSign } from "lucide-react";
 
 interface Inquiry {
   fullName: string;
@@ -87,12 +121,18 @@ interface PaymentPlan {
   nextPaymentDate: string;
 }
 
+interface NotificationType {
+  type: "success" | "error";
+  message: string;
+}
+
 const ApplicationsPage = () => {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorSchemeHook();
   const [inquiries, setInquiries] = useState<InquiryWithProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [selectedInquiry, setSelectedInquiry] =
-    useState<InquiryWithProperty | null>(null);
+  const [selectedInquiry, setSelectedInquiry] = useState<InquiryWithProperty | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -103,11 +143,10 @@ const ApplicationsPage = () => {
   const [downPayment, setDownPayment] = useState("");
   const [leaseDuration, setLeaseDuration] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
-  const [filter, setFilter] = useState<
-    "all" | "pending" | "approved" | "rejected"
-  >("all");
+  const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [confirmReject, setConfirmReject] = useState(false);
+  const [notification, setNotification] = useState<NotificationType | null>(null);
 
   const [session, setSession] = useState<Session | null>(null);
   useEffect(() => {
@@ -118,15 +157,30 @@ const ApplicationsPage = () => {
     getSession();
   }, []);
 
-  const [paymentPlanData, setPaymentPlanData] = useState<PaymentPlan | null>(
-    null
-  );
+  const [paymentPlanData, setPaymentPlanData] = useState<PaymentPlan | null>(null);
+
+  // Theme-aware helpers
+  const primaryTextColor = colorScheme === "dark" ? "white" : "dark.9";
+  const getHoverShadow = () => {
+    const baseShadow = "0 4px 12px";
+    const opacity = colorScheme === "dark" ? 0.3 : 0.15;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
+  const getDefaultShadow = () => {
+    const baseShadow = "0 1px 3px";
+    const opacity = colorScheme === "dark" ? 0.2 : 0.12;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
+  const showNotification = (type: "success" | "error", message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
 
   const fetchPaymentPlan = async (propertyId: string, tenantEmail: string) => {
     try {
-      const response = await fetch(
-        `/api/payments/create?propertyId=${propertyId}&tenantEmail=${tenantEmail}`
-      );
+      const response = await fetch(`/api/payments/create?propertyId=${propertyId}&tenantEmail=${tenantEmail}`);
       const data = await response.json();
 
       if (data.success) {
@@ -136,9 +190,7 @@ const ApplicationsPage = () => {
       }
     } catch (error) {
       console.error("Error fetching payment plan:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to fetch payment plan"
-      );
+      showNotification("error", error instanceof Error ? error.message : "Failed to fetch payment plan");
     }
   };
 
@@ -169,14 +221,13 @@ const ApplicationsPage = () => {
           }
         });
         setInquiries(allInquiries);
+        showNotification("success", "Inquiries fetched successfully");
       } else {
         throw new Error(data.error || "Failed to fetch inquiries");
       }
     } catch (error) {
       console.error("Error fetching inquiries:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to fetch inquiries"
-      );
+      showNotification("error", error instanceof Error ? error.message : "Failed to fetch inquiries");
     } finally {
       setLoading(false);
     }
@@ -184,7 +235,6 @@ const ApplicationsPage = () => {
 
   useEffect(() => {
     fetchInquiries();
-    toast.success("Inquiries fetched successfully");
   }, []);
 
   const filteredInquiries = inquiries
@@ -263,16 +313,14 @@ const ApplicationsPage = () => {
 
   const handleApprove = async (inquiry: InquiryWithProperty) => {
     if (!monthlyPayment || leaseDuration === 0) {
-      toast.error("Please enter valid payment details");
+      showNotification("error", "Please enter valid payment details");
       return;
     }
 
     try {
       setProcessingId(`${inquiry.propertyId}-${inquiry.email}`);
 
-      const propertyResponse = await fetch(
-        `/api/properties/${inquiry.propertyId}`
-      );
+      const propertyResponse = await fetch(`/api/properties/${inquiry.propertyId}`);
       const propertyData = await propertyResponse.json();
 
       if (!propertyData.success) {
@@ -320,62 +368,57 @@ const ApplicationsPage = () => {
         return inq;
       });
 
-      const updateResponse = await fetch(
-        `/api/properties/${inquiry.propertyId}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            title: currentProperty.title,
-            location: currentProperty.location,
-            size: currentProperty.size,
-            price: currentProperty.price,
-            type: currentProperty.type,
-            status: "LEASED",
-            description: currentProperty.description,
-            amenities: currentProperty.amenities,
-            images: currentProperty.images,
-            sqft: currentProperty.sqft,
-            bedrooms: currentProperty.bedrooms,
-            bathrooms: currentProperty.bathrooms,
-            inquiries: updatedInquiries,
-            owner_details: {
-              fullName: inquiry.fullName,
-              email: inquiry.email,
-              phone: inquiry.phone,
-              paymentStatus: "pending",
-              paymentMethod: "installment",
-              paymentPlan: {
-                propertyPrice: inquiry.propertyPrice,
-                downPayment: parseFloat(downPayment) || 0,
-                monthlyPayment: parseFloat(monthlyPayment),
-                interestRate: parseFloat(interestRate),
-                leaseDuration: leaseDuration,
-                totalAmount: totalAmount,
-                startDate: new Date().toISOString(),
-                paymentPlanId: paymentData.paymentPlanId,
-              },
+      const updateResponse = await fetch(`/api/properties/${inquiry.propertyId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: currentProperty.title,
+          location: currentProperty.location,
+          size: currentProperty.size,
+          price: currentProperty.price,
+          type: currentProperty.type,
+          status: "LEASED",
+          description: currentProperty.description,
+          amenities: currentProperty.amenities,
+          images: currentProperty.images,
+          sqft: currentProperty.sqft,
+          bedrooms: currentProperty.bedrooms,
+          bathrooms: currentProperty.bathrooms,
+          inquiries: updatedInquiries,
+          owner_details: {
+            fullName: inquiry.fullName,
+            email: inquiry.email,
+            phone: inquiry.phone,
+            paymentStatus: "pending",
+            paymentMethod: "installment",
+            paymentPlan: {
+              propertyPrice: inquiry.propertyPrice,
+              downPayment: parseFloat(downPayment) || 0,
+              monthlyPayment: parseFloat(monthlyPayment),
+              interestRate: parseFloat(interestRate),
+              leaseDuration: leaseDuration,
+              totalAmount: totalAmount,
+              startDate: new Date().toISOString(),
+              paymentPlanId: paymentData.paymentPlanId,
             },
-          }),
-        }
-      );
+          },
+        }),
+      });
 
       const updateData = await updateResponse.json();
 
       if (updateData.success) {
         await fetchInquiries();
         resetPaymentModal();
-        toast.success("Inquiry approved and payment plan created successfully");
+        showNotification("success", "Inquiry approved and payment plan created successfully");
       } else {
         throw new Error(updateData.error || "Failed to update property");
       }
     } catch (error) {
       console.error("Error approving inquiry:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to approve inquiry"
-      );
+      showNotification("error", error instanceof Error ? error.message : "Failed to approve inquiry");
     } finally {
       setProcessingId(null);
     }
@@ -394,7 +437,7 @@ const ApplicationsPage = () => {
   const handleReject = async () => {
     if (!selectedInquiry || !rejectionReason.trim()) {
       setRejectionError("Please provide a rejection reason");
-      toast.error("Please provide a rejection reason");
+      showNotification("error", "Please provide a rejection reason");
       return;
     }
 
@@ -406,21 +449,18 @@ const ApplicationsPage = () => {
     try {
       setProcessingId(`${selectedInquiry.propertyId}-${selectedInquiry.email}`);
 
-      const response = await fetch(
-        `/api/properties/${selectedInquiry.propertyId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            action: "reject",
-            email: selectedInquiry.email,
-            phone: selectedInquiry.phone,
-            reason: rejectionReason.trim(),
-          }),
-        }
-      );
+      const response = await fetch(`/api/properties/${selectedInquiry.propertyId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "reject",
+          email: selectedInquiry.email,
+          phone: selectedInquiry.phone,
+          reason: rejectionReason.trim(),
+        }),
+      });
 
       const data = await response.json();
 
@@ -431,40 +471,30 @@ const ApplicationsPage = () => {
         setRejectionReason("");
         setRejectionError("");
         setConfirmReject(false);
-        toast.success("Inquiry rejected successfully");
+        showNotification("success", "Inquiry rejected successfully");
       } else {
         throw new Error(data.error || "Failed to reject inquiry");
       }
     } catch (error) {
       console.error("Error rejecting inquiry:", error);
-      setRejectionError(
-        error instanceof Error ? error.message : "Failed to reject inquiry"
-      );
-      toast.error(
-        error instanceof Error ? error.message : "Failed to reject inquiry"
-      );
+      setRejectionError(error instanceof Error ? error.message : "Failed to reject inquiry");
+      showNotification("error", error instanceof Error ? error.message : "Failed to reject inquiry");
     } finally {
       setProcessingId(null);
     }
   };
 
   const clearRejectedInquiries = async () => {
-    if (
-      !window.confirm(
-        "Are you sure you want to clear all rejected inquiries? This action cannot be undone."
-      )
-    ) {
+    if (!window.confirm("Are you sure you want to clear all rejected inquiries? This action cannot be undone.")) {
       return;
     }
 
     try {
       setLoading(true);
-      const rejectedInquiries = inquiries.filter(
-        (inq) => inq.status === "rejected"
-      );
+      const rejectedInquiries = inquiries.filter((inq) => inq.status === "rejected");
 
       if (rejectedInquiries.length === 0) {
-        toast("No rejected inquiries to clear");
+        showNotification("error", "No rejected inquiries to clear");
         setLoading(false);
         return;
       }
@@ -490,33 +520,28 @@ const ApplicationsPage = () => {
       }
 
       await fetchInquiries();
-      toast.success("All rejected inquiries cleared successfully");
+      showNotification("success", "All rejected inquiries cleared successfully");
     } catch (error) {
       console.error("Error clearing rejected inquiries:", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to clear rejected inquiries"
-      );
+      showNotification("error", error instanceof Error ? error.message : "Failed to clear rejected inquiries");
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusBadge = (status: string, propertyStatus?: string) => {
-    const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
+  const getStatusColor = (status: string, propertyStatus?: string) => {
     if (propertyStatus === "LEASED") {
-      return `${baseClasses} bg-blue-100 text-blue-800`;
+      return "blue";
     }
     switch (status) {
       case "pending":
-        return `${baseClasses} bg-yellow-100 text-yellow-800`;
+        return "yellow";
       case "approved":
-        return `${baseClasses} bg-green-100 text-green-800`;
+        return "green";
       case "rejected":
-        return `${baseClasses} bg-red-100 text-red-800`;
+        return "red";
       default:
-        return `${baseClasses} bg-gray-100 text-gray-800`;
+        return "gray";
     }
   };
 
@@ -553,987 +578,746 @@ const ApplicationsPage = () => {
     approvedApplications: inquiries.filter(
       (inq) => inq.status === "approved" || inq.propertyStatus === "LEASED"
     ).length,
-    rejectedApplications: inquiries.filter((inq) => inq.status === "rejected")
-      .length,
+    rejectedApplications: inquiries.filter((inq) => inq.status === "rejected").length,
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <Container size="xl" px="md">
+      {notification && (
+        <Notification
+          icon={
+            notification.type === "success" ? (
+              <IconCheck size={18} />
+            ) : (
+              <IconX size={18} />
+            )
+          }
+          color={notification.type === "success" ? "green" : "red"}
+          title={notification.type === "success" ? "Success" : "Error"}
+          onClose={() => setNotification(null)}
+          style={{ position: "fixed", top: 20, right: 20, zIndex: 1000 }}
+        >
+          {notification.message}
+        </Notification>
+      )}
+      <Stack gap="xl">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Property Applications
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Monitor and manage property inquiries
-              </p>
-            </div>
-            <button
-              onClick={fetchInquiries}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Refresh
-            </button>
-          </div>
-        </div>
+        <Box py="md">
+          <Title order={1} size="h2" fw={600} c={primaryTextColor} mb="xs">
+            Property Applications
+          </Title>
+          <Text c="dimmed" size="md" lh={1.5}>
+            Monitor and manage property inquiries
+          </Text>
+        </Box>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-sm p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-blue-100">
+        <SimpleGrid
+          cols={{ base: 1, md: 4 }}
+          spacing={{ base: "md", sm: "lg" }}
+          verticalSpacing={{ base: "md", sm: "lg" }}
+        >
+          <Card
+            padding="xl"
+            radius="lg"
+            withBorder
+            shadow="sm"
+            style={{
+              background: "linear-gradient(135deg, var(--mantine-color-blue-6) 0%, var(--mantine-color-blue-7) 100%)",
+              color: "white",
+              boxShadow: getDefaultShadow(),
+            }}
+          >
+            <Flex justify="space-between" align="flex-start" gap="md">
+              <Stack gap="xs" flex={1}>
+                <Text c="blue.2" size="sm" tt="uppercase" fw={600}>
                   Total Applications
-                </p>
-                <p className="text-2xl font-bold">{stats.totalApplications}</p>
-              </div>
-              <div className="h-12 w-12 bg-blue-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                <User className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow-sm p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-yellow-100">Pending</p>
-                <p className="text-2xl font-bold">
+                </Text>
+                <Text fw={700} size="xl" c="white" lh={1.2}>
+                  {stats.totalApplications}
+                </Text>
+              </Stack>
+              <ThemeIcon variant="light" color="blue" size="xl" radius="lg">
+                <IconUser size="1.5rem" />
+              </ThemeIcon>
+            </Flex>
+          </Card>
+
+          <Card
+            padding="xl"
+            radius="lg"
+            withBorder
+            shadow="sm"
+            style={{
+              background: "linear-gradient(135deg, var(--mantine-color-yellow-6) 0%, var(--mantine-color-yellow-7) 100%)",
+              color: "white",
+              boxShadow: getDefaultShadow(),
+            }}
+          >
+            <Flex justify="space-between" align="flex-start" gap="md">
+              <Stack gap="xs" flex={1}>
+                <Text c="yellow.2" size="sm" tt="uppercase" fw={600}>
+                  Pending
+                </Text>
+                <Text fw={700} size="xl" c="white" lh={1.2}>
                   {stats.pendingApplications}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-yellow-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                <Clock className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-sm p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-green-100">
+                </Text>
+              </Stack>
+              <ThemeIcon variant="light" color="yellow" size="xl" radius="lg">
+                <IconClock size="1.5rem" />
+              </ThemeIcon>
+            </Flex>
+          </Card>
+
+          <Card
+            padding="xl"
+            radius="lg"
+            withBorder
+            shadow="sm"
+            style={{
+              background: "linear-gradient(135deg, var(--mantine-color-green-6) 0%, var(--mantine-color-green-7) 100%)",
+              color: "white",
+              boxShadow: getDefaultShadow(),
+            }}
+          >
+            <Flex justify="space-between" align="flex-start" gap="md">
+              <Stack gap="xs" flex={1}>
+                <Text c="green.2" size="sm" tt="uppercase" fw={600}>
                   Approved/Leased
-                </p>
-                <p className="text-2xl font-bold">
+                </Text>
+                <Text fw={700} size="xl" c="white" lh={1.2}>
                   {stats.approvedApplications}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-green-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                <Check className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-sm p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-red-100">Rejected</p>
-                <p className="text-2xl font-bold">
+                </Text>
+              </Stack>
+              <ThemeIcon variant="light" color="green" size="xl" radius="lg">
+                <IconCheck size="1.5rem" />
+              </ThemeIcon>
+            </Flex>
+          </Card>
+
+          <Card
+            padding="xl"
+            radius="lg"
+            withBorder
+            shadow="sm"
+            style={{
+              background: "linear-gradient(135deg, var(--mantine-color-red-6) 0%, var(--mantine-color-red-7) 100%)",
+              color: "white",
+              boxShadow: getDefaultShadow(),
+            }}
+          >
+            <Flex justify="space-between" align="flex-start" gap="md">
+              <Stack gap="xs" flex={1}>
+                <Text c="red.2" size="sm" tt="uppercase" fw={600}>
+                  Rejected
+                </Text>
+                <Text fw={700} size="xl" c="white" lh={1.2}>
                   {stats.rejectedApplications}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-red-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                <X className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
-        </div>
+                </Text>
+              </Stack>
+              <ThemeIcon variant="light" color="red" size="xl" radius="lg">
+                <IconX size="1.5rem" />
+              </ThemeIcon>
+            </Flex>
+          </Card>
+        </SimpleGrid>
 
         {/* Pending Alert */}
         {stats.pendingApplications > 0 && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="h-5 w-5 text-yellow-600" />
-              <div>
-                <h3 className="text-sm font-medium text-yellow-800">
-                  Pending Applications Alert
-                </h3>
-                <p className="text-sm text-yellow-700">
-                  You have {stats.pendingApplications} pending application
-                  {stats.pendingApplications > 1 ? "s" : ""} requiring review.
-                </p>
-              </div>
-            </div>
-          </div>
+          <Alert icon={<IconAlertCircle size={16} />} color="yellow" title="Pending Applications Alert">
+            You have {stats.pendingApplications} pending application{stats.pendingApplications > 1 ? "s" : ""} requiring review.
+          </Alert>
         )}
 
         {/* Filters and Search */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex flex-col sm:flex-row gap-4 justify-between">
-            <div className="flex gap-4">
-              <select
+        <Card padding="xl" radius="lg" withBorder shadow="sm">
+          <Group justify="apart" mb="md">
+            <Group>
+              <Select
                 value={filter}
-                onChange={(e) =>
-                  setFilter(
-                    e.target.value as
-                      | "all"
-                      | "pending"
-                      | "approved"
-                      | "rejected"
-                  )
-                }
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Applications</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-              </select>
-              <button
+                onChange={(value) => setFilter(value as "all" | "pending" | "approved" | "rejected")}
+                data={[
+                  { value: "all", label: "All Applications" },
+                  { value: "pending", label: "Pending" },
+                  { value: "approved", label: "Approved" },
+                  { value: "rejected", label: "Rejected" },
+                ]}
+              />
+              <MantineButton
+                color="red"
+                leftSection={<IconTrash size={16} />}
                 onClick={clearRejectedInquiries}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
                 disabled={!inquiries.some((inq) => inq.status === "rejected")}
               >
-                <Trash2 className="w-4 h-4" />
                 Clear Rejected
-              </button>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search applicants or properties..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 w-64"
-              />
-            </div>
-          </div>
-        </div>
+              </MantineButton>
+            </Group>
+            <TextInput
+              placeholder="Search applicants or properties..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              leftSection={<IconSearch size={16} />}
+              style={{ maxWidth: 300 }}
+            />
+          </Group>
+        </Card>
 
         {/* Applications Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Applicant
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Property
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Application Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredInquiries.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-6 py-8 text-center text-gray-500"
-                    >
+        <Card padding="xl" radius="lg" withBorder shadow="sm">
+          <Table striped highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Applicant</Table.Th>
+                <Table.Th>Property</Table.Th>
+                <Table.Th>Application Date</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th>Actions</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {filteredInquiries.length === 0 ? (
+                <Table.Tr>
+                  <Table.Td colSpan={5} ta="center" py="xl">
+                    <ThemeIcon size={48} radius="xl" color="gray" mb="md">
+                      <IconUser size={24} />
+                    </ThemeIcon>
+                    <Text size="lg" fw={500} c={primaryTextColor} mb="xs">
                       No applications found
-                    </td>
-                  </tr>
-                ) : (
-                  filteredInquiries.map((inquiry, index) => (
-                    <tr
-                      key={`${inquiry.propertyId}-${inquiry.email}-${index}`}
-                      className="hover:bg-gray-50"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {inquiry.fullName}
-                            </div>
-                            <div className="text-sm text-gray-500 flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              {inquiry.email}
-                            </div>
-                            <div className="text-sm text-gray-500 flex items-center gap-1">
-                              <Phone className="h-3 w-3" />
-                              {inquiry.phone}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {inquiry.propertyTitle}
-                        </div>
-                        <div className="text-sm text-gray-500 flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {inquiry.propertyLocation}
-                        </div>
-                        <div className="text-sm text-gray-500 flex items-center gap-1">
-                          <DollarSign className="h-3 w-3" />
-                          {formatCurrency(inquiry.propertyPrice)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {formatDate(inquiry.submittedAt)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={getStatusBadge(
-                            inquiry.status,
-                            inquiry.propertyStatus
-                          )}
-                        >
-                          {inquiry.propertyStatus === "LEASED"
-                            ? "Leased"
-                            : inquiry.status.charAt(0).toUpperCase() +
-                              inquiry.status.slice(1)}
-                        </span>
-                        {inquiry.status === "rejected" &&
-                          inquiry.rejectionReason && (
-                            <div className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                              <AlertCircle className="h-3 w-3" />
-                              {inquiry.rejectionReason}
-                            </div>
-                          )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex gap-2">
-                          {inquiry.status === "pending" &&
-                            inquiry.propertyStatus !== "LEASED" && (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    setSelectedInquiry(inquiry);
-                                    setShowPaymentModal(true);
-                                  }}
-                                  disabled={
-                                    processingId ===
-                                    `${inquiry.propertyId}-${inquiry.email}`
-                                  }
-                                  className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 flex items-center gap-1 disabled:opacity-50"
-                                >
-                                  <Check className="h-4 w-4" />
-                                  Approve
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setSelectedInquiry(inquiry);
-                                    setShowRejectModal(true);
-                                    setRejectionReason("");
-                                    setRejectionError("");
-                                    setConfirmReject(false);
-                                  }}
-                                  disabled={
-                                    processingId ===
-                                    `${inquiry.propertyId}-${inquiry.email}`
-                                  }
-                                  className="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 flex items-center gap-1 disabled:opacity-50"
-                                >
-                                  <X className="h-4 w-4" />
-                                  Reject
-                                </button>
-                              </>
-                            )}
-                          {(inquiry.status === "approved" ||
-                            inquiry.propertyStatus === "LEASED") && (
-                            <button
-                              disabled
-                              className="bg-gray-400 text-white px-3 py-1 rounded-md cursor-not-allowed flex items-center gap-1 opacity-50"
+                    </Text>
+                    <Text c="dimmed">No matching inquiries available</Text>
+                  </Table.Td>
+                </Table.Tr>
+              ) : (
+                filteredInquiries.map((inquiry, index) => (
+                  <Table.Tr key={`${inquiry.propertyId}-${inquiry.email}-${index}`}>
+                    <Table.Td>
+                      <Stack gap="xs">
+                        <Text fw={500} c={primaryTextColor}>
+                          {inquiry.fullName}
+                        </Text>
+                        <Group gap="xs">
+                          <IconMail size={14} />
+                          <Text size="sm" c="dimmed">
+                            {inquiry.email}
+                          </Text>
+                        </Group>
+                        <Group gap="xs">
+                          <IconPhone size={14} />
+                          <Text size="sm" c="dimmed">
+                            {inquiry.phone}
+                          </Text>
+                        </Group>
+                      </Stack>
+                    </Table.Td>
+                    <Table.Td>
+                      <Stack gap="xs">
+                        <Text fw={500}>{inquiry.propertyTitle}</Text>
+                        <Group gap="xs">
+                          <IconMapPin size={14} />
+                          <Text size="sm" c="dimmed">
+                            {inquiry.propertyLocation}
+                          </Text>
+                        </Group>
+                        <Group gap="xs">
+                          <DollarSign size={14} />
+                          <Text size="sm" fw={500} c="green.6">
+                            {formatCurrency(inquiry.propertyPrice)}
+                          </Text>
+                        </Group>
+                      </Stack>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text c="dimmed">{formatDate(inquiry.submittedAt)}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Stack gap="xs">
+                        <Badge color={getStatusColor(inquiry.status, inquiry.propertyStatus)} variant="light">
+                          {inquiry.propertyStatus === "LEASED" ? "Leased" : inquiry.status.charAt(0).toUpperCase() + inquiry.status.slice(1)}
+                        </Badge>
+                        {inquiry.status === "rejected" && inquiry.rejectionReason && (
+                          <Text size="xs" c="red" lh={1.2}>
+                            <IconAlertCircle size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                            {inquiry.rejectionReason}
+                          </Text>
+                        )}
+                      </Stack>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap="xs">
+                        {inquiry.status === "pending" && inquiry.propertyStatus !== "LEASED" && (
+                          <>
+                            <MantineButton
+                              size="xs"
+                              color="green"
+                              leftSection={<IconCheck size={14} />}
+                              onClick={() => {
+                                setSelectedInquiry(inquiry);
+                                setShowPaymentModal(true);
+                              }}
+                              loading={processingId === `${inquiry.propertyId}-${inquiry.email}`}
+                              disabled={processingId === `${inquiry.propertyId}-${inquiry.email}`}
                             >
-                              <X className="h-4 w-4" />
+                              Approve
+                            </MantineButton>
+                            <MantineButton
+                              size="xs"
+                              color="red"
+                              leftSection={<IconX size={14} />}
+                              onClick={() => {
+                                setSelectedInquiry(inquiry);
+                                setShowRejectModal(true);
+                                setRejectionReason("");
+                                setRejectionError("");
+                                setConfirmReject(false);
+                              }}
+                              loading={processingId === `${inquiry.propertyId}-${inquiry.email}`}
+                              disabled={processingId === `${inquiry.propertyId}-${inquiry.email}`}
+                            >
                               Reject
-                            </button>
-                          )}
-                          <button
-                            onClick={async () => {
-                              setSelectedInquiry(inquiry);
-                              setShowViewModal(true);
-                              if (
-                                inquiry.propertyStatus === "LEASED" ||
-                                inquiry.status === "approved"
-                              ) {
-                                await fetchPaymentPlan(
-                                  inquiry.propertyId,
-                                  inquiry.email
-                                );
-                              }
-                            }}
-                            className="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 flex items-center gap-1"
-                          >
-                            <Eye className="h-4 w-4" />
-                            View
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                            </MantineButton>
+                          </>
+                        )}
+                        {(inquiry.status === "approved" || inquiry.propertyStatus === "LEASED") && (
+                          <MantineButton size="xs" color="gray" disabled leftSection={<IconX size={14} />}>
+                            Reject
+                          </MantineButton>
+                        )}
+                        <ActionIcon
+                          variant="light"
+                          color="blue"
+                          size="lg"
+                          onClick={async () => {
+                            setSelectedInquiry(inquiry);
+                            setShowViewModal(true);
+                            if (inquiry.propertyStatus === "LEASED" || inquiry.status === "approved") {
+                              await fetchPaymentPlan(inquiry.propertyId, inquiry.email);
+                            }
+                          }}
+                        >
+                          <IconEye size={18} />
+                        </ActionIcon>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                ))
+              )}
+            </Table.Tbody>
+          </Table>
+        </Card>
 
         {/* View Details Modal */}
-        {showViewModal && selectedInquiry && (
-          <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                Application Details
-              </h3>
+        <Modal
+          opened={showViewModal}
+          onClose={() => {
+            setShowViewModal(false);
+            setSelectedInquiry(null);
+            setPaymentPlanData(null);
+          }}
+          title={selectedInquiry?.fullName || "Application Details"}
+          size="xl"
+          centered
+        >
+          {selectedInquiry && (
+            <Stack gap="lg">
+              <Badge color={getStatusColor(selectedInquiry.status, selectedInquiry.propertyStatus)} size="lg">
+                {selectedInquiry.propertyStatus === "LEASED" ? "Leased" : selectedInquiry.status.charAt(0).toUpperCase() + selectedInquiry.status.slice(1)}
+              </Badge>
 
-              <div className="mb-6">
-                <span
-                  className={`${getStatusBadge(
-                    selectedInquiry.status,
-                    selectedInquiry.propertyStatus
-                  )} text-sm`}
-                >
-                  {selectedInquiry.propertyStatus === "LEASED"
-                    ? "Leased"
-                    : selectedInquiry.status.charAt(0).toUpperCase() +
-                      selectedInquiry.status.slice(1)}
-                </span>
-              </div>
+              <Card withBorder radius="md" p="md">
+                <Group gap="xs" mb="xs">
+                  <IconUser size={16} />
+                  <Text fw={500} c={primaryTextColor}>Applicant Information</Text>
+                </Group>
+                <Grid gutter="md">
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">Full Name</Text>
+                    <Text fw={500}>{selectedInquiry.fullName}</Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">Email</Text>
+                    <Text fw={500}>{selectedInquiry.email}</Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">Phone</Text>
+                    <Text fw={500}>{selectedInquiry.phone}</Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">Application Date</Text>
+                    <Text fw={500}>{formatDate(selectedInquiry.submittedAt)}</Text>
+                  </Grid.Col>
+                </Grid>
+              </Card>
 
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Applicant Information
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Full Name</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedInquiry.fullName}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Email</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedInquiry.email}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Phone</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedInquiry.phone}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">
-                      Application Date
-                    </p>
-                    <p className="font-medium text-gray-900">
-                      {formatDate(selectedInquiry.submittedAt)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <MapPin className="h-5 w-5" />
-                  Property Information
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Property Title</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedInquiry.propertyTitle}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Location</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedInquiry.propertyLocation}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Price</p>
-                    <p className="font-medium text-gray-900">
-                      {formatCurrency(selectedInquiry.propertyPrice)}
-                    </p>
-                  </div>
-                  {(selectedInquiry.propertyType === "house-and-lot" ||
-                    selectedInquiry.propertyType === "condo") && (
+              <Card withBorder radius="md" p="md">
+                <Group gap="xs" mb="xs">
+                  <IconMapPin size={16} />
+                  <Text fw={500} c={primaryTextColor}>Property Information</Text>
+                </Group>
+                <Grid gutter="md">
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">Property Title</Text>
+                    <Text fw={500}>{selectedInquiry.propertyTitle}</Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">Location</Text>
+                    <Text fw={500}>{selectedInquiry.propertyLocation}</Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">Price</Text>
+                    <Text fw={500} c="green.6">{formatCurrency(selectedInquiry.propertyPrice)}</Text>
+                  </Grid.Col>
+                  {(selectedInquiry.propertyType === "house-and-lot" || selectedInquiry.propertyType === "condo") && (
                     <>
-                      {selectedInquiry.bedrooms &&
-                        selectedInquiry.bedrooms > 0 && (
-                          <div>
-                            <p className="text-sm text-gray-600 mb-1">
-                              Bedrooms
-                            </p>
-                            <p className="font-medium text-gray-900">
-                              {selectedInquiry.bedrooms} Bedroom
-                              {selectedInquiry.bedrooms > 1 ? "s" : ""}
-                            </p>
-                          </div>
-                        )}
-                      {selectedInquiry.bathrooms &&
-                        selectedInquiry.bathrooms > 0 && (
-                          <div>
-                            <p className="text-sm text-gray-600 mb-1">
-                              Bathrooms
-                            </p>
-                            <p className="font-medium text-gray-900">
-                              {selectedInquiry.bathrooms} Bathroom
-                              {selectedInquiry.bathrooms > 1 ? "s" : ""}
-                            </p>
-                          </div>
-                        )}
+                      {selectedInquiry.bedrooms && selectedInquiry.bedrooms > 0 && (
+                        <Grid.Col span={6}>
+                          <Text size="sm" c="dimmed">Bedrooms</Text>
+                          <Text fw={500}>{selectedInquiry.bedrooms} Bedroom{selectedInquiry.bedrooms > 1 ? "s" : ""}</Text>
+                        </Grid.Col>
+                      )}
+                      {selectedInquiry.bathrooms && selectedInquiry.bathrooms > 0 && (
+                        <Grid.Col span={6}>
+                          <Text size="sm" c="dimmed">Bathrooms</Text>
+                          <Text fw={500}>{selectedInquiry.bathrooms} Bathroom{selectedInquiry.bathrooms > 1 ? "s" : ""}</Text>
+                        </Grid.Col>
+                      )}
                       {selectedInquiry.sqft && selectedInquiry.sqft > 0 && (
-                        <div>
-                          <p className="text-sm text-gray-600 mb-1">
-                            Square Footage
-                          </p>
-                          <p className="font-medium text-gray-900">
-                            {selectedInquiry.sqft} sq ft
-                          </p>
-                        </div>
+                        <Grid.Col span={6}>
+                          <Text size="sm" c="dimmed">Square Footage</Text>
+                          <Text fw={500}>{selectedInquiry.sqft} sq ft</Text>
+                        </Grid.Col>
                       )}
                     </>
                   )}
-                </div>
-              </div>
+                </Grid>
+              </Card>
 
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 className="font-semibold text-gray-900 mb-3">
-                  Reason for Application
-                </h4>
-                <p className="text-gray-700">{selectedInquiry.reason}</p>
-              </div>
+              <Card withBorder radius="md" p="md">
+                <Text fw={500} c={primaryTextColor} mb="xs">Reason for Application</Text>
+                <Text c="dimmed">{selectedInquiry.reason}</Text>
+              </Card>
 
-              {selectedInquiry.status === "rejected" &&
-                selectedInquiry.rejectionReason && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                    <h4 className="font-semibold text-red-900 mb-3 flex items-center gap-2">
-                      <AlertCircle className="h-5 w-5" />
-                      Rejection Reason
-                    </h4>
-                    <p className="text-red-700">
-                      {selectedInquiry.rejectionReason}
-                    </p>
-                  </div>
-                )}
+              {selectedInquiry.status === "rejected" && selectedInquiry.rejectionReason && (
+                <Alert icon={<IconAlertCircle size={16} />} color="red" title="Rejection Reason">
+                  {selectedInquiry.rejectionReason}
+                </Alert>
+              )}
 
-              {(selectedInquiry.status === "approved" ||
-                selectedInquiry.propertyStatus === "LEASED") &&
-                paymentPlanData && (
-                  <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                    <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                      <CreditCard className="h-5 w-5" />
-                      Payment Plan Summary
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-blue-600 mb-1">
-                          Property Price
-                        </p>
-                        <p className="font-medium text-blue-900">
-                          {formatCurrency(paymentPlanData.propertyPrice)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-blue-600 mb-1">
-                          Down Payment
-                        </p>
-                        <p className="font-medium text-blue-900">
-                          {formatCurrency(paymentPlanData.downPayment)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-blue-600 mb-1">
-                          Monthly Payment
-                        </p>
-                        <p className="font-medium text-blue-900">
-                          {formatCurrency(paymentPlanData.monthlyPayment)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-blue-600 mb-1">
-                          Interest Rate
-                        </p>
-                        <p className="font-medium text-blue-900">
-                          {paymentPlanData.interestRate}% per annum
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-blue-600 mb-1">
-                          Lease Duration
-                        </p>
-                        <p className="font-medium text-blue-900">
-                          {paymentPlanData.leaseDuration} months
-                          <span className="text-sm text-blue-600">
-                            ({Math.floor(paymentPlanData.leaseDuration / 12)}{" "}
-                            years {paymentPlanData.leaseDuration % 12} months)
-                          </span>
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-blue-600 mb-1">
-                          Total Amount
-                        </p>
-                        <p className="font-medium text-blue-900">
-                          {formatCurrency(paymentPlanData.totalAmount)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-blue-600 mb-1">Start Date</p>
-                        <p className="font-medium text-blue-900">
-                          {formatDate(paymentPlanData.startDate)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-blue-600 mb-1">
-                          Plan Status
-                        </p>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            paymentPlanData.status === "active"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {paymentPlanData.status.charAt(0).toUpperCase() +
-                            paymentPlanData.status.slice(1)}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-sm text-blue-600 mb-1">
-                          Current Month
-                        </p>
-                        <p className="font-medium text-blue-900">
-                          {paymentPlanData.currentMonth} of{" "}
-                          {paymentPlanData.leaseDuration}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-blue-600 mb-1">
-                          Remaining Balance
-                        </p>
-                        <p className="font-medium text-blue-900">
-                          {formatCurrency(paymentPlanData.remainingBalance)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-blue-600 mb-1">
-                          Next Payment Date
-                        </p>
-                        <p className="font-medium text-blue-900">
-                          {formatDate(paymentPlanData.nextPaymentDate)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-blue-600 mb-1">
-                          Total Interest
-                        </p>
-                        <p className="font-medium text-orange-600">
-                          {formatCurrency(
-                            paymentPlanData.totalAmount -
-                              paymentPlanData.propertyPrice
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-              <div className="flex justify-end">
-                <button
-                  onClick={() => {
-                    setShowViewModal(false);
-                    setSelectedInquiry(null);
-                    setPaymentPlanData(null);
-                  }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+              {(selectedInquiry.status === "approved" || selectedInquiry.propertyStatus === "LEASED") && paymentPlanData && (
+                <Card withBorder radius="md" p="md" bg="blue.0">
+                  <Group gap="xs" mb="md">
+                    <IconCreditCard size={16} />
+                    <Text fw={500} c="blue.9">Payment Plan Summary</Text>
+                  </Group>
+                  <Grid gutter="md">
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">Property Price</Text>
+                      <Text fw={500} c="blue.9">{formatCurrency(paymentPlanData.propertyPrice)}</Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">Down Payment</Text>
+                      <Text fw={500} c="blue.9">{formatCurrency(paymentPlanData.downPayment)}</Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">Monthly Payment</Text>
+                      <Text fw={500} c="blue.9">{formatCurrency(paymentPlanData.monthlyPayment)}</Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">Interest Rate</Text>
+                      <Text fw={500} c="blue.9">{paymentPlanData.interestRate}% per annum</Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">Lease Duration</Text>
+                      <Text fw={500} c="blue.9">
+                        {paymentPlanData.leaseDuration} months ({Math.floor(paymentPlanData.leaseDuration / 12)} years {paymentPlanData.leaseDuration % 12} months)
+                      </Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">Total Amount</Text>
+                      <Text fw={500} c="blue.9">{formatCurrency(paymentPlanData.totalAmount)}</Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">Start Date</Text>
+                      <Text fw={500} c="blue.9">{formatDate(paymentPlanData.startDate)}</Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">Plan Status</Text>
+                      <Badge color={paymentPlanData.status === "active" ? "green" : "gray"} variant="light">
+                        {paymentPlanData.status.charAt(0).toUpperCase() + paymentPlanData.status.slice(1)}
+                      </Badge>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">Current Month</Text>
+                      <Text fw={500} c="blue.9">{paymentPlanData.currentMonth} of {paymentPlanData.leaseDuration}</Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">Remaining Balance</Text>
+                      <Text fw={500} c="blue.9">{formatCurrency(paymentPlanData.remainingBalance)}</Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">Next Payment Date</Text>
+                      <Text fw={500} c="blue.9">{formatDate(paymentPlanData.nextPaymentDate)}</Text>
+                    </Grid.Col>
+                    <Grid.Col span={12}>
+                      <Text size="sm" c="blue.7">Total Interest</Text>
+                      <Text fw={500} c="orange.6">{formatCurrency(paymentPlanData.totalAmount - paymentPlanData.propertyPrice)}</Text>
+                    </Grid.Col>
+                  </Grid>
+                </Card>
+              )}
+            </Stack>
+          )}
+        </Modal>
 
         {/* Payment Modal */}
-        {showPaymentModal && selectedInquiry && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                Create Payment Plan
-              </h3>
-
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <MapPin className="h-5 w-5" />
-                  Property & Applicant Info
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Property Title</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedInquiry.propertyTitle}
-                    </p>
-                    <p className="text-sm text-gray-600 mb-1">Location</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedInquiry.propertyLocation}
-                    </p>
-                    <p className="text-sm text-gray-600 mb-1">Price</p>
-                    <p className="font-medium text-gray-900">
-                      {formatCurrency(selectedInquiry.propertyPrice)}
-                    </p>
-                    {(selectedInquiry.propertyType === "house-and-lot" ||
-                      selectedInquiry.propertyType === "condo") && (
+        <Modal
+          opened={showPaymentModal}
+          onClose={resetPaymentModal}
+          title={selectedInquiry?.propertyTitle || "Create Payment Plan"}
+          size="xl"
+          centered
+        >
+          {selectedInquiry && (
+            <Stack gap="lg">
+              <Card withBorder radius="md" p="md">
+                <Group gap="xs" mb="xs">
+                  <IconMapPin size={16} />
+                  <Text fw={500} c={primaryTextColor}>Property & Applicant Info</Text>
+                </Group>
+                <Grid gutter="md">
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">Property Title</Text>
+                    <Text fw={500}>{selectedInquiry.propertyTitle}</Text>
+                    <Text size="sm" c="dimmed">Location</Text>
+                    <Text fw={500}>{selectedInquiry.propertyLocation}</Text>
+                    <Text size="sm" c="dimmed">Price</Text>
+                    <Text fw={500} c="green.6">{formatCurrency(selectedInquiry.propertyPrice)}</Text>
+                    {(selectedInquiry.propertyType === "house-and-lot" || selectedInquiry.propertyType === "condo") && (
                       <>
-                        {selectedInquiry.bedrooms &&
-                          selectedInquiry.bedrooms > 0 && (
-                            <div>
-                              <p className="text-sm text-gray-600 mb-1">
-                                Bedrooms
-                              </p>
-                              <p className="font-medium text-gray-900">
-                                {selectedInquiry.bedrooms} Bedroom
-                                {selectedInquiry.bedrooms > 1 ? "s" : ""}
-                              </p>
-                            </div>
-                          )}
-                        {selectedInquiry.bathrooms &&
-                          selectedInquiry.bathrooms > 0 && (
-                            <div>
-                              <p className="text-sm text-gray-600 mb-1">
-                                Bathrooms
-                              </p>
-                              <p className="font-medium text-gray-900">
-                                {selectedInquiry.bathrooms} Bathroom
-                                {selectedInquiry.bathrooms > 1 ? "s" : ""}
-                              </p>
-                            </div>
-                          )}
+                        {selectedInquiry.bedrooms && selectedInquiry.bedrooms > 0 && (
+                          <>
+                            <Text size="sm" c="dimmed">Bedrooms</Text>
+                            <Text fw={500}>{selectedInquiry.bedrooms} Bedroom{selectedInquiry.bedrooms > 1 ? "s" : ""}</Text>
+                          </>
+                        )}
+                        {selectedInquiry.bathrooms && selectedInquiry.bathrooms > 0 && (
+                          <>
+                            <Text size="sm" c="dimmed">Bathrooms</Text>
+                            <Text fw={500}>{selectedInquiry.bathrooms} Bathroom{selectedInquiry.bathrooms > 1 ? "s" : ""}</Text>
+                          </>
+                        )}
                         {selectedInquiry.sqft && selectedInquiry.sqft > 0 && (
-                          <div>
-                            <p className="text-sm text-gray-600 mb-1">
-                              Square Footage
-                            </p>
-                            <p className="font-medium text-gray-900">
-                              {selectedInquiry.sqft} sq ft
-                            </p>
-                          </div>
+                          <>
+                            <Text size="sm" c="dimmed">Square Footage</Text>
+                            <Text fw={500}>{selectedInquiry.sqft} sq ft</Text>
+                          </>
                         )}
                       </>
                     )}
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Applicant Name</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedInquiry.fullName}
-                    </p>
-                    <p className="text-sm text-gray-600 mb-1">Email</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedInquiry.email}
-                    </p>
-                    <p className="text-sm text-gray-600 mb-1">Phone</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedInquiry.phone}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">Applicant Name</Text>
+                    <Text fw={500}>{selectedInquiry.fullName}</Text>
+                    <Text size="sm" c="dimmed">Email</Text>
+                    <Text fw={500}>{selectedInquiry.email}</Text>
+                    <Text size="sm" c="dimmed">Phone</Text>
+                    <Text fw={500}>{selectedInquiry.phone}</Text>
+                  </Grid.Col>
+                </Grid>
+              </Card>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="space-y-4">
-                  <h4 className="font-medium text-gray-900">
-                    Payment Configuration
-                  </h4>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Down Payment (₱){" "}
-                      <span className="text-gray-500">(Optional)</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={downPayment}
-                      onChange={(e) => setDownPayment(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <Grid gutter="lg">
+                <Grid.Col span={6}>
+                  <Stack gap="md">
+                    <Text fw={500} c={primaryTextColor}>Payment Configuration</Text>
+                    <NumberInput
+                      label="Down Payment (₱)"
                       placeholder="0"
-                      min="0"
+                      value={parseFloat(downPayment) || 0}
+                      onChange={(value) => setDownPayment((value || 0).toString())}
+                      min={0}
                       max={selectedInquiry.propertyPrice}
-                      step="0.01"
+                      step={0.01}
+                      description="Optional"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Monthly Payment (₱){" "}
-                      <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={monthlyPayment}
-                      onChange={(e) => setMonthlyPayment(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    <NumberInput
+                      label="Monthly Payment (₱)"
                       placeholder="Enter monthly payment"
-                      min="1"
-                      step="0.01"
+                      value={parseFloat(monthlyPayment) || 0}
+                      onChange={(value) => setMonthlyPayment((value || 0).toString())}
+                      min={1}
+                      step={0.01}
+                      required
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Annual Interest Rate (%){" "}
-                      <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={interestRate}
-                      onChange={(e) => setInterestRate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    <NumberInput
+                      label="Annual Interest Rate (%)"
                       placeholder="12"
-                      min="0"
-                      max="50"
-                      step="0.1"
+                      value={parseFloat(interestRate) || 12}
+                      onChange={(value) => setInterestRate((value || 12).toString())}
+                      min={0}
+                      max={50}
+                      step={0.1}
+                      required
+                      description="Common rates: 8-15% for property financing"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Common rates: 8-15% for property financing
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <h4 className="font-medium text-gray-900">
-                    Calculated Terms
-                  </h4>
-                  <div className="bg-blue-50 rounded-lg p-4 space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">
-                        Property Price:
-                      </span>
-                      <span className="text-sm font-medium">
-                        {formatCurrency(selectedInquiry.propertyPrice)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">
-                        Down Payment:
-                      </span>
-                      <span className="text-sm font-medium">
-                        {formatCurrency(parseFloat(downPayment) || 0)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">
-                        Principal Amount:
-                      </span>
-                      <span className="text-sm font-medium">
-                        {formatCurrency(
-                          selectedInquiry.propertyPrice -
-                            (parseFloat(downPayment) || 0)
-                        )}
-                      </span>
-                    </div>
-                    <hr className="border-blue-200" />
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">
-                        Lease Duration:
-                      </span>
-                      <span className="text-sm font-medium text-blue-600">
-                        {leaseDuration > 0 ? (
-                          <>
-                            {leaseDuration} months
-                            <span className="text-xs">
-                              ({Math.floor(leaseDuration / 12)} years{" "}
-                              {leaseDuration % 12} months)
-                            </span>
-                          </>
-                        ) : (
-                          "Invalid payment"
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">
-                        Monthly Payment:
-                      </span>
-                      <span className="text-sm font-medium text-blue-600">
-                        {formatCurrency(parseFloat(monthlyPayment) || 0)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">
-                        Total Amount:
-                      </span>
-                      <span className="text-sm font-medium text-blue-600">
-                        {formatCurrency(totalAmount)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">
-                        Total Interest:
-                      </span>
-                      <span className="text-sm font-medium text-orange-600">
-                        {formatCurrency(
-                          totalAmount - selectedInquiry.propertyPrice
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                  {leaseDuration === 0 && monthlyPayment && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                      <p className="text-xs text-red-600 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        Monthly payment is too low to cover interest. Please
-                        increase the payment amount.
-                      </p>
-                    </div>
-                  )}
-                  {leaseDuration > 600 && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                      <p className="text-xs text-yellow-600 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        Lease duration is very long (
-                        {Math.floor(leaseDuration / 12)} years). Consider
-                        increasing monthly payment.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
+                  </Stack>
+                </Grid.Col>
+                <Grid.Col span={6}>
+                  <Stack gap="md">
+                    <Text fw={500} c={primaryTextColor}>Calculated Terms</Text>
+                    <Card withBorder radius="md" p="md" bg="blue.0">
+                      <Stack gap="xs">
+                        <Group justify="apart">
+                          <Text size="sm" c="blue.7">Property Price:</Text>
+                          <Text size="sm" fw={500}>{formatCurrency(selectedInquiry.propertyPrice)}</Text>
+                        </Group>
+                        <Group justify="apart">
+                          <Text size="sm" c="blue.7">Down Payment:</Text>
+                          <Text size="sm" fw={500}>{formatCurrency(parseFloat(downPayment) || 0)}</Text>
+                        </Group>
+                        <Group justify="apart">
+                          <Text size="sm" c="blue.7">Principal Amount:</Text>
+                          <Text size="sm" fw={500}>{formatCurrency(selectedInquiry.propertyPrice - (parseFloat(downPayment) || 0))}</Text>
+                        </Group>
+                        <Divider c="blue.3" />
+                        <Group justify="apart">
+                          <Text size="sm" c="blue.7">Lease Duration:</Text>
+                          <Text size="sm" fw={500} c="blue.6">
+                            {leaseDuration > 0 ? `${leaseDuration} months (${Math.floor(leaseDuration / 12)} years ${leaseDuration % 12} months)` : "Invalid payment"}
+                          </Text>
+                        </Group>
+                        <Group justify="apart">
+                          <Text size="sm" c="blue.7">Monthly Payment:</Text>
+                          <Text size="sm" fw={500} c="blue.6">{formatCurrency(parseFloat(monthlyPayment) || 0)}</Text>
+                        </Group>
+                        <Group justify="apart">
+                          <Text size="sm" c="blue.7">Total Amount:</Text>
+                          <Text size="sm" fw={500} c="blue.6">{formatCurrency(totalAmount)}</Text>
+                        </Group>
+                        <Group justify="apart">
+                          <Text size="sm" c="blue.7">Total Interest:</Text>
+                          <Text size="sm" fw={500} c="orange.6">{formatCurrency(totalAmount - selectedInquiry.propertyPrice)}</Text>
+                        </Group>
+                      </Stack>
+                    </Card>
+                    {leaseDuration === 0 && monthlyPayment && (
+                      <Alert icon={<IconAlertCircle size={16} />} color="red" title="Payment Warning">
+                        Monthly payment is too low to cover interest. Please increase the payment amount.
+                      </Alert>
+                    )}
+                    {leaseDuration > 600 && (
+                      <Alert icon={<IconAlertCircle size={16} />} color="yellow" title="Long Duration Warning">
+                        Lease duration is very long ({Math.floor(leaseDuration / 12)} years). Consider increasing monthly payment.
+                      </Alert>
+                    )}
+                  </Stack>
+                </Grid.Col>
+              </Grid>
 
-              {selectedInquiry && (
-                <div className="mb-6">
-                  <h4 className="font-medium text-gray-900 mb-3">
-                    Quick Payment Options
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {[
-                      { years: 5, label: "5 Years" },
-                      { years: 10, label: "10 Years" },
-                      { years: 15, label: "15 Years" },
-                    ].map((option) => {
-                      const principal =
-                        selectedInquiry.propertyPrice -
-                        (parseFloat(downPayment) || 0);
-                      const monthlyRate = parseFloat(interestRate) / 100 / 12;
-                      const months = option.years * 12;
-                      let suggestedPayment = 0;
+              <Group>
+                <Text fw={500} c={primaryTextColor}>Quick Payment Options</Text>
+              </Group>
+              <SimpleGrid cols={3} spacing="md">
+                {[
+                  { years: 5, label: "5 Years" },
+                  { years: 10, label: "10 Years" },
+                  { years: 15, label: "15 Years" },
+                ].map((option) => {
+                  const principal = selectedInquiry.propertyPrice - (parseFloat(downPayment) || 0);
+                  const monthlyRate = parseFloat(interestRate) / 100 / 12;
+                  const months = option.years * 12;
+                  let suggestedPayment = 0;
 
-                      if (monthlyRate === 0) {
-                        suggestedPayment = principal / months;
-                      } else {
-                        suggestedPayment =
-                          (principal *
-                            (monthlyRate * Math.pow(1 + monthlyRate, months))) /
-                          (Math.pow(1 + monthlyRate, months) - 1);
-                      }
-
-                      return (
-                        <button
-                          key={option.years}
-                          onClick={() =>
-                            setMonthlyPayment(suggestedPayment.toFixed(2))
-                          }
-                          className="p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 text-left transition-colors"
-                        >
-                          <div className="text-sm font-medium text-gray-900">
-                            {option.label}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {formatCurrency(suggestedPayment)} / month
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handleApprove(selectedInquiry)}
-                  disabled={
-                    !monthlyPayment ||
-                    leaseDuration === 0 ||
-                    processingId ===
-                      `${selectedInquiry.propertyId}-${selectedInquiry.email}`
+                  if (monthlyRate === 0) {
+                    suggestedPayment = principal / months;
+                  } else {
+                    suggestedPayment =
+                      (principal * (monthlyRate * Math.pow(1 + monthlyRate, months))) /
+                      (Math.pow(1 + monthlyRate, months) - 1);
                   }
-                  className="flex-1 bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
+
+                  return (
+                    <MantineButton
+                      key={option.years}
+                      variant="light"
+                      onClick={() => setMonthlyPayment(suggestedPayment.toFixed(2))}
+                    >
+                      <Text size="sm" fw={500}>
+                        {option.label}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        {formatCurrency(suggestedPayment)} / month
+                      </Text>
+                    </MantineButton>
+                  );
+                })}
+              </SimpleGrid>
+
+              <Group justify="apart">
+                <MantineButton
+                  onClick={() => handleApprove(selectedInquiry)}
+                  color="green"
+                  leftSection={<IconCreditCard size={16} />}
+                  loading={processingId === `${selectedInquiry.propertyId}-${selectedInquiry.email}`}
+                  disabled={!monthlyPayment || leaseDuration === 0 || processingId === `${selectedInquiry.propertyId}-${selectedInquiry.email}`}
                 >
-                  <CreditCard className="h-4 w-4" />
-                  {processingId ===
-                  `${selectedInquiry.propertyId}-${selectedInquiry.email}`
-                    ? "Processing..."
-                    : "Approve & Create Payment Plan"}
-                </button>
-                <button
-                  onClick={resetPaymentModal}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium"
-                >
+                  {processingId === `${selectedInquiry.propertyId}-${selectedInquiry.email}` ? "Processing..." : "Approve & Create Payment Plan"}
+                </MantineButton>
+                <MantineButton variant="outline" onClick={resetPaymentModal}>
                   Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+                </MantineButton>
+              </Group>
+            </Stack>
+          )}
+        </Modal>
 
         {/* Reject Modal */}
-        {showRejectModal && selectedInquiry && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Reject Application
-              </h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Rejecting application from{" "}
-                <strong>{selectedInquiry.fullName}</strong> for property{" "}
-                <strong>{selectedInquiry.propertyTitle}</strong>.
-              </p>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Rejection Reason <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={rejectionReason}
-                  onChange={(e) => {
-                    setRejectionReason(e.target.value);
-                    setRejectionError("");
-                  }}
-                  className={`w-full px-3 py-2 border ${
-                    rejectionError ? "border-red-500" : "border-gray-300"
-                  } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                  placeholder="Please provide a reason for rejection (e.g., insufficient documentation, property already leased)..."
-                  rows={4}
-                />
-                {rejectionError && (
-                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    {rejectionError}
-                  </p>
-                )}
-              </div>
+        <Modal
+          opened={showRejectModal}
+          onClose={() => {
+            setShowRejectModal(false);
+            setSelectedInquiry(null);
+            setRejectionReason("");
+            setRejectionError("");
+            setConfirmReject(false);
+          }}
+          title="Reject Application"
+          size="md"
+          centered
+        >
+          {selectedInquiry && (
+            <>
+              <Text c="dimmed" mb="md">
+                Rejecting application from <Text span fw={500} c={primaryTextColor}>,{selectedInquiry.fullName}</Text> for property <Text span fw={500} c={primaryTextColor}>,{selectedInquiry.propertyTitle}</Text>.
+              </Text>
+              <Textarea
+                label="Rejection Reason"
+                placeholder="Please provide a reason for rejection (e.g., insufficient documentation, property already leased)..."
+                value={rejectionReason}
+                onChange={(e) => {
+                  setRejectionReason(e.target.value);
+                  setRejectionError("");
+                }}
+                error={rejectionError}
+                minRows={4}
+                required
+              />
               {confirmReject && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-                  <p className="text-sm text-yellow-700 flex items-center gap-1">
-                    <AlertCircle className="h-4 w-4" />
-                    Are you sure you want to reject this application? This
-                    action cannot be undone.
-                  </p>
-                </div>
+                <Alert icon={<IconAlertCircle size={16} />} color="yellow" title="Confirmation">
+                  Are you sure you want to reject this application? This action cannot be undone.
+                </Alert>
               )}
-              <div className="flex gap-3">
-                <button
+              <Group justify="apart" mt="md">
+                <MantineButton
+                  color="red"
+                  leftSection={<IconX size={16} />}
                   onClick={handleReject}
-                  disabled={
-                    processingId ===
-                    `${selectedInquiry.propertyId}-${selectedInquiry.email}`
-                  }
-                  className="flex-1 bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  loading={processingId === `${selectedInquiry.propertyId}-${selectedInquiry.email}`}
+                  disabled={processingId === `${selectedInquiry.propertyId}-${selectedInquiry.email}`}
                 >
-                  {processingId ===
-                  `${selectedInquiry.propertyId}-${selectedInquiry.email}`
-                    ? "Processing..."
-                    : confirmReject
-                    ? "Confirm Rejection"
-                    : "Reject Application"}
-                  {processingId !==
-                    `${selectedInquiry.propertyId}-${selectedInquiry.email}` && (
-                    <X className="h-4 w-4" />
-                  )}
-                </button>
-                <button
+                  {processingId === `${selectedInquiry.propertyId}-${selectedInquiry.email}` ? "Processing..." : confirmReject ? "Confirm Rejection" : "Reject Application"}
+                </MantineButton>
+                <MantineButton
+                  variant="outline"
                   onClick={() => {
                     setShowRejectModal(false);
                     setSelectedInquiry(null);
@@ -1541,16 +1325,22 @@ const ApplicationsPage = () => {
                     setRejectionError("");
                     setConfirmReject(false);
                   }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
                 >
                   Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+                </MantineButton>
+              </Group>
+            </>
+          )}
+        </Modal>
+
+        {/* Refresh Button */}
+        <Group justify="flex-end">
+          <MantineButton leftSection={<IconRefresh size={16} />} onClick={fetchInquiries}>
+            Refresh
+          </MantineButton>
+        </Group>
+      </Stack>
+    </Container>
   );
 };
 

@@ -1,14 +1,40 @@
 import React from "react";
 import "@mantine/core/styles.css";
-import { createTheme, MantineProvider } from "@mantine/core";
+import { createTheme, MantineProvider, ColorSchemeScript, ActionIcon, useMantineColorScheme } from "@mantine/core";
 import { Toaster } from "react-hot-toast";
+import { IconMoonStars, IconSun } from "@tabler/icons-react";
+
 const theme = createTheme({
   /** Put your mantine theme override here */
 });
+
+// Toggle Color Scheme Component
+const ToggleColorScheme = () => {
+  const { colorScheme, toggleColorScheme } = useMantineColorScheme();
+
+  return (
+    <ActionIcon
+      onClick={() => toggleColorScheme()}
+      size="lg"
+      variant="subtle"
+      aria-label="Toggle color scheme"
+    >
+      {colorScheme === "dark" ? (
+        <IconSun style={{ width: 18, height: 18 }} stroke={1.5} />
+      ) : (
+        <IconMoonStars style={{ width: 18, height: 18 }} stroke={1.5} />
+      )}
+    </ActionIcon>
+  );
+};
+
 const LayoutWrapper = ({ children }: { children: React.ReactNode }) => {
   return (
     <>
-      <MantineProvider theme={theme} defaultColorScheme="light">
+      <head>
+        <ColorSchemeScript defaultColorScheme="dark" />
+      </head>
+      <MantineProvider defaultColorScheme="dark">
         {children}
         <Toaster />
       </MantineProvider>
@@ -17,3 +43,4 @@ const LayoutWrapper = ({ children }: { children: React.ReactNode }) => {
 };
 
 export default LayoutWrapper;
+export { ToggleColorScheme };

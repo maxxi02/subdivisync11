@@ -1,55 +1,66 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import {
+  Title,
+  Text,
+  Grid,
+  Card,
+  Group,
+  Stack,
+  Badge,
+  ActionIcon,
+  SimpleGrid,
+  Container,
+  Flex,
+  Box,
+  ThemeIcon,
   Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Loader,
+  Center,
+  Notification,
+  useMantineTheme,
+  useMantineColorScheme,
+  rgba,
+  Modal,
+  TextInput,
+  Select,
+  Textarea,
+  Button as MantineButton,
+  NumberInput,
+  Image,
+  Checkbox,
+  MultiSelect,
+} from "@mantine/core";
 import {
-  Building2,
-  MapPin,
-  Search,
-  Eye,
-  Edit,
-  Plus,
-  Home,
-  Bed,
-  Bath,
-  Square,
-  Car,
-  Wifi,
-  Dumbbell,
-  Shield,
-  Trees,
-  Upload,
-  FileText,
-  Users,
-  Mail,
-  Phone,
-  AlertTriangle,
-} from "lucide-react";
+  IconBuilding,
+  IconMapPin,
+  IconSearch,
+  IconEye,
+  IconEdit,
+  IconPlus,
+  IconBed,
+  IconDroplet,
+  IconSquareRounded,
+  IconCar,
+  IconBell,
+  IconShield,
+  IconWifi,
+  IconTree,
+  IconUpload,
+  IconFileText,
+  IconUsers,
+  IconMail,
+  IconPhone,
+  IconAlertTriangle,
+  IconX,
+  IconCheck,
+} from "@tabler/icons-react";
+import { useEffect, useState, useRef } from "react";
 import { uploadImageToServer, validateImageFile } from "@/lib/upload";
 import CustomCarousel from "./_components/carousel";
-import Image from "next/image";
-import { toast } from "react-hot-toast";
+import { toast } from "react-hot-toast"; // Keep for now, but can migrate to Mantine notifications later
 
-// Types
+// Types (unchanged)
 interface PropertyOwner {
   fullName?: string;
   email?: string;
@@ -128,94 +139,12 @@ interface ImageUploadPreviewProps {
 
 type ImageType = "existing" | "new";
 
-// Custom Modal Component
-interface CustomModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  title: string;
-  description?: string | React.ReactNode;
-  children: React.ReactNode;
+interface NotificationType {
+  type: "success" | "error";
+  message: string;
 }
 
-const CustomModal: React.FC<CustomModalProps> = ({
-  isOpen,
-  onClose,
-  title,
-  description,
-  children,
-}) => {
-  const modalRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener("keydown", handleKeyDown);
-      document.addEventListener("mousedown", handleClickOutside);
-      document.body.style.overflow = "hidden";
-    }
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.body.style.overflow = "auto";
-    };
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div
-        ref={modalRef}
-        className="w-full max-w-4xl max-h-[90vh] bg-white rounded-lg shadow-xl overflow-y-auto mx-4"
-      >
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
-              {description && (
-                <p className="text-sm text-gray-600">{description}</p>
-              )}
-            </div>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-          <div>{children}</div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Image Upload Preview Component
+// Image Upload Preview Component (Updated to Mantine)
 const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
   images,
   selectedImages,
@@ -223,6 +152,10 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
   onRemoveImage,
   isEdit = false,
 }) => {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
@@ -248,108 +181,105 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
   const inputId = isEdit ? "edit-images" : "images";
 
   return (
-    <div>
-      <Label htmlFor={inputId}>Property Images</Label>
-      <div className="space-y-4">
-        <div className="flex items-center space-x-2">
-          <Input
+    <Stack gap="md">
+      <Text size="sm" fw={500} c="dimmed">
+        Property Images
+      </Text>
+      <Group>
+        <input
+          ref={inputRef}
             id={inputId}
             type="file"
             multiple
             accept="image/*"
             onChange={handleFileChange}
-            className="hidden"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => document.getElementById(inputId)?.click()}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            <Upload className="w-4 h-4 mr-2" />
+          style={{ display: "none" }}
+        />
+        <MantineButton
+          variant="default"
+          leftSection={<IconUpload size={16} />}
+          onClick={() => inputRef.current?.click()}
+        >
             Select Images
-          </Button>
-          <span className="text-sm text-gray-500">
+        </MantineButton>
+        <Text size="sm" c="dimmed">
             {selectedImages.length} new images selected
-          </span>
-        </div>
+        </Text>
+      </Group>
 
         {images && images.length > 0 && (
-          <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">
+        <Box>
+          <Text size="sm" fw={500} mb="xs" c="dimmed">
               Current Images:
-            </p>
-            <div className="grid grid-cols-3 gap-2">
+          </Text>
+          <SimpleGrid cols={3} spacing="sm">
               {images.map((image: string, index: number) => (
-                <div key={`existing-${index}`} className="relative">
+              <Box key={`existing-${index}`} pos="relative">
                   <Image
                     src={image}
                     alt={`Property ${index + 1}`}
-                    className="w-full h-24 object-cover rounded-lg border"
-                    height={500}
-                    width={500}
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="absolute top-1 right-1 h-6 w-6 p-0 bg-red-600 hover:bg-red-700"
+                  height={96}
+                  width={96}
+                  style={{ objectFit: "cover", borderRadius: theme.radius.md, border: `1px solid ${theme.colors.gray[colorScheme === 'dark' ? 7 : 3]}` }}
+                />
+                <ActionIcon
+                  variant="filled"
+                  color="red"
+                  size="xs"
                     onClick={() => handleRemoveClick(index, "existing")}
-                  >
-                    ×
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
+                  pos="absolute"
+                  top={4}
+                  right={4}
+                >
+                  <IconX size={12} />
+                </ActionIcon>
+              </Box>
+            ))}
+          </SimpleGrid>
+        </Box>
         )}
 
         {selectedImages.length > 0 && (
-          <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">
+        <Box>
+          <Text size="sm" fw={500} mb="xs" c="dimmed">
               New Images:
-            </p>
-            <div className="grid grid-cols-3 gap-2">
+          </Text>
+          <SimpleGrid cols={3} spacing="sm">
               {selectedImages.map((file: File, index: number) => (
-                <div key={`new-${index}`} className="relative">
+              <Box key={`new-${index}`} pos="relative">
                   <Image
-                    width={500}
-                    height={500}
                     src={URL.createObjectURL(file)}
                     alt={`New ${index + 1}`}
-                    className="w-full h-24 object-cover rounded-lg border"
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="absolute top-1 right-1 h-6 w-6 p-0 bg-red-600 hover:bg-red-700"
+                  height={96}
+                  width={96}
+                  style={{ objectFit: "cover", borderRadius: theme.radius.md, border: `1px solid ${theme.colors.gray[colorScheme === 'dark' ? 7 : 3]}` }}
+                />
+                <ActionIcon
+                  variant="filled"
+                  color="red"
+                  size="xs"
                     onClick={() => handleRemoveClick(index, "new")}
-                  >
-                    ×
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+                  pos="absolute"
+                  top={4}
+                  right={4}
+                >
+                  <IconX size={12} />
+                </ActionIcon>
+              </Box>
+            ))}
+          </SimpleGrid>
+        </Box>
+      )}
+    </Stack>
   );
 };
 
 // Main Component
-const PropertyManagement = () => {
-  const [ownerDetails, setOwnerDetails] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-  });
-
+export default function PropertyManagement() {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const [properties, setProperties] = useState<Property[]>([]);
-  const [selectedProperty, setSelectedProperty] = useState<Property | null>(
-    null
-  );
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [createLoading, setCreateLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -363,6 +293,7 @@ const PropertyManagement = () => {
     pages: 1,
   });
   const [error, setError] = useState<string | null>(null);
+  const [notification, setNotification] = useState<NotificationType | null>(null);
 
   const [formData, setFormData] = useState<CreatePropertyRequest>({
     title: "",
@@ -397,6 +328,30 @@ const PropertyManagement = () => {
   });
 
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [ownerDetails, setOwnerDetails] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+  });
+
+  // Theme-aware helpers (from dashboard)
+  const primaryTextColor = colorScheme === "dark" ? "white" : "dark.9";
+  const getHoverShadow = () => {
+    const baseShadow = "0 4px 12px";
+    const opacity = colorScheme === "dark" ? 0.3 : 0.15;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
+  const getDefaultShadow = () => {
+    const baseShadow = "0 1px 3px";
+    const opacity = colorScheme === "dark" ? 0.2 : 0.12;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
+  const showNotification = (type: "success" | "error", message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
 
   const fetchProperties = async (page: number = 1) => {
     try {
@@ -427,7 +382,7 @@ const PropertyManagement = () => {
       const errorMessage =
         (error as Error).message || "Failed to fetch properties";
       setError(errorMessage);
-      toast.error(errorMessage);
+      showNotification("error", errorMessage);
     } finally {
       setLoading(false);
     }
@@ -496,7 +451,7 @@ const PropertyManagement = () => {
       const validationError = validateForm(formData);
       if (validationError) {
         setError(validationError);
-        toast.error(validationError);
+        showNotification("error", validationError);
         return;
       }
 
@@ -572,13 +527,13 @@ const PropertyManagement = () => {
         sqft: 0,
       });
       setSelectedImages([]);
-      toast.success("Property created successfully");
+      showNotification("success", "Property created successfully");
     } catch (error) {
       console.error("Error creating property:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Failed to create property";
       setError(errorMessage);
-      toast.error(errorMessage);
+      showNotification("error", errorMessage);
     } finally {
       setCreateLoading(false);
     }
@@ -589,7 +544,7 @@ const PropertyManagement = () => {
       const validationError = validateForm(editFormData);
       if (validationError) {
         setError(validationError);
-        toast.error(validationError);
+        showNotification("error", validationError);
         return;
       }
 
@@ -640,7 +595,7 @@ const PropertyManagement = () => {
           const errorMessage =
             "Owner name and email are required for leased properties";
           setError(errorMessage);
-          toast.error(errorMessage);
+          showNotification("error", errorMessage);
           return;
         }
         requestBody.owner_details = {
@@ -686,13 +641,13 @@ const PropertyManagement = () => {
       });
       setSelectedImages([]);
       setOwnerDetails({ fullName: "", email: "", phone: "" });
-      toast.success("Property updated successfully");
+      showNotification("success", "Property updated successfully");
     } catch (error) {
       console.error("Error updating property:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Failed to update property";
       setError(errorMessage);
-      toast.error(errorMessage);
+      showNotification("error", errorMessage);
     }
   };
 
@@ -713,47 +668,47 @@ const PropertyManagement = () => {
       }
 
       setProperties(properties.filter((p) => p._id !== id));
-      toast.success("Property deleted successfully");
+      showNotification("success", "Property deleted successfully");
     } catch (error) {
       console.error("Error deleting property:", error);
       const errorMessage =
-        error instanceof Error ? error.message : "Failed to delete property";
+        (error as Error).message || "Failed to delete property";
       setError(errorMessage);
-      toast.error(errorMessage);
+      showNotification("error", errorMessage);
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "CREATED":
-        return "bg-gray-100 text-gray-800";
+        return "gray";
       case "UNDER_INQUIRY":
-        return "bg-yellow-100 text-yellow-800";
+        return "yellow";
       case "APPROVED":
-        return "bg-green-100 text-green-800";
+        return "green";
       case "REJECTED":
-        return "bg-red-100 text-red-800";
+        return "red";
       case "LEASED":
-        return "bg-blue-100 text-blue-800";
+        return "blue";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "gray";
     }
   };
 
   const getAmenityIcon = (amenity: string) => {
     switch (amenity) {
       case "parking":
-        return <Car className="w-4 h-4" />;
+        return <IconCar size={16} />;
       case "gym":
-        return <Dumbbell className="w-4 h-4" />;
+        return <IconBell size={16} />;
       case "security":
-        return <Shield className="w-4 h-4" />;
+        return <IconShield size={16} />;
       case "internet-ready":
-        return <Wifi className="w-4 h-4" />;
+        return <IconWifi size={16} />;
       case "garden":
-        return <Trees className="w-4 h-4" />;
+        return <IconTree size={16} />;
       default:
-        return <Home className="w-4 h-4" />;
+        return <IconBuilding size={16} />;
     }
   };
 
@@ -782,11 +737,7 @@ const PropertyManagement = () => {
       } else {
         setFormData({ ...formData, amenities: newAmenities });
       }
-      toast.success(
-        `${value
-          .replace("-", " ")
-          .replace(/\b\w/g, (l) => l.toUpperCase())} removed from amenities`
-      );
+      showNotification("success", `${value.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())} removed from amenities`);
     } else {
       const newAmenities = [...currentAmenities, value];
       if (isEdit) {
@@ -794,11 +745,7 @@ const PropertyManagement = () => {
       } else {
         setFormData({ ...formData, amenities: newAmenities });
       }
-      toast.success(
-        `${value
-          .replace("-", " ")
-          .replace(/\b\w/g, (l) => l.toUpperCase())} added to amenities`
-      );
+      showNotification("success", `${value.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())} added to amenities`);
     }
   };
 
@@ -834,358 +781,339 @@ const PropertyManagement = () => {
     }).format(amount);
   };
 
+  if (loading) {
+    return (
+      <Container size="xl" py="xl">
+        <Center style={{ height: 400 }}>
+          <Loader size="lg" />
+        </Center>
+      </Container>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <Container size="xl" px="md">
+      {notification && (
+        <Notification
+          icon={
+            notification.type === "success" ? (
+              <IconCheck size={18} />
+            ) : (
+              <IconX size={18} />
+            )
+          }
+          color={notification.type === "success" ? "green" : "red"}
+          title={notification.type === "success" ? "Success" : "Error"}
+          onClose={() => setNotification(null)}
+          style={{ position: "fixed", top: 20, right: 20, zIndex: 1000 }}
+        >
+          {notification.message}
+        </Notification>
+      )}
+      <Stack gap="xl">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+        <Box py="md">
+          <Title order={1} size="h2" fw={600} c={primaryTextColor} mb="xs">
                 Property Management
-              </h1>
-              <p className="text-gray-600 mt-2">
+          </Title>
+          <Text c="dimmed" size="md" lh={1.5}>
                 Manage your property listings and inquiries
-              </p>
-            </div>
-            <div className="flex gap-4">
-              <Button
-                onClick={() => setCreateModalOpen(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Property
-              </Button>
-            </div>
-          </div>
-        </div>
+          </Text>
+        </Box>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-sm p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-blue-100">
+        {/* Stats Cards (Updated to match dashboard) */}
+        <SimpleGrid
+          cols={{ base: 1, md: 3 }}
+          spacing={{ base: "md", sm: "lg" }}
+          verticalSpacing={{ base: "md", sm: "lg" }}
+        >
+          <Card
+            padding="xl"
+            radius="lg"
+            withBorder
+            shadow="sm"
+            style={{
+              background: "linear-gradient(135deg, var(--mantine-color-blue-6) 0%, var(--mantine-color-blue-7) 100%)",
+              color: "white",
+              boxShadow: getDefaultShadow(),
+            }}
+          >
+            <Flex justify="space-between" align="flex-start" gap="md">
+              <Stack gap="xs" flex={1}>
+                <Text c="blue.2" size="sm" tt="uppercase" fw={600}>
                   Total Listed
-                </p>
-                <p className="text-2xl font-bold">{stats.total}</p>
-              </div>
-              <div className="h-12 w-12 bg-blue-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                <Building2 className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow-sm p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-yellow-100">
-                  Under Inquiry
-                </p>
-                <p className="text-2xl font-bold">{stats.underInquiry}</p>
-              </div>
-              <div className="h-12 w-12 bg-yellow-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                <FileText className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-sm p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-purple-100">Leased</p>
-                <p className="text-2xl font-bold">{stats.leased}</p>
-              </div>
-              <div className="h-12 w-12 bg-purple-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                <Users className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
-        </div>
+                </Text>
+                <Text fw={700} size="xl" c="white" lh={1.2}>
+                  {stats.total}
+                </Text>
+              </Stack>
+              <ThemeIcon variant="light" color="blue" size="xl" radius="lg">
+                <IconBuilding size="1.5rem" />
+              </ThemeIcon>
+            </Flex>
+          </Card>
 
-        {/* Error Alert */}
+          <Card
+            padding="xl"
+            radius="lg"
+            withBorder
+            shadow="sm"
+            style={{
+              background: "linear-gradient(135deg, var(--mantine-color-yellow-6) 0%, var(--mantine-color-yellow-7) 100%)",
+              color: "white",
+              boxShadow: getDefaultShadow(),
+            }}
+          >
+            <Flex justify="space-between" align="flex-start" gap="md">
+              <Stack gap="xs" flex={1}>
+                <Text c="yellow.2" size="sm" tt="uppercase" fw={600}>
+                  Under Inquiry
+                </Text>
+                <Text fw={700} size="xl" c="white" lh={1.2}>
+                  {stats.underInquiry}
+                </Text>
+              </Stack>
+              <ThemeIcon variant="light" color="yellow" size="xl" radius="lg">
+                <IconFileText size="1.5rem" />
+              </ThemeIcon>
+            </Flex>
+          </Card>
+
+          <Card
+            padding="xl"
+            radius="lg"
+            withBorder
+            shadow="sm"
+            style={{
+              background: "linear-gradient(135deg, var(--mantine-color-violet-6) 0%, var(--mantine-color-violet-7) 100%)",
+              color: "white",
+              boxShadow: getDefaultShadow(),
+            }}
+          >
+            <Flex justify="space-between" align="flex-start" gap="md">
+              <Stack gap="xs" flex={1}>
+                <Text c="violet.2" size="sm" tt="uppercase" fw={600}>
+                  Leased
+                </Text>
+                <Text fw={700} size="xl" c="white" lh={1.2}>
+                  {stats.leased}
+                </Text>
+              </Stack>
+              <ThemeIcon variant="light" color="violet" size="xl" radius="lg">
+                <IconUsers size="1.5rem" />
+              </ThemeIcon>
+            </Flex>
+          </Card>
+        </SimpleGrid>
+
+        {/* Error Alert (Updated to Mantine Notification style) */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
-              <div>
-                <h3 className="text-sm font-medium text-red-800">
-                  Error Occurred
-                </h3>
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
-            </div>
-          </div>
+          <Notification
+            icon={<IconAlertTriangle size={18} />}
+            color="red"
+            title="Error Occurred"
+            withCloseButton
+            onClose={() => setError(null)}
+                >
+                  {error}
+          </Notification>
         )}
 
         {/* Properties List */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex flex-col sm:flex-row gap-4 justify-between mb-6">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
+        <Card padding="xl" radius="lg" withBorder shadow="sm">
+          <Group justify="space-between" mb="md">
+            <Title order={3} size="h4" fw={600} c={primaryTextColor}>
                 Manage Properties
-              </h2>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
+            </Title>
+            <TextInput
                 placeholder="Search properties..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 w-64"
-              />
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-50">
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Property
-                  </TableHead>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Location
-                  </TableHead>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </TableHead>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Size
-                  </TableHead>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Price
-                  </TableHead>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </TableHead>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+              leftSection={<IconSearch size={16} />}
+              style={{ maxWidth: 300 }}
+            />
+          </Group>
+          <Table striped highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Property</Table.Th>
+                <Table.Th>Location</Table.Th>
+                <Table.Th>Type</Table.Th>
+                <Table.Th>Size</Table.Th>
+                <Table.Th>Price</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th>Actions</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
                 {filteredProperties.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="px-6 py-8 text-center text-gray-500"
-                    >
-                      <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                <Table.Tr>
+                  <Table.Td colSpan={7} ta="center" py="xl">
+                    <ThemeIcon size={48} radius="xl" color="gray" mb="md">
+                      <IconBuilding size={24} />
+                    </ThemeIcon>
+                    <Text size="lg" fw={500} c={primaryTextColor} mb="xs">
                         No properties found
-                      </h3>
-                      <p className="text-gray-500">
+                    </Text>
+                    <Text c="dimmed">
                         Create a new property to get started
-                      </p>
-                    </TableCell>
-                  </TableRow>
+                    </Text>
+                  </Table.Td>
+                </Table.Tr>
                 ) : (
                   filteredProperties.map((property) => (
-                    <TableRow key={property._id} className="hover:bg-gray-50">
-                      <TableCell className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
-                            {property.images && property.images.length > 0 ? (
-                              <Image
-                                src={property.images[0] || "/placeholder.svg"}
-                                alt={property.title}
-                                className="w-full h-full object-cover"
-                                height={500}
-                                width={500}
-                              />
-                            ) : (
-                              <Building2 className="h-5 w-5 text-blue-600" />
-                            )}
-                          </div>
-                          <div className="ml-4">
-                            <p className="text-sm font-medium text-gray-900">
+                  <Table.Tr key={property._id}>
+                    <Table.Td>
+                      <Text fw={500} c={primaryTextColor}>
                               {property.title}
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center space-x-1">
-                          <MapPin className="h-3 w-3 text-gray-400" />
-                          <span className="text-sm text-gray-600">
-                            {property.location}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4 whitespace-nowrap">
-                        <Badge variant="secondary" className="text-xs">
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap="xs">
+                        <IconMapPin size={16} />
+                        <Text c="dimmed">{property.location}</Text>
+                      </Group>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge variant="light" color="gray">
                           {property.type.replace("-", " ").toUpperCase()}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        {property.size}
-                      </TableCell>
-                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
+                    </Table.Td>
+                    <Table.Td>
+                      <Text fw={500}>{property.size}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text fw={700} c="green.6">
                         {formatCurrency(property.price)}
-                      </TableCell>
-                      <TableCell className="px-6 py-4 whitespace-nowrap">
-                        <Badge
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                            property.status
-                          )}`}
-                        >
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge color={getStatusColor(property.status)} variant="light">
                           {property.status}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex gap-2">
-                          <button
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap="xs">
+                        <ActionIcon
+                          variant="light"
+                          color="blue"
                             onClick={() => {
                               setSelectedProperty(property);
                               setViewModalOpen(true);
                             }}
-                            className="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 flex items-center gap-1"
-                          >
-                            <Eye className="h-4 w-4" />
-                            View
-                          </button>
-                          <button
+                        >
+                          <IconEye size={16} />
+                        </ActionIcon>
+                        <ActionIcon
+                          variant="light"
+                          color="yellow"
                             onClick={() => openEditModal(property)}
-                            className="bg-yellow-600 text-white px-3 py-1 rounded-md hover:bg-yellow-700 flex items-center gap-1"
-                          >
-                            <Edit className="h-4 w-4" />
-                            Edit
-                          </button>
-                          <button
+                        >
+                          <IconEdit size={16} />
+                        </ActionIcon>
+                        <ActionIcon
+                          variant="light"
+                          color="red"
                             onClick={() => handleDeleteProperty(property._id)}
-                            className="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 flex items-center gap-1"
-                          >
-                            <svg
-                              className="h-4 w-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
-                            Delete
-                          </button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
+                        >
+                          <IconX size={16} />
+                        </ActionIcon>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                ))
+              )}
+            </Table.Tbody>
             </Table>
             {pagination.pages > 1 && (
-              <div className="flex justify-between items-center mt-4 px-4">
-                <Button
+            <Group justify="apart" mt="md">
+              <MantineButton
                   disabled={pagination.page === 1}
                   onClick={() => fetchProperties(pagination.page - 1)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                variant="default"
                 >
                   Previous
-                </Button>
-                <span className="text-sm text-gray-600">
+              </MantineButton>
+              <Text c="dimmed">
                   Page {pagination.page} of {pagination.pages}
-                </span>
-                <Button
+              </Text>
+              <MantineButton
                   disabled={pagination.page === pagination.pages}
                   onClick={() => fetchProperties(pagination.page + 1)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                variant="default"
                 >
                   Next
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
+              </MantineButton>
+            </Group>
+          )}
+        </Card>
 
-        {/* Create Modal */}
-        <CustomModal
-          isOpen={createModalOpen}
+        {/* Create Modal (Updated to Mantine Modal) */}
+        <Modal
+          opened={createModalOpen}
           onClose={() => setCreateModalOpen(false)}
           title="Add New Property"
-          description="Create a new property listing"
+          size="xl"
+          centered
         >
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="title">Property Title *</Label>
-              <Input
-                id="title"
+          <Stack gap="md">
+            <TextInput
+              label="Property Title *"
+              placeholder="Enter property title"
                 value={formData.title}
                 onChange={(e) =>
                   setFormData({ ...formData, title: e.target.value })
                 }
-                placeholder="Enter property title"
                 required
-                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <Label htmlFor="location">Location/Address *</Label>
-              <Input
-                id="location"
+            />
+            <TextInput
+              label="Location/Address *"
+              placeholder="Enter property location"
                 value={formData.location}
                 onChange={(e) =>
                   setFormData({ ...formData, location: e.target.value })
                 }
-                placeholder="Enter property location"
                 required
-                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <Label htmlFor="size">Size *</Label>
-              <Input
-                id="size"
+              leftSection={<IconMapPin size={16} />}
+            />
+            <TextInput
+              label="Size *"
+              placeholder="e.g., 300 sqm"
                 value={formData.size}
                 onChange={(e) =>
                   setFormData({ ...formData, size: e.target.value })
                 }
-                placeholder="e.g., 300 sqm"
                 required
-                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <Label htmlFor="price">Price *</Label>
-              <Input
-                id="price"
+            />
+            <TextInput
+              label="Price *"
+              placeholder="e.g., 2500000"
                 value={formData.price}
                 onChange={(e) =>
                   setFormData({ ...formData, price: e.target.value })
                 }
-                placeholder="e.g., ₱2,500,000"
                 required
-                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
-            </div>
-            <div>
-              <Label htmlFor="type">Property Type *</Label>
               <Select
+              label="Property Type *"
+              placeholder="Select type"
                 value={formData.type}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, type: value })
-                }
-              >
-                <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="residential-lot">
-                    Residential Lot
-                  </SelectItem>
-                  <SelectItem value="commercial">Commercial</SelectItem>
-                  <SelectItem value="house-and-lot">House and Lot</SelectItem>
-                  <SelectItem value="condo">Condominium</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="status">Status</Label>
+              onChange={(value) =>
+                setFormData({ ...formData, type: value || "" })
+              }
+              data={[
+                { value: "residential-lot", label: "Residential Lot" },
+                { value: "commercial", label: "Commercial" },
+                { value: "house-and-lot", label: "House and Lot" },
+                { value: "condo", label: "Condominium" },
+              ]}
+              required
+            />
               <Select
+              label="Status"
+              placeholder="Select status"
                 value={formData.status}
-                onValueChange={(value) =>
+              onChange={(value) =>
                   setFormData({
                     ...formData,
                     status: value as
@@ -1196,432 +1124,297 @@ const PropertyManagement = () => {
                       | "LEASED",
                   })
                 }
-              >
-                <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CREATED">Available</SelectItem>
-                  <SelectItem value="UNDER_INQUIRY">Under Inquiry</SelectItem>
-                  <SelectItem value="APPROVED">Approved</SelectItem>
-                  <SelectItem value="REJECTED">Rejected</SelectItem>
-                  <SelectItem value="LEASED">Leased</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              data={[
+                { value: "CREATED", label: "Available" },
+                { value: "UNDER_INQUIRY", label: "Under Inquiry" },
+                { value: "APPROVED", label: "Approved" },
+                { value: "REJECTED", label: "Rejected" },
+                { value: "LEASED", label: "Leased" },
+              ]}
+            />
             <ImageUploadPreview
               images={formData.images}
               selectedImages={selectedImages}
               onImageChange={handleImageChange}
               onRemoveImage={handleRemoveImage}
             />
-            <div>
-              <Label htmlFor="description">Description</Label>
               <Textarea
-                id="description"
+              label="Description"
+              placeholder="Enter property description"
                 value={formData.description}
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
-                placeholder="Enter property description"
-                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <Label htmlFor="amenities">Amenities</Label>
-              <Select onValueChange={(value) => handleAmenitiesChange(value)}>
-                <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                  <SelectValue placeholder="Select amenities" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[
-                    "parking",
-                    "gym",
-                    "security",
-                    "internet-ready",
-                    "garden",
-                  ].map((amenity) => (
-                    <SelectItem key={amenity} value={amenity}>
-                      <div className="flex items-center space-x-2">
-                        {getAmenityIcon(amenity)}
-                        <span>
-                          {amenity
-                            .replace("-", " ")
-                            .replace(/\b\w/g, (l) => l.toUpperCase())}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="mt-2 flex flex-wrap gap-2">
+            />
+            <Select
+              label="Amenities"
+              placeholder="Select amenities"
+              onChange={(value) => value && handleAmenitiesChange(value)}
+              data={[
+                { value: "parking", label: "Parking" },
+                { value: "gym", label: "Gym" },
+                { value: "security", label: "Security" },
+                { value: "internet-ready", label: "Internet Ready" },
+                { value: "garden", label: "Garden" },
+              ]}
+            />
+            <Group gap="md">
                 {formData.amenities?.map((amenity) => (
-                  <Badge key={amenity} variant="secondary">
-                    {amenity
-                      .replace("-", " ")
-                      .replace(/\b\w/g, (l) => l.toUpperCase())}
+                <Badge key={amenity} variant="light">
+                  {amenity.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
                   </Badge>
                 ))}
-              </div>
-            </div>
-            {(formData.type === "house-and-lot" ||
-              formData.type === "condo") && (
+            </Group>
+            {(formData.type === "house-and-lot" || formData.type === "condo") && (
               <>
-                <div>
-                  <Label htmlFor="bedrooms">Bedrooms</Label>
-                  <Input
-                    id="bedrooms"
-                    type="number"
-                    value={formData.bedrooms || ""}
-                    onChange={(e) =>
+                <NumberInput
+                  label="Bedrooms"
+                  placeholder="e.g., 3"
+                  value={formData.bedrooms || 0}
+                  onChange={(value) =>
                       setFormData({
                         ...formData,
-                        bedrooms: e.target.value
-                          ? parseInt(e.target.value)
-                          : undefined,
-                      })
-                    }
-                    placeholder="e.g., 3"
-                    className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="bathrooms">Bathrooms</Label>
-                  <Input
-                    id="bathrooms"
-                    type="number"
-                    value={formData.bathrooms || ""}
-                    onChange={(e) =>
+                      bedrooms: value ? Math.floor(Number(value)) : undefined,
+                    })
+                  }
+                  leftSection={<IconBed size={16} />}
+                />
+                <NumberInput
+                  label="Bathrooms"
+                  placeholder="e.g., 2"
+                  value={formData.bathrooms || 0}
+                  onChange={(value) =>
                       setFormData({
                         ...formData,
-                        bathrooms: e.target.value
-                          ? parseInt(e.target.value)
-                          : undefined,
+                      bathrooms: value ? Math.floor(Number(value)) : undefined,
                       })
                     }
-                    placeholder="e.g., 2"
-                    className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  leftSection={<IconDroplet size={16} />}
                   />
-                </div>
               </>
             )}
-            <Button
+            <MantineButton
               onClick={handleCreateProperty}
-              disabled={createLoading}
-              className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 ${
-                createLoading ? "opacity-50 cursor-not-allowed" : ""
-              }`}
+              loading={createLoading}
+              leftSection={<IconPlus size={16} />}
+              fullWidth
             >
-              {createLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Plus className="w-4 h-4" />
                   Create Property
-                </>
-              )}
-            </Button>
-          </div>
-        </CustomModal>
+            </MantineButton>
+          </Stack>
+        </Modal>
 
-        {/* View Modal */}
-        <CustomModal
-          isOpen={viewModalOpen}
+        {/* View Modal (Updated to Mantine Modal) */}
+        <Modal
+          opened={viewModalOpen}
           onClose={() => setViewModalOpen(false)}
           title={selectedProperty?.title || "Property Details"}
-          description={
-            selectedProperty ? (
-              <div className="flex items-center space-x-2 text-gray-600">
-                <MapPin className="w-4 h-4" />
-                <span>{selectedProperty.location}</span>
-              </div>
-            ) : undefined
-          }
+          size="xl"
+          centered
         >
           {selectedProperty && (
-            <div className="space-y-6">
+            <Stack gap="lg">
               {selectedProperty.images && selectedProperty.images.length > 0 ? (
-                <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
                   <CustomCarousel
                     images={selectedProperty.images}
                     height={400}
                     alt={selectedProperty.title}
                   />
-                </div>
               ) : (
-                <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                    <p className="text-gray-500">No images available</p>
-                  </div>
-                </div>
+                <Card withBorder radius="md" p="xl" bg="gray">
+                  <Center>
+                    <Stack align="center" gap="xs">
+                      <IconBuilding size={48} color="gray" />
+                      <Text c="dimmed">No images available</Text>
+                    </Stack>
+                  </Center>
+                </Card>
               )}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-2xl font-bold text-green-600">
+              <Grid gutter="md">
+                <Grid.Col span={8}>
+                  <Group justify="apart">
+                    <Text size="h3" fw={700} c="green.6">
                       {formatCurrency(selectedProperty.price)}
-                    </h3>
-                    <Badge
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                        selectedProperty.status
-                      )}`}
-                    >
+                    </Text>
+                    <Badge color={getStatusColor(selectedProperty.status)} size="lg">
                       {selectedProperty.status}
                     </Badge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center space-x-2">
-                      <Building2 className="w-5 h-5 text-gray-400" />
-                      <span className="text-sm text-gray-600">
+                  </Group>
+                  <Stack gap="xs" mt="md">
+                    <Group gap="xs">
+                      <IconBuilding size={16} />
+                      <Text c="dimmed">
                         {selectedProperty.type.replace("-", " ").toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Square className="w-5 h-5 text-gray-400" />
-                      <span className="text-sm text-gray-600">
-                        {selectedProperty.size}
-                      </span>
-                    </div>
-                  </div>
-                  {(selectedProperty.type === "house-and-lot" ||
-                    selectedProperty.type === "condo") && (
-                    <div className="flex items-center space-x-6">
-                      {selectedProperty.bedrooms &&
-                        selectedProperty.bedrooms > 0 && (
-                          <div className="flex items-center space-x-2">
-                            <Bed className="w-5 h-5 text-gray-400" />
-                            <span className="text-sm text-gray-600">
-                              {selectedProperty.bedrooms} Bedroom
-                              {selectedProperty.bedrooms > 1 ? "s" : ""}
-                            </span>
-                          </div>
-                        )}
-                      {selectedProperty.bathrooms &&
-                        selectedProperty.bathrooms > 0 && (
-                          <div className="flex items-center space-x-2">
-                            <Bath className="w-5 h-5 text-gray-400" />
-                            <span className="text-sm text-gray-600">
-                              {selectedProperty.bathrooms} Bathroom
-                              {selectedProperty.bathrooms > 1 ? "s" : ""}
-                            </span>
-                          </div>
-                        )}
-
-                      {selectedProperty.type === "house-and-lot" ||
-                      selectedProperty.type === "condo" ? (
-                        <div className="flex items-center space-x-2"></div>
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <Bath className="w-5 h-5 text-gray-400" />
-                          <span className="text-sm text-gray-600">
-                            {selectedProperty.sqft} sq ft
-                          </span>
-                        </div>
+                      </Text>
+                    </Group>
+                    <Group gap="xs">
+                      <IconSquareRounded size={16} />
+                      <Text c="dimmed">{selectedProperty.size}</Text>
+                    </Group>
+                  </Stack>
+                  {(selectedProperty.type === "house-and-lot" || selectedProperty.type === "condo") && (
+                    <Group gap="md" mt="md">
+                      {selectedProperty.bedrooms && selectedProperty.bedrooms > 0 && (
+                        <Group gap="xs">
+                          <IconBed size={16} />
+                          <Text c="dimmed">
+                            {selectedProperty.bedrooms} Bedroom{selectedProperty.bedrooms > 1 ? "s" : ""}
+                          </Text>
+                        </Group>
                       )}
-                    </div>
+                      {selectedProperty.bathrooms && selectedProperty.bathrooms > 0 && (
+                        <Group gap="xs">
+                          <IconDroplet size={16} />
+                          <Text c="dimmed">
+                            {selectedProperty.bathrooms} Bathroom{selectedProperty.bathrooms > 1 ? "s" : ""}
+                          </Text>
+                        </Group>
+                      )}
+                    </Group>
                   )}
                   {selectedProperty.description && (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                        <FileText className="h-5 w-5" />
-                        Description
-                      </h4>
-                      <p className="text-gray-600 leading-relaxed">
-                        {selectedProperty.description}
-                      </p>
-                    </div>
+                    <Card withBorder radius="md" p="md" bg="transparent">
+                      <Group gap="xs" mb="xs">
+                        <IconFileText size={16} />
+                        <Text fw={500}>Description</Text>
+                      </Group>
+                      <Text c="dimmed">{selectedProperty.description}</Text>
+                    </Card>
                   )}
-                  {selectedProperty.amenities &&
-                    selectedProperty.amenities.length > 0 && (
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                          <Home className="h-5 w-5" />
-                          Amenities & Features
-                        </h4>
-                        <div className="grid grid-cols-2 gap-2">
+                  {selectedProperty.amenities && selectedProperty.amenities.length > 0 && (
+                    <Card withBorder radius="md" p="md" bg="transparent">
+                      <Group gap="xs" mb="md">
+                        <IconBuilding size={16} />
+                        <Text fw={500}>Amenities & Features</Text>
+                      </Group>
+                      <SimpleGrid cols={2} spacing="xs">
                           {selectedProperty.amenities.map((amenity, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center space-x-2 text-sm text-gray-600"
-                            >
+                          <Group key={index} gap="xs">
                               {getAmenityIcon(amenity)}
-                              <span>
-                                {amenity
-                                  .replace("-", " ")
-                                  .replace(/\b\w/g, (l) => l.toUpperCase())}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                            <Text c="dimmed" size="sm">
+                              {amenity.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                            </Text>
+                          </Group>
+                        ))}
+                      </SimpleGrid>
+                    </Card>
                     )}
                   {selectedProperty.inquiry && (
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                        <FileText className="h-5 w-5" />
-                        Inquiry Status
-                      </h4>
-                      <div className="space-y-2">
-                        <p className="text-sm text-blue-600">
-                          <strong>Reason:</strong>{" "}
-                          {selectedProperty.inquiry.reason}
-                        </p>
-                        <p className="text-sm text-blue-600">
-                          <strong>Duration:</strong>{" "}
-                          {selectedProperty.inquiry.duration}
-                        </p>
-                        <p className="text-sm text-blue-600">
-                          <strong>Status:</strong>{" "}
-                          {selectedProperty.inquiry.status}
-                        </p>
-                        {selectedProperty.inquiry.status === "REJECTED" &&
-                          selectedProperty.inquiry.rejectionReason && (
-                            <p className="text-sm text-red-600">
-                              <strong>Rejection Reason:</strong>{" "}
-                              {selectedProperty.inquiry.rejectionReason}
-                            </p>
-                          )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="lg:col-span-1">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                      <Users className="h-5 w-5" />
-                      Owner Information
-                    </h4>
-                    {selectedProperty.owner ? (
-                      <div className="space-y-4">
-                        <div className="flex items-center space-x-2">
-                          <Users className="w-4 h-4 text-gray-400" />
-                          <span className="font-medium text-gray-900">
-                            {selectedProperty.owner.fullName}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Mail className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">
-                            {selectedProperty.owner.email}
-                          </span>
-                        </div>
-                        {selectedProperty.owner.phone && (
-                          <div className="flex items-center space-x-2">
-                            <Phone className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm text-gray-600">
-                              {selectedProperty.owner.phone}
-                            </span>
-                          </div>
+                    <Card withBorder radius="md" p="md" bg="blue.0" c="blue.8">
+                      <Group gap="xs" mb="md">
+                        <IconFileText size={16} />
+                        <Text fw={500}>Inquiry Status</Text>
+                      </Group>
+                      <Stack gap="xs">
+                        <Text><strong>Reason:</strong> {selectedProperty.inquiry.reason}</Text>
+                        <Text><strong>Duration:</strong> {selectedProperty.inquiry.duration}</Text>
+                        <Text><strong>Status:</strong> {selectedProperty.inquiry.status}</Text>
+                        {selectedProperty.inquiry.status === "REJECTED" && selectedProperty.inquiry.rejectionReason && (
+                          <Text c="red"><strong>Rejection Reason:</strong> {selectedProperty.inquiry.rejectionReason}</Text>
                         )}
-                      </div>
+                      </Stack>
+                    </Card>
+                  )}
+                </Grid.Col>
+                <Grid.Col span={4}>
+                  <Card withBorder radius="md" p="md" bg="transparent">
+                    <Group gap="xs" mb="md">
+                      <IconUsers size={16} />
+                      <Text fw={500}>Owner Information</Text>
+                    </Group>
+                    {selectedProperty.owner ? (
+                      <Stack gap="xs">
+                        <Group gap="xs">
+                          <IconUsers size={16} />
+                          <Text fw={500}>{selectedProperty.owner.fullName}</Text>
+                        </Group>
+                        <Group gap="xs">
+                          <IconMail size={16} />
+                          <Text c="dimmed" style={{ wordBreak: "break-word" }}>{selectedProperty.owner.email}</Text>
+                        </Group>
+                        {selectedProperty.owner.phone && (
+                          <Group gap="xs">
+                            <IconPhone size={16} />
+                            <Text c="dimmed">{selectedProperty.owner.phone}</Text>
+                          </Group>
+                        )}
+                      </Stack>
                     ) : (
-                      <p className="text-gray-500">No owner assigned</p>
+                      <Text c="dimmed">No owner assigned</Text>
                     )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <button
-                  onClick={() => setViewModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md bg-gray-50 hover:bg-gray-100"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
+                  </Card>
+                </Grid.Col>
+              </Grid>
+            </Stack>
           )}
-        </CustomModal>
+        </Modal>
 
-        {/* Edit Modal */}
-        <CustomModal
-          isOpen={editModalOpen}
+        {/* Edit Modal (Updated to Mantine Modal) */}
+        <Modal
+          opened={editModalOpen}
           onClose={() => setEditModalOpen(false)}
           title="Edit Property"
-          description="Update the property listing"
+          size="xl"
+          centered
         >
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="edit-title">Property Title *</Label>
-              <Input
-                id="edit-title"
+          <Stack gap="md">
+            <TextInput
+              label="Property Title *"
+              placeholder="Enter property title"
                 value={editFormData.title}
                 onChange={(e) =>
                   setEditFormData({ ...editFormData, title: e.target.value })
                 }
-                placeholder="Enter property title"
                 required
-                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-location">Location/Address *</Label>
-              <Input
-                id="edit-location"
+            />
+            <TextInput
+              label="Location/Address *"
+              placeholder="Enter property location"
                 value={editFormData.location}
                 onChange={(e) =>
                   setEditFormData({ ...editFormData, location: e.target.value })
                 }
-                placeholder="Enter property location"
                 required
-                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-size">Size *</Label>
-              <Input
-                id="edit-size"
+              leftSection={<IconMapPin size={16} />}
+            />
+            <TextInput
+              label="Size *"
+              placeholder="e.g., 300 sqm"
                 value={editFormData.size}
                 onChange={(e) =>
                   setEditFormData({ ...editFormData, size: e.target.value })
                 }
-                placeholder="e.g., 300 sqm"
                 required
-                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-price">Price *</Label>
-              <Input
-                id="edit-price"
+            />
+            <TextInput
+              label="Price *"
+              placeholder="e.g., 2500000"
                 value={editFormData.price}
                 onChange={(e) =>
                   setEditFormData({ ...editFormData, price: e.target.value })
                 }
-                placeholder="e.g., ₱2,500,000"
                 required
-                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
-            </div>
-            <div>
-              <Label htmlFor="edit-type">Property Type *</Label>
               <Select
+              label="Property Type *"
+              placeholder="Select type"
                 value={editFormData.type}
-                onValueChange={(value) =>
-                  setEditFormData({ ...editFormData, type: value })
-                }
-              >
-                <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="residential-lot">
-                    Residential Lot
-                  </SelectItem>
-                  <SelectItem value="commercial">Commercial</SelectItem>
-                  <SelectItem value="house-and-lot">House and Lot</SelectItem>
-                  <SelectItem value="condo">Condominium</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="edit-status">Status</Label>
+              onChange={(value) =>
+                setEditFormData({ ...editFormData, type: value || "" })
+              }
+              data={[
+                { value: "residential-lot", label: "Residential Lot" },
+                { value: "commercial", label: "Commercial" },
+                { value: "house-and-lot", label: "House and Lot" },
+                { value: "condo", label: "Condominium" },
+              ]}
+              required
+            />
               <Select
+              label="Status"
+              placeholder="Select status"
                 value={editFormData.status}
-                onValueChange={(value) =>
+              onChange={(value) =>
                   setEditFormData({
                     ...editFormData,
                     status: value as
@@ -1632,27 +1425,20 @@ const PropertyManagement = () => {
                       | "LEASED",
                   })
                 }
-              >
-                <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CREATED">Available</SelectItem>
-                  <SelectItem value="UNDER_INQUIRY">Under Inquiry</SelectItem>
-                  <SelectItem value="APPROVED">Approved</SelectItem>
-                  <SelectItem value="REJECTED">Rejected</SelectItem>
-                  <SelectItem value="LEASED">Leased</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
+              data={[
+                { value: "CREATED", label: "Available" },
+                { value: "UNDER_INQUIRY", label: "Under Inquiry" },
+                { value: "APPROVED", label: "Approved" },
+                { value: "REJECTED", label: "Rejected" },
+                { value: "LEASED", label: "Leased" },
+              ]}
+            />
             {editFormData.status === "LEASED" && (
-              <div className="space-y-4 border-t pt-4">
-                <h4 className="font-semibold text-gray-900">Owner Details</h4>
-                <div>
-                  <Label htmlFor="owner-name">Full Name *</Label>
-                  <Input
-                    id="owner-name"
+              <Stack gap="md" pt="md" style={{ borderTop: `1px solid ${theme.colors.gray[colorScheme === 'dark' ? 7 : 3]}` }}>
+                <Title order={4}>Owner Details</Title>
+                <TextInput
+                  label="Full Name *"
+                  placeholder="Enter owner's full name"
                     value={ownerDetails.fullName}
                     onChange={(e) =>
                       setOwnerDetails({
@@ -1660,16 +1446,12 @@ const PropertyManagement = () => {
                         fullName: e.target.value,
                       })
                     }
-                    placeholder="Enter owner's full name"
                     required
-                    className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="owner-email">Email *</Label>
-                  <Input
-                    id="owner-email"
+                />
+                <TextInput
+                  label="Email *"
                     type="email"
+                  placeholder="Enter owner's email"
                     value={ownerDetails.email}
                     onChange={(e) =>
                       setOwnerDetails({
@@ -1677,15 +1459,12 @@ const PropertyManagement = () => {
                         email: e.target.value,
                       })
                     }
-                    placeholder="Enter owner's email"
                     required
-                    className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="owner-phone">Phone</Label>
-                  <Input
-                    id="owner-phone"
+                  leftSection={<IconMail size={16} />}
+                />
+                <TextInput
+                  label="Phone"
+                  placeholder="Enter owner's phone"
                     value={ownerDetails.phone}
                     onChange={(e) =>
                       setOwnerDetails({
@@ -1693,13 +1472,10 @@ const PropertyManagement = () => {
                         phone: e.target.value,
                       })
                     }
-                    placeholder="Enter owner's phone"
-                    className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  leftSection={<IconPhone size={16} />}
                   />
-                </div>
-              </div>
+              </Stack>
             )}
-
             <ImageUploadPreview
               images={editFormData.images}
               selectedImages={selectedImages}
@@ -1707,10 +1483,9 @@ const PropertyManagement = () => {
               onRemoveImage={handleRemoveImage}
               isEdit
             />
-            <div>
-              <Label htmlFor="edit-description">Description</Label>
               <Textarea
-                id="edit-description"
+              label="Description"
+              placeholder="Enter property description"
                 value={editFormData.description}
                 onChange={(e) =>
                   setEditFormData({
@@ -1718,101 +1493,74 @@ const PropertyManagement = () => {
                     description: e.target.value,
                   })
                 }
-                placeholder="Enter property description"
-                className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
-            </div>
-            <div>
-              <Label htmlFor="edit-amenities">Amenities</Label>
               <Select
-                onValueChange={(value) => handleAmenitiesChange(value, true)}
-              >
-                <SelectTrigger className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                  <SelectValue placeholder="Select amenities" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[
-                    "parking",
-                    "gym",
-                    "security",
-                    "internet-ready",
-                    "garden",
-                  ].map((amenity) => (
-                    <SelectItem key={amenity} value={amenity}>
-                      <div className="flex items-center space-x-2">
-                        {getAmenityIcon(amenity)}
-                        <span>
-                          {amenity
-                            .replace("-", " ")
-                            .replace(/\b\w/g, (l) => l.toUpperCase())}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="mt-2 flex flex-wrap gap-2">
+              label="Amenities"
+              placeholder="Select amenities"
+              onChange={(value) => value && handleAmenitiesChange(value, true)}
+              data={[
+                { value: "parking", label: "Parking" },
+                { value: "gym", label: "Gym" },
+                { value: "security", label: "Security" },
+                { value: "internet-ready", label: "Internet Ready" },
+                { value: "garden", label: "Garden" },
+              ]}
+            />
+            <Group gap="md">
                 {editFormData.amenities?.map((amenity) => (
-                  <Badge key={amenity} variant="secondary">
-                    {amenity
-                      .replace("-", " ")
-                      .replace(/\b\w/g, (l) => l.toUpperCase())}
+                <Badge key={amenity} variant="light">
+                  {amenity.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
                   </Badge>
                 ))}
-              </div>
-            </div>
-            {(editFormData.type === "house-and-lot" ||
-              editFormData.type === "condo") && (
+            </Group>
+            {(editFormData.type === "house-and-lot" || editFormData.type === "condo") && (
               <>
-                <div>
-                  <Label htmlFor="edit-bedrooms">Bedrooms</Label>
-                  <Input
-                    id="edit-bedrooms"
-                    type="number"
-                    value={editFormData.bedrooms || ""}
-                    onChange={(e) =>
+                <NumberInput
+                  label="Bedrooms"
+                  placeholder="e.g., 3"
+                  value={editFormData.bedrooms || 0}
+                  onChange={(value) =>
                       setEditFormData({
                         ...editFormData,
-                        bedrooms: e.target.value
-                          ? parseInt(e.target.value)
-                          : undefined,
-                      })
-                    }
-                    placeholder="e.g., 3"
-                    className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-bathrooms">Bathrooms</Label>
-                  <Input
-                    id="edit-bathrooms"
-                    type="number"
-                    value={editFormData.bathrooms || ""}
-                    onChange={(e) =>
+                      bedrooms: value ? Math.floor(Number(value)) : undefined,
+                    })
+                  }
+                  leftSection={<IconBed size={16} />}
+                />
+                <NumberInput
+                  label="Bathrooms"
+                  placeholder="e.g., 2"
+                  value={editFormData.bathrooms || 0}
+                  onChange={(value) =>
                       setEditFormData({
                         ...editFormData,
-                        bathrooms: e.target.value
-                          ? parseInt(e.target.value)
-                          : undefined,
+                      bathrooms: value ? Math.floor(Number(value)) : undefined,
                       })
                     }
-                    placeholder="e.g., 2"
-                    className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  leftSection={<IconDroplet size={16} />}
                   />
-                </div>
               </>
             )}
-            <Button
+            <MantineButton
               onClick={handleEditProperty}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              leftSection={<IconEdit size={16} />}
+              fullWidth
             >
               Update Property
-            </Button>
-          </div>
-        </CustomModal>
-      </div>
-    </div>
-  );
-};
+            </MantineButton>
+          </Stack>
+        </Modal>
 
-export default PropertyManagement;
+        {/* Add Property Button in Header */}
+        <Group justify="flex-end">
+          <MantineButton
+            onClick={() => setCreateModalOpen(true)}
+            leftSection={<IconPlus size={16} />}
+          >
+            Add Property
+          </MantineButton>
+        </Group>
+      </Stack>
+    </Container>
+  );
+}
