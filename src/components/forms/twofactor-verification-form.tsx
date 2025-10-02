@@ -136,6 +136,15 @@ export function TwoFactorVerificationForm({
     }
   };
 
+  useEffect(() => {
+    const sendOTP = async () => {
+      await authClient.twoFactor.sendOtp();
+    };
+    
+    sendOTP();
+    toast("Verification code sent to your email");
+  }, []);
+
   return (
     <Stack gap="xl" className={className} {...props}>
       <Stack gap="sm" align="center">
