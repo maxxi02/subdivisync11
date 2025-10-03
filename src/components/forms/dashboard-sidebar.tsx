@@ -18,6 +18,7 @@ import {
   Modal,
   Button,
   useMantineColorScheme,
+  useMantineTheme,
 } from "@mantine/core";
 import {
   IconDashboard,
@@ -55,6 +56,7 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
 
   // Dark mode toggle logic
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
+  const theme = useMantineTheme();
 
   // Get user role with fallback
   const getUserRole = (role: string | undefined): "admin" | "tenant" => {
@@ -189,23 +191,41 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
         breakpoint: "sm",
         collapsed: { mobile: !opened },
       }}
-      header={{ height: { base: 50, md: 0 } }}
+      header={{ height: { base: 60, md: 0 } }}
       padding="md"
     >
       <AppShell.Header p="md" hiddenFrom="sm">
-        <Group justify="space-between">
-          <Burger
-            opened={opened}
-            onClick={() => setOpened(!opened)}
-            size="sm"
-          />
-          <Text size="lg" fw={700} c="blue">
-            SubdiviSync
-          </Text>
+        <Group justify="space-between" align="center">
+          <Group gap="sm">
+            <Burger
+              opened={opened}
+              onClick={() => setOpened(!opened)}
+              size="sm"
+              color={colorScheme === "dark" ? "white" : "dark"}
+            />
+          </Group>
+          <Tooltip label="Toggle color scheme">
+            <ActionIcon
+              variant="subtle"
+              onClick={() => toggleColorScheme()}
+              size="lg"
+              color={colorScheme === "dark" ? "yellow" : "dark"}
+            >
+              {colorScheme === "dark" ? (
+                <IconSun size="1.2rem" stroke={1.5} />
+              ) : (
+                <IconMoonStars size="1.2rem" stroke={1.5} />
+              )}
+            </ActionIcon>
+          </Tooltip>
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar p={collapsed ? "xs" : "md"}>
+      <AppShell.Navbar
+        p={collapsed ? "xs" : "md"}
+        bg={colorScheme === "dark" ? "dark.8" : "white"}
+        withBorder
+      >
         <AppShell.Section>
           <Group justify="space-between" mb="md">
             {!collapsed && (
@@ -231,11 +251,12 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
                 <ActionIcon
                   variant="subtle"
                   onClick={() => setCollapsed(!collapsed)}
+                  color={colorScheme === "dark" ? "gray.4" : "gray.6"}
                 >
                   {collapsed ? (
-                    <IconMenu2 size="1.2rem" />
+                    <IconMenu2 size="1.2rem" stroke={1.5} />
                   ) : (
-                    <IconChevronLeft size="1.2rem" />
+                    <IconChevronLeft size="1.2rem" stroke={1.5} />
                   )}
                 </ActionIcon>
               </Tooltip>
@@ -244,8 +265,9 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
                   variant="subtle"
                   onClick={() => toggleColorScheme()}
                   size="lg"
+                  color={colorScheme === "dark" ? "yellow" : "dark"}
                 >
-                  {colorScheme === 'dark' ? (
+                  {colorScheme === "dark" ? (
                     <IconSun size="1.2rem" stroke={1.5} />
                   ) : (
                     <IconMoonStars size="1.2rem" stroke={1.5} />
@@ -285,6 +307,26 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
                   }
                   variant="filled"
                   style={collapsed ? { justifyContent: "center" } : undefined}
+                  styles={{
+                    root: {
+                      color:
+                        colorScheme === "dark"
+                          ? theme.colors.gray[4]
+                          : theme.colors.dark[9],
+                      backgroundColor:
+                        pathname === item.href
+                          ? colorScheme === "dark"
+                            ? theme.colors.dark[6]
+                            : theme.colors.blue[0]
+                          : "transparent",
+                      "&:hover": {
+                        backgroundColor:
+                          colorScheme === "dark"
+                            ? theme.colors.dark[5]
+                            : theme.colors.gray[0],
+                      },
+                    },
+                  }}
                 />
               </Tooltip>
             ))}
@@ -308,7 +350,12 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
                 {!userImage && userName.charAt(0).toUpperCase()}
               </Avatar>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <Text size="sm" fw={500} truncate>
+                <Text
+                  size="sm"
+                  fw={500}
+                  truncate
+                  c={colorScheme === "dark" ? "white" : "dark"}
+                >
                   {userName}
                 </Text>
                 <Text c="dimmed" size="xs" truncate>
@@ -329,7 +376,9 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
         </AppShell.Section>
       </AppShell.Navbar>
 
-      <AppShell.Main>{children}</AppShell.Main>
+      <AppShell.Main bg={colorScheme === "dark" ? "dark.7" : "gray.0"}>
+        {children}
+      </AppShell.Main>
 
       {/* Logout Confirmation Modal */}
       <Modal
@@ -339,7 +388,7 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
         centered
         size="sm"
       >
-        <Text size="sm" mb="lg">
+        <Text size="sm" mb="lg" c={colorScheme === "dark" ? "gray.4" : "dark"}>
           Are you sure you want to logout? You will be redirected to the login
           page.
         </Text>

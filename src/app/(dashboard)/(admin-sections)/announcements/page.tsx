@@ -1,12 +1,49 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
+import {
+  Title,
+  Text,
+  Card,
+  Stack,
+  Group,
+  Badge,
+  Loader,
+  Center,
+  Container,
+  Notification,
+  Select,
+  Modal,
+  TextInput,
+  Textarea,
+  Button as MantineButton,
+  ThemeIcon,
+  ActionIcon,
+  SimpleGrid,
+  useMantineTheme,
+  useMantineColorScheme,
+  Box,
+  Flex,
+  FileInput,
+  Image as MantineImage,
+  ScrollArea,
+  rgba,
+} from "@mantine/core";
+import {
+  IconCheck,
+  IconX,
+  IconTrash,
+  IconRefresh,
+  IconChevronLeft,
+  IconChevronRight,
+  IconFileText,
+  IconEdit,
+  IconHome,
+  IconBed,
+  IconBath,
+} from "@tabler/icons-react";
 import { getServerSession } from "@/better-auth/action";
-import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
-import { Badge } from "@/components/ui/badge";
-import Image from "next/image";
-import { toast } from "react-hot-toast";
 
 interface Announcement {
   _id: string;
@@ -29,6 +66,11 @@ interface Announcement {
   };
 }
 
+interface NotificationType {
+  type: "success" | "error";
+  message: string;
+}
+
 const AnnouncementCard = ({
   announcement,
   onEdit,
@@ -38,6 +80,8 @@ const AnnouncementCard = ({
   onEdit: (announcement: Announcement) => void;
   onDelete: (id: string) => void;
 }) => {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const [currentIndex, setCurrentIndex] = useState(0);
   const images = announcement.images;
 
@@ -46,128 +90,214 @@ const AnnouncementCard = ({
   const next = () =>
     setCurrentIndex((i) => (i === images.length - 1 ? 0 : i + 1));
 
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "high":
+        return "red";
+      case "medium":
+        return "yellow";
+      case "low":
+        return "green";
+      default:
+        return "gray";
+    }
+  };
+
+  const primaryTextColor = colorScheme === "dark" ? "white" : "dark.9";
+  const getDefaultShadow = () => {
+    const baseShadow = "0 1px 3px";
+    const opacity = colorScheme === "dark" ? 0.2 : 0.12;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
   return (
-    <div className="max-w-7xl rounded-md bg-white shadow-sm border border-gray-100">
+    <Card
+      withBorder
+      radius="lg"
+      shadow="sm"
+      style={{ boxShadow: getDefaultShadow() }}
+    >
       {images.length === 0 ? (
-        <div className="w-full h-[150px] bg-[#EFCDFF]" />
+        <Box h={150} bg="violet.1" />
       ) : (
-        <div className="relative">
-          <div className="overflow-hidden w-full h-[500px]">
-            <div
-              className="flex transition-transform duration-300 ease-in-out"
-              style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+        <Box pos="relative">
+          <ScrollArea w="100%" h={300}>
+            <Box
+              style={{
+                display: "flex",
+                transform: `translateX(-${currentIndex * 100}%)`,
+                transition: "transform 0.3s ease-in-out",
+              }}
             >
               {images.map((image) => (
-                <Image
-                  width={500}
-                  height={500}
+                <MantineImage
                   key={image.publicId}
                   src={image.url}
                   alt={announcement.title}
-                  className="w-full h-[500px] object-cover flex-shrink-0"
+                  w="100%"
+                  h={300}
+                  fit="cover"
+                  style={{ flexShrink: 0 }}
                 />
               ))}
-            </div>
-          </div>
+            </Box>
+          </ScrollArea>
           {images.length > 1 && (
             <>
-              <button
+              <ActionIcon
                 onClick={prev}
-                className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/70 rounded-full p-1 hover:bg-white/90 text-black"
+                pos="absolute"
+                left={8}
+                top="50%"
+                style={{ transform: "translateY(-50%)" }}
+                variant="filled"
+                color="white"
+                bg="rgba(255, 255, 255, 0.7)"
+                radius="xl"
+                size="lg"
               >
-                <IconChevronLeft />
-              </button>
-              <button
+                <IconChevronLeft size={18} color="black" />
+              </ActionIcon>
+              <ActionIcon
                 onClick={next}
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/70 rounded-full p-1 hover:bg-white/90 text-black"
+                pos="absolute"
+                right={8}
+                top="50%"
+                style={{ transform: "translateY(-50%)" }}
+                variant="filled"
+                color="white"
+                bg="rgba(255, 255, 255, 0.7)"
+                radius="xl"
+                size="lg"
               >
-                <IconChevronRight />
-              </button>
+                <IconChevronRight size={18} color="black" />
+              </ActionIcon>
             </>
           )}
-        </div>
+        </Box>
       )}
-      <div className="p-4">
-        <h3 className="text-gray-900 text-lg font-semibold leading-7">
-          {announcement.title}
-        </h3>
-        <p className="mt-2 text-gray-500 text-sm leading-5">
-          {announcement.content}
-        </p>
-        <div className="mt-2 text-sm text-gray-400">
-          <p>
-            Category:{" "}
-            <Badge className="text-gray-500 bg-gray-100">
+      <Card.Section p="md">
+        <Stack gap="sm">
+          <Title order={3} size="h3" fw={600} c={primaryTextColor}>
+            {announcement.title}
+          </Title>
+          <Text size="sm" c="dimmed" lineClamp={3}>
+            {announcement.content}
+          </Text>
+          <Group gap="xs">
+            <Text size="sm" c="dimmed">
+              Category:
+            </Text>
+            <Badge color="gray" variant="light">
               {announcement.category}
             </Badge>
-          </p>
-          <p>
-            Priority:{" "}
-            <Badge className="text-gray-500 bg-gray-100">
-              {announcement.priority}
+          </Group>
+          <Group gap="xs">
+            <Text size="sm" c="dimmed">
+              Priority:
+            </Text>
+            <Badge
+              color={getPriorityColor(announcement.priority)}
+              variant="light"
+            >
+              {announcement.priority.charAt(0).toUpperCase() +
+                announcement.priority.slice(1)}
             </Badge>
-          </p>
-          <p>
-            Scheduled:{" "}
-            <Badge className="text-gray-500 bg-gray-100">
+          </Group>
+          <Group gap="xs">
+            <Text size="sm" c="dimmed">
+              Scheduled:
+            </Text>
+            <Badge color="gray" variant="light">
               {new Date(announcement.scheduledDate).toLocaleDateString()}
             </Badge>
-          </p>
+          </Group>
           {announcement.property && (
-            <div className="mt-2">
-              <p className="font-medium">Property Information:</p>
-              <p>Title: {announcement.property.title}</p>
-              <p>Location: {announcement.property.location}</p>
-              {(announcement.property.type === "house-and-lot" ||
-                announcement.property.type === "condo") && (
-                <>
-                  {announcement.property.bedrooms &&
-                    announcement.property.bedrooms > 0 && (
-                      <p>
-                        Bedrooms: {announcement.property.bedrooms} Bedroom
-                        {announcement.property.bedrooms > 1 ? "s" : ""}
-                      </p>
-                    )}
-                  {announcement.property.bathrooms &&
-                    announcement.property.bathrooms > 0 && (
-                      <p>
-                        Bathrooms: {announcement.property.bathrooms} Bathroom
-                        {announcement.property.bathrooms > 1 ? "s" : ""}
-                      </p>
-                    )}
-                  {announcement.property.sqft &&
-                    announcement.property.sqft > 0 && (
-                      <p>Square Footage: {announcement.property.sqft} sq ft</p>
-                    )}
-                </>
-              )}
-            </div>
+            <Card withBorder radius="md" p="sm" bg="gray.0">
+              <Group gap="xs" mb="xs">
+                <IconHome size={16} />
+                <Text fw={500} c={primaryTextColor}>
+                  Property Information
+                </Text>
+              </Group>
+              <Stack gap="xs">
+                <Text size="sm">Title: {announcement.property.title}</Text>
+                <Text size="sm">
+                  Location: {announcement.property.location}
+                </Text>
+                {(announcement.property.type === "house-and-lot" ||
+                  announcement.property.type === "condo") && (
+                  <>
+                    {announcement.property.bedrooms &&
+                      announcement.property.bedrooms > 0 && (
+                        <Group gap="xs">
+                          <IconBed size={14} />
+                          <Text size="sm">
+                            {announcement.property.bedrooms} Bedroom
+                            {announcement.property.bedrooms > 1 ? "s" : ""}
+                          </Text>
+                        </Group>
+                      )}
+                    {announcement.property.bathrooms &&
+                      announcement.property.bathrooms > 0 && (
+                        <Group gap="xs">
+                          <IconBath size={14} />
+                          <Text size="sm">
+                            {announcement.property.bathrooms} Bathroom
+                            {announcement.property.bathrooms > 1 ? "s" : ""}
+                          </Text>
+                        </Group>
+                      )}
+                    {announcement.property.sqft &&
+                      announcement.property.sqft > 0 && (
+                        <Group gap="xs">
+                          <IconFileText size={14} />
+                          <Text size="sm">
+                            {announcement.property.sqft} sq ft
+                          </Text>
+                        </Group>
+                      )}
+                  </>
+                )}
+              </Stack>
+            </Card>
           )}
-        </div>
-        <div className="mt-4 flex gap-2">
-          <button
-            onClick={() => onEdit(announcement)}
-            className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600"
-          >
-            Edit
-          </button>
-          <button
-            onClick={() => onDelete(announcement._id)}
-            className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-          >
-            Delete
-          </button>
-        </div>
-      </div>
-    </div>
+          <Group gap="xs">
+            <MantineButton
+              size="xs"
+              color="yellow"
+              leftSection={<IconEdit size={14} />}
+              onClick={() => onEdit(announcement)}
+            >
+              Edit
+            </MantineButton>
+            <MantineButton
+              size="xs"
+              color="red"
+              leftSection={<IconTrash size={14} />}
+              onClick={() => onDelete(announcement._id)}
+            >
+              Delete
+            </MantineButton>
+          </Group>
+        </Stack>
+      </Card.Section>
+    </Card>
   );
 };
 
 const ManageAnnouncementSection = () => {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const router = useRouter();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [notification, setNotification] = useState<NotificationType | null>(
+    null
+  );
+  const [isEditing, setIsEditing] = useState(false);
+  const [showFormModal, setShowFormModal] = useState(false);
   const [formData, setFormData] = useState({
     id: "",
     title: "",
@@ -178,7 +308,18 @@ const ManageAnnouncementSection = () => {
     images: [] as File[],
     imagesToDelete: [] as string[],
   });
-  const [isEditing, setIsEditing] = useState(false);
+
+  const primaryTextColor = colorScheme === "dark" ? "white" : "dark.9";
+  const getDefaultShadow = () => {
+    const baseShadow = "0 1px 3px";
+    const opacity = colorScheme === "dark" ? 0.2 : 0.12;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
+  const showNotification = (type: "success" | "error", message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
 
   // Check admin access
   useEffect(() => {
@@ -197,20 +338,23 @@ const ManageAnnouncementSection = () => {
   // Fetch announcements
   useEffect(() => {
     const fetchAnnouncements = async () => {
-      setIsLoading(true);
+      setLoading(true);
       try {
         const response = await fetch("/api/announcements?public=false");
         const data = await response.json();
         if (data.success) {
           setAnnouncements(data.announcements);
-          toast.success("Announcements fetched successfully");
+          showNotification("success", "Announcements fetched successfully");
         } else {
-          toast.error(data.error || "Failed to fetch announcements");
+          throw new Error(data.error || "Failed to fetch announcements");
         }
       } catch (err) {
-        toast.error("An error occurred while fetching announcements");
+        showNotification(
+          "error",
+          "An error occurred while fetching announcements"
+        );
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
     if (isAdmin) {
@@ -229,25 +373,26 @@ const ManageAnnouncementSection = () => {
   };
 
   // Handle file input for images
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      setFormData((prev) => ({
-        ...prev,
-        images: [...prev.images, ...Array.from(files)],
-      }));
-    }
+  const handleFileChange = (files: File[]) => {
+    setFormData((prev) => ({
+      ...prev,
+      images: [...prev.images, ...files],
+    }));
   };
 
   // Handle image deletion
-  const handleRemoveImage = (publicId: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      imagesToDelete: [...prev.imagesToDelete, publicId],
-      images: prev.images.filter(
-        (_, i) => !prev.imagesToDelete.includes(publicId)
-      ),
-    }));
+  const handleRemoveImage = (index: number | string) => {
+    if (typeof index === "number") {
+      setFormData((prev) => ({
+        ...prev,
+        images: prev.images.filter((_, i) => i !== index),
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        imagesToDelete: [...prev.imagesToDelete, index],
+      }));
+    }
   };
 
   // Reset form
@@ -263,19 +408,18 @@ const ManageAnnouncementSection = () => {
       imagesToDelete: [],
     });
     setIsEditing(false);
+    setShowFormModal(false);
   };
 
-  // Handle form submission (create or update)
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  // Handle form submission
+  const handleSubmit = async () => {
     if (
       !formData.title ||
       !formData.content ||
       !formData.category ||
       !formData.scheduledDate
     ) {
-      toast.error("Please fill all required fields");
+      showNotification("error", "Please fill all required fields");
       return;
     }
 
@@ -301,24 +445,26 @@ const ManageAnnouncementSection = () => {
       const data = await response.json();
 
       if (data.success) {
-        // Update local state
         if (isEditing) {
           setAnnouncements((prev) =>
             prev.map((ann) =>
               ann._id === data.announcement._id ? data.announcement : ann
             )
           );
-          toast.success("Announcement updated successfully");
+          showNotification("success", "Announcement updated successfully");
         } else {
           setAnnouncements((prev) => [data.announcement, ...prev]);
-          toast.success("Announcement created successfully");
+          showNotification("success", "Announcement created successfully");
         }
         resetForm();
       } else {
-        toast.error(data.error || "Failed to save announcement");
+        showNotification("error", data.error || "Failed to save announcement");
       }
     } catch (err) {
-      toast.error("An error occurred while saving the announcement");
+      showNotification(
+        "error",
+        "An error occurred while saving the announcement"
+      );
     }
   };
 
@@ -337,11 +483,13 @@ const ManageAnnouncementSection = () => {
       imagesToDelete: [],
     });
     setIsEditing(true);
+    setShowFormModal(true);
   };
 
   // Handle delete button click
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this announcement?")) return;
+    if (!window.confirm("Are you sure you want to delete this announcement?"))
+      return;
 
     try {
       const response = await fetch(`/api/announcements?id=${id}`, {
@@ -351,212 +499,295 @@ const ManageAnnouncementSection = () => {
 
       if (data.success) {
         setAnnouncements((prev) => prev.filter((ann) => ann._id !== id));
-        toast.success("Announcement deleted successfully");
+        showNotification("success", "Announcement deleted successfully");
       } else {
-        toast.error(data.error || "Failed to delete announcement");
+        throw new Error(data.error || "Failed to delete announcement");
       }
     } catch (err) {
-      toast.error("An error occurred while deleting the announcement");
+      showNotification(
+        "error",
+        "An error occurred while deleting the announcement"
+      );
     }
   };
 
   if (!isAdmin) {
-    return null; // Redirect handled by useEffect
+    return null;
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Manage Announcements</h1>
-
-      {/* Create/Edit Form */}
-      <form
-        onSubmit={handleSubmit}
-        className="mb-8 bg-white p-6 rounded shadow"
-      >
-        <h2 className="text-xl font-semibold mb-4">
-          {isEditing ? "Edit Announcement" : "Create Announcement"}
-        </h2>
-
-        <div className="mb-4">
-          <label htmlFor="title" className="block text-sm font-medium">
-            Title
-          </label>
-          <input
-            type="text"
-            id="title"
-            name="title"
-            value={formData.title}
-            onChange={handleInputChange}
-            required
-            className="mt-1 block w-full border rounded p-2"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label htmlFor="content" className="block text-sm font-medium">
-            Content
-          </label>
-          <textarea
-            id="content"
-            name="content"
-            value={formData.content}
-            onChange={handleInputChange}
-            required
-            className="mt-1 block w-full border rounded p-2"
-            rows={4}
-          />
-        </div>
-
-        <div className="mb-4">
-          <label htmlFor="category" className="block text-sm font-medium">
-            Category
-          </label>
-          <input
-            type="text"
-            id="category"
-            name="category"
-            value={formData.category}
-            onChange={handleInputChange}
-            required
-            className="mt-1 block w-full border rounded p-2"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label htmlFor="priority" className="block text-sm font-medium">
-            Priority
-          </label>
-          <select
-            id="priority"
-            name="priority"
-            value={formData.priority}
-            onChange={handleInputChange}
-            required
-            className="mt-1 block w-full border rounded p-2"
-          >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
-        </div>
-
-        <div className="mb-4">
-          <label htmlFor="scheduledDate" className="block text-sm font-medium">
-            Scheduled Date
-          </label>
-          <input
-            type="date"
-            id="scheduledDate"
-            name="scheduledDate"
-            value={formData.scheduledDate}
-            onChange={handleInputChange}
-            required
-            className="mt-1 block w-full border rounded p-2"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label htmlFor="images" className="block text-sm font-medium">
-            Images
-          </label>
-          <input
-            type="file"
-            id="images"
-            name="images"
-            accept="image/jpeg,image/png,image/webp,image/jpg"
-            multiple
-            onChange={handleFileChange}
-            className="mt-1 block w-full"
-          />
-          <div className="mt-2 flex flex-wrap gap-2">
-            {formData.images.map((file, index) => (
-              <div key={index} className="relative">
-                <Image
-                  width={500}
-                  height={500}
-                  src={URL.createObjectURL(file)}
-                  alt={`Preview ${index}`}
-                  className="w-24 h-24 object-cover rounded"
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      images: prev.images.filter((_, i) => i !== index),
-                    }))
-                  }
-                  className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"
-                >
-                  &times;
-                </button>
-              </div>
-            ))}
-            {isEditing &&
-              announcements
-                .find((ann) => ann._id === formData.id)
-                ?.images.filter(
-                  (img) => !formData.imagesToDelete.includes(img.publicId)
-                )
-                .map((image) => (
-                  <div key={image.publicId} className="relative">
-                    <Image
-                      width={500}
-                      height={500}
-                      src={image.url}
-                      alt="Existing image"
-                      className="w-24 h-24 object-cover rounded"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveImage(image.publicId)}
-                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"
-                    >
-                      &times;
-                    </button>
-                  </div>
-                ))}
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-          >
-            {isEditing ? "Update" : "Create"} Announcement
-          </button>
-          {isEditing && (
-            <button
-              type="button"
-              onClick={resetForm}
-              className="bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400"
-            >
-              Cancel
-            </button>
-          )}
-        </div>
-      </form>
-
-      {/* Announcements List */}
-      <h2 className="text-xl font-semibold mb-4">Announcements</h2>
-      {isLoading ? (
-        <p>Loading...</p>
-      ) : announcements.length === 0 ? (
-        <p>No announcements found.</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {announcements.map((announcement) => (
-            <AnnouncementCard
-              key={announcement._id}
-              announcement={announcement}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          ))}
-        </div>
+    <Container size="xl" py="xl">
+      {notification && (
+        <Notification
+          icon={
+            notification.type === "success" ? (
+              <IconCheck size={18} />
+            ) : (
+              <IconX size={18} />
+            )
+          }
+          color={notification.type === "success" ? "green" : "red"}
+          title={notification.type === "success" ? "Success" : "Error"}
+          onClose={() => setNotification(null)}
+          style={{ position: "fixed", top: 20, right: 20, zIndex: 1000 }}
+        >
+          {notification.message}
+        </Notification>
       )}
-    </div>
+      <Stack gap="xl">
+        {/* Header */}
+        <Box py="md">
+          <Title order={1} size="h2" fw={600} c={primaryTextColor} mb="xs">
+            Manage Announcements
+          </Title>
+          <Text c="dimmed" size="md" lh={1.5}>
+            Create and manage property announcements
+          </Text>
+        </Box>
+
+        {/* Stats Card */}
+        <Card
+          padding="xl"
+          radius="lg"
+          withBorder
+          shadow="sm"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--mantine-color-blue-6) 0%, var(--mantine-color-blue-7) 100%)",
+            color: "white",
+            boxShadow: getDefaultShadow(),
+          }}
+        >
+          <Flex justify="space-between" align="flex-start" gap="md">
+            <Stack gap="xs" flex={1}>
+              <Text c="blue.2" size="sm" tt="uppercase" fw={600}>
+                Total Announcements
+              </Text>
+              <Text fw={700} size="xl" c="white" lh={1.2}>
+                {announcements.length}
+              </Text>
+            </Stack>
+            <ThemeIcon variant="light" color="blue" size="xl" radius="lg">
+              <IconFileText size="1.5rem" />
+            </ThemeIcon>
+          </Flex>
+        </Card>
+
+        {/* Create Announcement Button */}
+        <Group justify="flex-end">
+          <MantineButton
+            color="blue"
+            leftSection={<IconEdit size={16} />}
+            onClick={() => {
+              resetForm();
+              setShowFormModal(true);
+            }}
+          >
+            Create Announcement
+          </MantineButton>
+        </Group>
+
+        {/* Announcements List */}
+        {loading ? (
+          <Center style={{ height: 400 }}>
+            <Loader size="lg" />
+          </Center>
+        ) : announcements.length === 0 ? (
+          <Card withBorder radius="lg" p="xl">
+            <Center>
+              <Stack align="center" gap="md">
+                <ThemeIcon size={48} radius="xl" color="gray">
+                  <IconFileText size={24} />
+                </ThemeIcon>
+                <Text size="lg" fw={500} c={primaryTextColor}>
+                  No announcements found
+                </Text>
+                <Text c="dimmed">Create a new announcement to get started</Text>
+              </Stack>
+            </Center>
+          </Card>
+        ) : (
+          <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} spacing="lg">
+            {announcements.map((announcement) => (
+              <AnnouncementCard
+                key={announcement._id}
+                announcement={announcement}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            ))}
+          </SimpleGrid>
+        )}
+
+        {/* Form Modal */}
+        <Modal
+          opened={showFormModal}
+          onClose={resetForm}
+          title={isEditing ? "Edit Announcement" : "Create Announcement"}
+          size="xl"
+          centered
+        >
+          <Stack gap="lg">
+            <TextInput
+              label="Title"
+              name="title"
+              value={formData.title}
+              onChange={handleInputChange}
+              required
+              placeholder="Enter announcement title"
+            />
+            <Textarea
+              label="Content"
+              name="content"
+              value={formData.content}
+              onChange={handleInputChange}
+              required
+              placeholder="Enter announcement content"
+              minRows={4}
+            />
+            <TextInput
+              label="Category"
+              name="category"
+              value={formData.category}
+              onChange={handleInputChange}
+              required
+              placeholder="Enter category (e.g., Property Update)"
+            />
+            <Select
+              label="Priority"
+              name="priority"
+              value={formData.priority}
+              onChange={(value) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  priority: value as "low" | "medium" | "high",
+                }))
+              }
+              data={[
+                { value: "low", label: "Low" },
+                { value: "medium", label: "Medium" },
+                { value: "high", label: "High" },
+              ]}
+              required
+            />
+            <TextInput
+              label="Scheduled Date"
+              name="scheduledDate"
+              type="date"
+              value={formData.scheduledDate}
+              onChange={handleInputChange}
+              required
+            />
+            <FileInput
+              label="Images"
+              placeholder="Upload images"
+              accept="image/jpeg,image/png,image/webp,image/jpg"
+              multiple
+              onChange={handleFileChange}
+            />
+            <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
+              {formData.images.map((file, index) => (
+                <Box key={index} pos="relative">
+                  <MantineImage
+                    src={URL.createObjectURL(file)}
+                    alt={`Preview ${index}`}
+                    w={100}
+                    h={100}
+                    fit="cover"
+                    radius="md"
+                  />
+                  <ActionIcon
+                    pos="absolute"
+                    top={-8}
+                    right={-8}
+                    color="red"
+                    variant="filled"
+                    radius="xl"
+                    size="sm"
+                    onClick={() => handleRemoveImage(index)}
+                  >
+                    <IconX size={14} />
+                  </ActionIcon>
+                </Box>
+              ))}
+              {isEditing &&
+                announcements
+                  .find((ann) => ann._id === formData.id)
+                  ?.images.filter(
+                    (img) => !formData.imagesToDelete.includes(img.publicId)
+                  )
+                  .map((image) => (
+                    <Box key={image.publicId} pos="relative">
+                      <MantineImage
+                        src={image.url}
+                        alt="Existing image"
+                        w={100}
+                        h={100}
+                        fit="cover"
+                        radius="md"
+                      />
+                      <ActionIcon
+                        pos="absolute"
+                        top={-8}
+                        right={-8}
+                        color="red"
+                        variant="filled"
+                        radius="xl"
+                        size="sm"
+                        onClick={() => handleRemoveImage(image.publicId)}
+                      >
+                        <IconX size={14} />
+                      </ActionIcon>
+                    </Box>
+                  ))}
+            </SimpleGrid>
+            <Group justify="apart">
+              <MantineButton
+                color="blue"
+                leftSection={<IconCheck size={16} />}
+                onClick={handleSubmit}
+              >
+                {isEditing ? "Update Announcement" : "Create Announcement"}
+              </MantineButton>
+              <MantineButton variant="outline" onClick={resetForm}>
+                Cancel
+              </MantineButton>
+            </Group>
+          </Stack>
+        </Modal>
+
+        {/* Refresh Button */}
+        <Group justify="flex-end">
+          <MantineButton
+            leftSection={<IconRefresh size={16} />}
+            onClick={async () => {
+              setLoading(true);
+              try {
+                const response = await fetch("/api/announcements?public=false");
+                const data = await response.json();
+                if (data.success) {
+                  setAnnouncements(data.announcements);
+                  showNotification(
+                    "success",
+                    "Announcements refreshed successfully"
+                  );
+                } else {
+                  throw new Error(
+                    data.error || "Failed to refresh announcements"
+                  );
+                }
+              } catch (err) {
+                showNotification("error", "Failed to refresh announcements");
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            Refresh
+          </MantineButton>
+        </Group>
+      </Stack>
+    </Container>
   );
 };
 

@@ -1,6 +1,12 @@
 import React from "react";
 import "@mantine/core/styles.css";
-import { createTheme, MantineProvider, ColorSchemeScript, ActionIcon, useMantineColorScheme } from "@mantine/core";
+import {
+  createTheme,
+  MantineProvider,
+  ActionIcon,
+  useMantineColorScheme,
+  ColorSchemeScript,
+} from "@mantine/core";
 import { Toaster } from "react-hot-toast";
 import { IconMoonStars, IconSun } from "@tabler/icons-react";
 
@@ -30,15 +36,10 @@ const ToggleColorScheme = () => {
 
 const LayoutWrapper = ({ children }: { children: React.ReactNode }) => {
   return (
-    <>
-      <head>
-        <ColorSchemeScript defaultColorScheme="dark" />
-      </head>
-      <MantineProvider defaultColorScheme="dark">
-        {children}
-        <Toaster />
-      </MantineProvider>
-    </>
+    <MantineProvider defaultColorScheme="dark">
+      {children}
+      <Toaster />
+    </MantineProvider>
   );
 };
 

@@ -2,19 +2,50 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  DollarSign,
-  Eye,
-  AlertTriangle,
-  User,
-  Mail,
-  Clock,
-  CreditCard,
-  Send,
-  FileText,
-  Home,
-  Search,
-  RefreshCw,
-} from "lucide-react";
+  Title,
+  Text,
+  Card,
+  Stack,
+  Group,
+  Badge,
+  Loader,
+  Center,
+  Container,
+  Notification,
+  TextInput,
+  Modal,
+  Grid,
+  ThemeIcon,
+  ActionIcon,
+  SimpleGrid,
+  useMantineTheme,
+  useMantineColorScheme,
+  Box,
+  Flex,
+  Alert,
+  Divider,
+  Table,
+  rgba,
+} from "@mantine/core";
+import {
+  IconCheck,
+  IconX,
+  IconAlertCircle,
+  IconSearch,
+  IconRefresh,
+  IconCreditCard,
+  IconUser,
+  IconMail,
+  IconPhone,
+  IconHome,
+  IconCalendar,
+  IconBed,
+  IconBath,
+  IconFileText,
+  IconSend,
+  IconClock,
+  IconEye,
+} from "@tabler/icons-react";
 import { toast } from "react-hot-toast";
 
 interface PaymentPlan {
@@ -70,7 +101,14 @@ interface PaymentWithPlan extends MonthlyPayment {
   paymentPlan?: PaymentPlan;
 }
 
+interface NotificationType {
+  type: "success" | "error";
+  message: string;
+}
+
 const PaymentsTrackingPage = () => {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const [payments, setPayments] = useState<PaymentWithPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -78,6 +116,21 @@ const PaymentsTrackingPage = () => {
     useState<PaymentWithPlan | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [notification, setNotification] = useState<NotificationType | null>(
+    null
+  );
+
+  const primaryTextColor = colorScheme === "dark" ? "white" : "dark";
+  const getDefaultShadow = () => {
+    const baseShadow = "0 1px 3px";
+    const opacity = colorScheme === "dark" ? 0.2 : 0.12;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
+  const showNotification = (type: "success" | "error", message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
 
   // Fetch payment plans and monthly payments
   const fetchPaymentData = async () => {
@@ -110,10 +163,13 @@ const PaymentsTrackingPage = () => {
         }
       );
       setPayments(paymentsWithPlans);
-      toast.success("Payment data fetched successfully");
+      showNotification("success", "Payment data fetched successfully");
     } catch (error) {
       console.error("Error fetching payment data:", error);
-      toast.error("Failed to fetch payment data. Please try again.");
+      showNotification(
+        "error",
+        "Failed to fetch payment data. Please try again."
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -124,14 +180,14 @@ const PaymentsTrackingPage = () => {
     fetchPaymentData();
   }, []);
 
-  // Handle remind action (placeholder)
+  // Handle remind action
   const handleRemind = async (payment: PaymentWithPlan) => {
     try {
       // Placeholder: Implement actual reminder logic (e.g., send email)
-      toast.success(`Reminder sent to ${payment.tenantEmail}`);
+      showNotification("success", `Reminder sent to ${payment.tenantEmail}`);
     } catch (error) {
       console.error("Error sending reminder:", error);
-      toast.error("Failed to send reminder. Please try again.");
+      showNotification("error", "Failed to send reminder. Please try again.");
     }
   };
 
@@ -181,19 +237,18 @@ const PaymentsTrackingPage = () => {
     totalPayments: payments.length,
   };
 
-  const getStatusBadge = (status: string) => {
-    const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "paid":
-        return `${baseClasses} bg-green-100 text-green-800`;
+        return "green";
       case "pending":
-        return `${baseClasses} bg-yellow-100 text-yellow-800`;
+        return "yellow";
       case "overdue":
-        return `${baseClasses} bg-red-100 text-red-800`;
+        return "red";
       case "partial":
-        return `${baseClasses} bg-orange-100 text-orange-800`;
+        return "orange";
       default:
-        return `${baseClasses} bg-gray-100 text-gray-800`;
+        return "gray";
     }
   };
 
@@ -214,329 +269,404 @@ const PaymentsTrackingPage = () => {
 
   const filteredPayments = getFilteredPayments();
 
+  if (loading) {
+    return (
+      <Container size="xl" py="xl">
+        <Center style={{ height: 400 }}>
+          <Loader size="lg" />
+        </Center>
+      </Container>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <Container size="xl" py="xl">
+      {notification && (
+        <Notification
+          icon={
+            notification.type === "success" ? (
+              <IconCheck size={18} />
+            ) : (
+              <IconX size={18} />
+            )
+          }
+          color={notification.type === "success" ? "green" : "red"}
+          title={notification.type === "success" ? "Success" : "Error"}
+          onClose={() => setNotification(null)}
+          style={{ position: "fixed", top: 20, right: 20, zIndex: 1000 }}
+        >
+          {notification.message}
+        </Notification>
+      )}
+      <Stack gap="xl">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Payment Tracking
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Monitor and manage rental payments from all tenants
-              </p>
-            </div>
-            <button
-              onClick={fetchPaymentData}
-              disabled={refreshing}
-              className={`px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 ${
-                refreshing
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:bg-blue-700"
-              }`}
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
-              />
-              {refreshing ? "Refreshing..." : "Refresh"}
-            </button>
-          </div>
-        </div>
+        <Box py="md">
+          <Title order={1} size="h2" fw={600} c={primaryTextColor} mb="xs">
+            Payment Tracking
+          </Title>
+          <Text c="dimmed" size="md" lh={1.5}>
+            Monitor and manage rental payments from all tenants
+          </Text>
+        </Box>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-sm p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-green-100">
+        <SimpleGrid
+          cols={{ base: 1, md: 4 }}
+          spacing={{ base: "md", sm: "lg" }}
+          verticalSpacing={{ base: "md", sm: "lg" }}
+        >
+          <Card
+            padding="xl"
+            radius="lg"
+            withBorder
+            shadow="sm"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--mantine-color-green-6) 0%, var(--mantine-color-green-7) 100%)",
+              color: "white",
+              boxShadow: getDefaultShadow(),
+            }}
+          >
+            <Flex justify="space-between" align="flex-start" gap="md">
+              <Stack gap="xs" flex={1}>
+                <Text c="green.2" size="sm" tt="uppercase" fw={600}>
                   Total Collected
-                </p>
-                <p className="text-2xl font-bold">
+                </Text>
+                <Text fw={700} size="xl" c="white" lh={1.2}>
                   {formatCurrency(stats.totalCollected)}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-green-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                <DollarSign className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
+                </Text>
+              </Stack>
+              <ThemeIcon variant="light" color="green" size="xl" radius="lg">
+                <IconCreditCard size="1.5rem" />
+              </ThemeIcon>
+            </Flex>
+          </Card>
 
-          <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow-sm p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-yellow-100">
+          <Card
+            padding="xl"
+            radius="lg"
+            withBorder
+            shadow="sm"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--mantine-color-yellow-6) 0%, var(--mantine-color-yellow-7) 100%)",
+              color: "white",
+              boxShadow: getDefaultShadow(),
+            }}
+          >
+            <Flex justify="space-between" align="flex-start" gap="md">
+              <Stack gap="xs" flex={1}>
+                <Text c="yellow.2" size="sm" tt="uppercase" fw={600}>
                   Pending Collection
-                </p>
-                <p className="text-2xl font-bold">
+                </Text>
+                <Text fw={700} size="xl" c="white" lh={1.2}>
                   {formatCurrency(stats.pendingAmount)}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-yellow-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                <Clock className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
+                </Text>
+              </Stack>
+              <ThemeIcon variant="light" color="yellow" size="xl" radius="lg">
+                <IconClock size="1.5rem" />
+              </ThemeIcon>
+            </Flex>
+          </Card>
 
-          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-sm p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-red-100">
+          <Card
+            padding="xl"
+            radius="lg"
+            withBorder
+            shadow="sm"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--mantine-color-red-6) 0%, var(--mantine-color-red-7) 100%)",
+              color: "white",
+              boxShadow: getDefaultShadow(),
+            }}
+          >
+            <Flex justify="space-between" align="flex-start" gap="md">
+              <Stack gap="xs" flex={1}>
+                <Text c="red.2" size="sm" tt="uppercase" fw={600}>
                   Overdue Payments
-                </p>
-                <p className="text-2xl font-bold">{stats.overdueCount}</p>
-              </div>
-              <div className="h-12 w-12 bg-red-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
+                </Text>
+                <Text fw={700} size="xl" c="white" lh={1.2}>
+                  {stats.overdueCount}
+                </Text>
+              </Stack>
+              <ThemeIcon variant="light" color="red" size="xl" radius="lg">
+                <IconAlertCircle size="1.5rem" />
+              </ThemeIcon>
+            </Flex>
+          </Card>
 
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-sm p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-blue-100">
+          <Card
+            padding="xl"
+            radius="lg"
+            withBorder
+            shadow="sm"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--mantine-color-blue-6) 0%, var(--mantine-color-blue-7) 100%)",
+              color: "white",
+              boxShadow: getDefaultShadow(),
+            }}
+          >
+            <Flex justify="space-between" align="flex-start" gap="md">
+              <Stack gap="xs" flex={1}>
+                <Text c="blue.2" size="sm" tt="uppercase" fw={600}>
                   Total Payments
-                </p>
-                <p className="text-2xl font-bold">{stats.totalPayments}</p>
-              </div>
-              <div className="h-12 w-12 bg-blue-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                <FileText className="h-6 w-6" />
-              </div>
-            </div>
-          </div>
-        </div>
+                </Text>
+                <Text fw={700} size="xl" c="white" lh={1.2}>
+                  {stats.totalPayments}
+                </Text>
+              </Stack>
+              <ThemeIcon variant="light" color="blue" size="xl" radius="lg">
+                <IconFileText size="1.5rem" />
+              </ThemeIcon>
+            </Flex>
+          </Card>
+        </SimpleGrid>
 
         {/* Overdue Alert */}
         {stats.overdueCount > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
-              <div>
-                <h3 className="text-sm font-medium text-red-800">
-                  Overdue Payments Alert
-                </h3>
-                <p className="text-sm text-red-700">
-                  You have {stats.overdueCount} overdue payment
-                  {stats.overdueCount > 1 ? "s" : ""} requiring immediate
-                  attention.
-                </p>
-              </div>
-            </div>
-          </div>
+          <Alert
+            icon={<IconAlertCircle size={16} />}
+            color="red"
+            title="Overdue Payments Alert"
+          >
+            You have {stats.overdueCount} overdue payment
+            {stats.overdueCount > 1 ? "s" : ""} requiring immediate attention.
+          </Alert>
         )}
 
         {/* Search */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search tenants or properties..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 w-full max-w-md"
-            />
-          </div>
-        </div>
+        <Card padding="xl" radius="lg" withBorder shadow="sm">
+          <TextInput
+            placeholder="Search tenants or properties..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            leftSection={<IconSearch size={16} />}
+            style={{ maxWidth: 300 }}
+          />
+        </Card>
 
-        {/* Payments List */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tenant & Property
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Payment Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Due Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredPayments.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-6 py-8 text-center text-gray-500"
-                    >
+        {/* Payments Table */}
+        <Card padding="xl" radius="lg" withBorder shadow="sm">
+          <Table striped highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Tenant & Property</Table.Th>
+                <Table.Th>Payment Details</Table.Th>
+                <Table.Th>Due Date</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th>Actions</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {filteredPayments.length === 0 ? (
+                <Table.Tr>
+                  <Table.Td colSpan={5} ta="center" py="xl">
+                    <ThemeIcon size={48} radius="xl" color="gray" mb="md">
+                      <IconFileText size={24} />
+                    </ThemeIcon>
+                    <Text size="lg" fw={500} c={primaryTextColor} mb="xs">
                       {searchTerm
-                        ? "No payments match your search."
-                        : "No payments found."}
-                    </td>
-                  </tr>
-                ) : (
-                  filteredPayments.map((payment) => (
-                    <tr key={payment._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {payment.paymentPlan?.tenant.fullName ||
-                                "Unknown Tenant"}
-                            </div>
-                            <div className="text-sm text-gray-500 flex items-center gap-1">
-                              <Home className="h-3 w-3" />
-                              {payment.paymentPlan?.propertyTitle ||
-                                "Property Not Found"}
-                            </div>
-                            <div className="text-sm text-gray-500 flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              {payment.tenantEmail}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
+                        ? "No payments match your search"
+                        : "No payments found"}
+                    </Text>
+                    <Text c="dimmed">No matching payments available</Text>
+                  </Table.Td>
+                </Table.Tr>
+              ) : (
+                filteredPayments.map((payment) => (
+                  <Table.Tr key={payment._id}>
+                    <Table.Td>
+                      <Stack gap="xs">
+                        <Text fw={500} c={primaryTextColor}>
+                          {payment.paymentPlan?.tenant.fullName ||
+                            "Unknown Tenant"}
+                        </Text>
+                        <Group gap="xs">
+                          <IconHome size={14} />
+                          <Text size="sm" c="dimmed">
+                            {payment.paymentPlan?.propertyTitle ||
+                              "Property Not Found"}
+                          </Text>
+                        </Group>
+                        <Group gap="xs">
+                          <IconMail size={14} />
+                          <Text size="sm" c="dimmed">
+                            {payment.tenantEmail}
+                          </Text>
+                        </Group>
+                      </Stack>
+                    </Table.Td>
+                    <Table.Td>
+                      <Stack gap="xs">
+                        <Text fw={500} c={primaryTextColor}>
                           {formatCurrency(payment.amount)}
-                        </div>
-                        <div className="text-sm text-gray-500">
+                        </Text>
+                        <Text size="sm" c="dimmed">
                           Month {payment.monthNumber} of{" "}
                           {payment.paymentPlan?.leaseDuration || "N/A"}
-                        </div>
+                        </Text>
                         {payment.paymentMethod && (
-                          <div className="text-sm text-gray-500 flex items-center gap-1">
-                            <CreditCard className="h-3 w-3" />
-                            {payment.paymentMethod}
-                          </div>
+                          <Group gap="xs">
+                            <IconCreditCard size={14} />
+                            <Text size="sm" c="dimmed">
+                              {payment.paymentMethod}
+                            </Text>
+                          </Group>
                         )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {formatDate(payment.dueDate)}
-                        </div>
+                      </Stack>
+                    </Table.Td>
+                    <Table.Td>
+                      <Stack gap="xs">
+                        <Text c="dimmed">{formatDate(payment.dueDate)}</Text>
                         {payment.paidDate && (
-                          <div className="text-sm text-gray-500">
+                          <Text c="dimmed">
                             Paid: {formatDate(payment.paidDate)}
-                          </div>
+                          </Text>
                         )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={getStatusBadge(payment.status)}>
-                          {payment.status.charAt(0).toUpperCase() +
-                            payment.status.slice(1)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedPayment(payment);
-                              setShowDetailsModal(true);
-                            }}
-                            className="bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 flex items-center gap-1"
+                      </Stack>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge
+                        color={getStatusColor(payment.status)}
+                        variant="light"
+                      >
+                        {payment.status.charAt(0).toUpperCase() +
+                          payment.status.slice(1)}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap="xs">
+                        <ActionIcon
+                          variant="light"
+                          color="blue"
+                          size="lg"
+                          onClick={() => {
+                            setSelectedPayment(payment);
+                            setShowDetailsModal(true);
+                          }}
+                        >
+                          <IconEye size={18} />
+                        </ActionIcon>
+                        {payment.status === "pending" && (
+                          <ActionIcon
+                            variant="light"
+                            color="yellow"
+                            size="lg"
+                            onClick={() => handleRemind(payment)}
                           >
-                            <Eye className="h-4 w-4" />
-                            View
-                          </button>
-                          {payment.status === "pending" && (
-                            <button
-                              onClick={() => handleRemind(payment)}
-                              className="bg-yellow-600 text-white px-3 py-1 rounded-md hover:bg-yellow-700 flex items-center gap-1"
-                            >
-                              <Send className="h-4 w-4" />
-                              Remind
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                            <IconSend size={18} />
+                          </ActionIcon>
+                        )}
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                ))
+              )}
+            </Table.Tbody>
+          </Table>
+        </Card>
 
         {/* Payment Details Modal */}
-        {showDetailsModal && selectedPayment && (
-          <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                Payment Details
-              </h3>
+        <Modal
+          opened={showDetailsModal}
+          onClose={() => {
+            setShowDetailsModal(false);
+            setSelectedPayment(null);
+          }}
+          title="Payment Details"
+          size="xl"
+          centered
+        >
+          {selectedPayment && (
+            <Stack gap="lg">
+              <Badge
+                color={getStatusColor(selectedPayment.status)}
+                size="lg"
+                variant="light"
+              >
+                {selectedPayment.status.charAt(0).toUpperCase() +
+                  selectedPayment.status.slice(1)}
+              </Badge>
 
-              {/* Payment Status */}
-              <div className="mb-6">
-                <span
-                  className={`${getStatusBadge(
-                    selectedPayment.status
-                  )} text-sm`}
-                >
-                  {selectedPayment.status.charAt(0).toUpperCase() +
-                    selectedPayment.status.slice(1)}
-                </span>
-              </div>
-
-              {/* Payment Information */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  Payment Information
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Amount</p>
-                    <p className="font-medium text-gray-900">
+              <Card withBorder radius="md" p="md">
+                <Group gap="xs" mb="xs">
+                  <IconCreditCard size={16} />
+                  <Text fw={500} c={primaryTextColor}>
+                    Payment Information
+                  </Text>
+                </Group>
+                <Grid gutter="md">
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">
+                      Amount
+                    </Text>
+                    <Text fw={500}>
                       {formatCurrency(selectedPayment.amount)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Month Number</p>
-                    <p className="font-medium text-gray-900">
+                    </Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">
+                      Month Number
+                    </Text>
+                    <Text fw={500}>
                       {selectedPayment.monthNumber} of{" "}
                       {selectedPayment.paymentPlan?.leaseDuration || "N/A"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Due Date</p>
-                    <p className="font-medium text-gray-900">
-                      {formatDate(selectedPayment.dueDate)}
-                    </p>
-                  </div>
+                    </Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">
+                      Due Date
+                    </Text>
+                    <Text fw={500}>{formatDate(selectedPayment.dueDate)}</Text>
+                  </Grid.Col>
                   {selectedPayment.paidDate && (
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Paid Date</p>
-                      <p className="font-medium text-gray-900">
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="dimmed">
+                        Paid Date
+                      </Text>
+                      <Text fw={500}>
                         {formatDate(selectedPayment.paidDate)}
-                      </p>
-                    </div>
+                      </Text>
+                    </Grid.Col>
                   )}
-                </div>
-              </div>
+                  {selectedPayment.paymentMethod && (
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="dimmed">
+                        Payment Method
+                      </Text>
+                      <Text fw={500}>{selectedPayment.paymentMethod}</Text>
+                    </Grid.Col>
+                  )}
+                </Grid>
+              </Card>
 
-              {/* Property Information */}
               {selectedPayment.paymentPlan?.property && (
-                <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <Home className="h-5 w-5" />
-                    Property Information
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Title</p>
-                      <p className="font-medium text-gray-900">
+                <Card withBorder radius="md" p="md">
+                  <Group gap="xs" mb="xs">
+                    <IconHome size={16} />
+                    <Text fw={500} c={primaryTextColor}>
+                      Property Information
+                    </Text>
+                  </Group>
+                  <Grid gutter="md">
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="dimmed">
+                        Title
+                      </Text>
+                      <Text fw={500}>
                         {selectedPayment.paymentPlan.property.title}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Location</p>
-                      <p className="font-medium text-gray-900">
+                      </Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="dimmed">
+                        Location
+                      </Text>
+                      <Text fw={500}>
                         {selectedPayment.paymentPlan.property.location}
-                      </p>
-                    </div>
+                      </Text>
+                    </Grid.Col>
                     {(selectedPayment.paymentPlan.property.type ===
                       "house-and-lot" ||
                       selectedPayment.paymentPlan.property.type ===
@@ -544,158 +674,227 @@ const PaymentsTrackingPage = () => {
                       <>
                         {selectedPayment.paymentPlan.property.bedrooms &&
                           selectedPayment.paymentPlan.property.bedrooms > 0 && (
-                            <div>
-                              <p className="text-sm text-gray-600 mb-1">
+                            <Grid.Col span={6}>
+                              <Text size="sm" c="dimmed">
                                 Bedrooms
-                              </p>
-                              <p className="font-medium text-gray-900">
+                              </Text>
+                              <Text fw={500}>
                                 {selectedPayment.paymentPlan.property.bedrooms}{" "}
                                 Bedroom
                                 {selectedPayment.paymentPlan.property.bedrooms >
                                 1
                                   ? "s"
                                   : ""}
-                              </p>
-                            </div>
+                              </Text>
+                            </Grid.Col>
                           )}
                         {selectedPayment.paymentPlan.property.bathrooms &&
                           selectedPayment.paymentPlan.property.bathrooms >
                             0 && (
-                            <div>
-                              <p className="text-sm text-gray-600 mb-1">
+                            <Grid.Col span={6}>
+                              <Text size="sm" c="dimmed">
                                 Bathrooms
-                              </p>
-                              <p className="font-medium text-gray-900">
+                              </Text>
+                              <Text fw={500}>
                                 {selectedPayment.paymentPlan.property.bathrooms}{" "}
                                 Bathroom
                                 {selectedPayment.paymentPlan.property
                                   .bathrooms > 1
                                   ? "s"
                                   : ""}
-                              </p>
-                            </div>
+                              </Text>
+                            </Grid.Col>
                           )}
                         {selectedPayment.paymentPlan.property.sqft &&
                           selectedPayment.paymentPlan.property.sqft > 0 && (
-                            <div>
-                              <p className="text-sm text-gray-600 mb-1">
+                            <Grid.Col span={6}>
+                              <Text size="sm" c="dimmed">
                                 Square Footage
-                              </p>
-                              <p className="font-medium text-gray-900">
+                              </Text>
+                              <Text fw={500}>
                                 {selectedPayment.paymentPlan.property.sqft} sq
                                 ft
-                              </p>
-                            </div>
+                              </Text>
+                            </Grid.Col>
                           )}
                       </>
                     )}
-                  </div>
-                </div>
+                  </Grid>
+                </Card>
               )}
 
-              {/* Tenant Information */}
               {selectedPayment.paymentPlan && (
-                <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    Tenant Information
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Full Name</p>
-                      <p className="font-medium text-gray-900">
+                <Card withBorder radius="md" p="md">
+                  <Group gap="xs" mb="xs">
+                    <IconUser size={16} />
+                    <Text fw={500} c={primaryTextColor}>
+                      Tenant Information
+                    </Text>
+                  </Group>
+                  <Grid gutter="md">
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="dimmed">
+                        Full Name
+                      </Text>
+                      <Text fw={500}>
                         {selectedPayment.paymentPlan.tenant.fullName}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Email</p>
-                      <p className="font-medium text-gray-900">
+                      </Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="dimmed">
+                        Email
+                      </Text>
+                      <Text fw={500}>
                         {selectedPayment.paymentPlan.tenant.email}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Phone</p>
-                      <p className="font-medium text-gray-900">
+                      </Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="dimmed">
+                        Phone
+                      </Text>
+                      <Text fw={500}>
                         {selectedPayment.paymentPlan.tenant.phone}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Property</p>
-                      <p className="font-medium text-gray-900">
+                      </Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="dimmed">
+                        Property
+                      </Text>
+                      <Text fw={500}>
                         {selectedPayment.paymentPlan.propertyTitle}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                      </Text>
+                    </Grid.Col>
+                  </Grid>
+                </Card>
               )}
 
-              {/* Payment Plan Summary */}
               {selectedPayment.paymentPlan && (
-                <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                  <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    Payment Plan Summary
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-blue-600 mb-1">
+                <Card withBorder radius="md" p="md" bg="blue.0">
+                  <Group gap="xs" mb="xs">
+                    <IconCreditCard size={16} />
+                    <Text fw={500} c="blue.9">
+                      Payment Plan Summary
+                    </Text>
+                  </Group>
+                  <Grid gutter="md">
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">
                         Monthly Payment
-                      </p>
-                      <p className="font-medium text-blue-900">
+                      </Text>
+                      <Text fw={500} c="blue.9">
                         {formatCurrency(
                           selectedPayment.paymentPlan.monthlyPayment
                         )}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-blue-600 mb-1">
+                      </Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">
                         Total Duration
-                      </p>
-                      <p className="font-medium text-blue-900">
+                      </Text>
+                      <Text fw={500} c="blue.9">
                         {selectedPayment.paymentPlan.leaseDuration} months
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-blue-600 mb-1">Progress</p>
-                      <p className="font-medium text-blue-900">
+                      </Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">
+                        Progress
+                      </Text>
+                      <Text fw={500} c="blue.9">
                         {Math.round(
                           (selectedPayment.monthNumber /
                             selectedPayment.paymentPlan.leaseDuration) *
                             100
                         )}
                         % Complete
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-blue-600 mb-1">
+                      </Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">
                         Remaining Balance
-                      </p>
-                      <p className="font-medium text-blue-900">
+                      </Text>
+                      <Text fw={500} c="blue.9">
                         {formatCurrency(
                           selectedPayment.paymentPlan.remainingBalance
                         )}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                      </Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">
+                        Property Price
+                      </Text>
+                      <Text fw={500} c="blue.9">
+                        {formatCurrency(
+                          selectedPayment.paymentPlan.propertyPrice
+                        )}
+                      </Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">
+                        Down Payment
+                      </Text>
+                      <Text fw={500} c="blue.9">
+                        {formatCurrency(
+                          selectedPayment.paymentPlan.downPayment
+                        )}
+                      </Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">
+                        Interest Rate
+                      </Text>
+                      <Text fw={500} c="blue.9">
+                        {selectedPayment.paymentPlan.interestRate}% per annum
+                      </Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">
+                        Start Date
+                      </Text>
+                      <Text fw={500} c="blue.9">
+                        {formatDate(selectedPayment.paymentPlan.startDate)}
+                      </Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">
+                        Next Payment Date
+                      </Text>
+                      <Text fw={500} c="blue.9">
+                        {formatDate(
+                          selectedPayment.paymentPlan.nextPaymentDate
+                        )}
+                      </Text>
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <Text size="sm" c="blue.7">
+                        Total Amount
+                      </Text>
+                      <Text fw={500} c="blue.9">
+                        {formatCurrency(
+                          selectedPayment.paymentPlan.totalAmount
+                        )}
+                      </Text>
+                    </Grid.Col>
+                  </Grid>
+                </Card>
               )}
+            </Stack>
+          )}
+        </Modal>
 
-              <div className="flex justify-end">
-                <button
-                  onClick={() => {
-                    setShowDetailsModal(false);
-                    setSelectedPayment(null);
-                  }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+        {/* Refresh Button */}
+        <Group justify="flex-end">
+          <ActionIcon
+            variant="light"
+            color="blue"
+            size="lg"
+            onClick={fetchPaymentData}
+            loading={refreshing}
+          >
+            <IconRefresh size={18} />
+          </ActionIcon>
+        </Group>
+      </Stack>
+    </Container>
   );
 };
 

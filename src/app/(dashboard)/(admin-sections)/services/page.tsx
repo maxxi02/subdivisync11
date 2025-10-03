@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import {
-  Container,
   Title,
   Group,
   Button,
@@ -19,6 +18,11 @@ import {
   Textarea,
   Image as MantineImage,
   Divider,
+  useMantineTheme,
+  useMantineColorScheme,
+  rem,
+  rgba,
+  darken,
 } from "@mantine/core";
 import {
   IconSettings,
@@ -31,7 +35,6 @@ import {
 } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import axios from "axios";
-import Image from "next/image";
 import { Session } from "@/better-auth/auth-types";
 import { getServerSession } from "@/better-auth/action";
 import { useRouter } from "next/navigation";
@@ -74,6 +77,8 @@ interface ServiceRequest {
 }
 
 const ServicesSection = () => {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -99,6 +104,21 @@ const ServicesSection = () => {
   const [assignmentMessage, setAssignmentMessage] = useState("");
   const router = useRouter();
 
+  // Theme-aware helpers
+  const primaryTextColor =
+    colorScheme === "dark" ? theme.colors.gray[0] : theme.colors.dark[9];
+  const secondaryTextColor =
+    colorScheme === "dark" ? theme.colors.gray[4] : theme.colors.gray[6];
+  const cardBackground =
+    colorScheme === "dark" ? theme.colors.dark[7] : theme.colors.white[0];
+  const mutedBackground =
+    colorScheme === "dark" ? theme.colors.dark[8] : theme.colors.gray[1];
+  const hoverBackground =
+    colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[0];
+  const getDefaultShadow = () => {
+    return theme.shadows.sm;
+  };
+
   useEffect(() => {
     const getSession = async () => {
       const session = await getServerSession();
@@ -109,7 +129,7 @@ const ServicesSection = () => {
       }
     };
     getSession();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     fetchServiceRequests();
@@ -303,13 +323,13 @@ const ServicesSection = () => {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "high":
-        return "red";
+        return theme.colors.red[6];
       case "medium":
-        return "yellow";
+        return theme.colors.yellow[6];
       case "low":
-        return "green";
+        return theme.colors.green[6];
       default:
-        return "gray";
+        return theme.colors.gray[6];
     }
   };
 
@@ -350,755 +370,1248 @@ const ServicesSection = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <Container size="xl" py="md">
-        <LoadingOverlay visible={loading} />
-        <Stack gap="xl">
-          {/* Header */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
+    <Stack gap="lg">
+      <LoadingOverlay
+        visible={loading}
+        overlayProps={{ radius: "sm", blur: 2 }}
+        loaderProps={{ color: theme.colors.blue[6], size: "lg" }}
+      />
+      {/* Header */}
+      <Box
+        p="md"
+        style={{
+          backgroundColor: cardBackground,
+          borderRadius: theme.radius.md,
+          boxShadow: getDefaultShadow(),
+          border: `1px solid ${
+            colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[2]
+          }`,
+        }}
+      >
+        <Group justify="space-between" align="center">
+          <Group gap="md">
+            <IconSettings size={28} color={theme.colors.blue[6]} stroke={1.5} />
+            <Stack gap={2}>
+              <Title order={2} size="h3" c={primaryTextColor} fw={600}>
+                Service Management
+              </Title>
+              <Text size="sm" c={secondaryTextColor}>
+                Manage and track service requests
+              </Text>
+            </Stack>
+          </Group>
+          <Button
+            variant="gradient"
+            gradient={{
+              from: theme.colors.blue[5],
+              to: theme.colors.blue[7],
+              deg: 45,
+            }}
+            radius="md"
+            onClick={fetchServiceRequests}
+            leftSection={<IconRefresh size={16} stroke={1.5} />}
+          >
+            Refresh
+          </Button>
+        </Group>
+      </Box>
+
+      {/* Stats Cards */}
+      <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
+        {[
+          {
+            title: "Pending Requests",
+            value: stats.pending,
+            color: theme.colors.orange[6],
+            icon: IconCalendar,
+          },
+          {
+            title: "In Progress",
+            value: stats.inProgress,
+            color: theme.colors.blue[6],
+            icon: IconSettings,
+          },
+          {
+            title: "Completed",
+            value: stats.completed,
+            color: theme.colors.green[6],
+            icon: IconCheck,
+          },
+          {
+            title: "High Priority",
+            value: stats.highPriority,
+            color: theme.colors.red[6],
+            icon: IconExclamationMark,
+          },
+        ].map((stat) => (
+          <Box
+            key={stat.title}
+            p="md"
+            style={{
+              background: `linear-gradient(135deg, ${stat.color} 0%, ${darken(
+                stat.color,
+                0.1
+              )} 100%)`,
+              color: "white",
+              borderRadius: theme.radius.md,
+              boxShadow: getDefaultShadow(),
+              border: `1px solid ${rgba(stat.color, 0.2)}`,
+            }}
+          >
             <Group justify="space-between" align="center">
-              <Group>
-                <IconSettings size={32} color="var(--mantine-color-blue-6)" />
-                <Stack gap={4}>
-                  <Title order={1} size="h2">
-                    Service Management
-                  </Title>
-                  <Text size="sm" c="dimmed">
-                    Manage and track service requests
-                  </Text>
-                </Stack>
-              </Group>
-              <Button
-                variant="filled"
-                color="blue"
-                onClick={fetchServiceRequests}
-                leftSection={<IconRefresh size={16} />}
+              <Stack gap={4}>
+                <Text size="xs" c={rgba("white", 0.8)} fw={500}>
+                  {stat.title}
+                </Text>
+                <Text size="lg" fw={700}>
+                  {stat.value}
+                </Text>
+              </Stack>
+              <Box
+                style={{
+                  height: 40,
+                  width: 40,
+                  backgroundColor: rgba("white", 0.15),
+                  borderRadius: theme.radius.sm,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
               >
-                Refresh
-              </Button>
+                <stat.icon size={20} stroke={1.5} />
+              </Box>
             </Group>
-          </div>
+          </Box>
+        ))}
+      </SimpleGrid>
 
-          {/* Stats Cards */}
-          <SimpleGrid cols={{ base: 1, sm: 4 }} spacing="md">
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg shadow-sm p-6 text-white">
-              <Group justify="space-between">
-                <Stack gap={4}>
-                  <Text size="sm" c="orange.1">
-                    Pending Requests
-                  </Text>
-                  <Text size="xl" fw={700}>
-                    {stats.pending}
-                  </Text>
-                </Stack>
-                <div className="h-12 w-12 bg-orange-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                  <IconCalendar size={24} />
-                </div>
-              </Group>
-            </div>
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-sm p-6 text-white">
-              <Group justify="space-between">
-                <Stack gap={4}>
-                  <Text size="sm" c="blue.1">
-                    In Progress
-                  </Text>
-                  <Text size="xl" fw={700}>
-                    {stats.inProgress}
-                  </Text>
-                </Stack>
-                <div className="h-12 w-12 bg-blue-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                  <IconSettings size={24} />
-                </div>
-              </Group>
-            </div>
-            <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-sm p-6 text-white">
-              <Group justify="space-between">
-                <Stack gap={4}>
-                  <Text size="sm" c="green.1">
-                    Completed
-                  </Text>
-                  <Text size="xl" fw={700}>
-                    {stats.completed}
-                  </Text>
-                </Stack>
-                <div className="h-12 w-12 bg-green-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                  <IconCheck size={24} />
-                </div>
-              </Group>
-            </div>
-            <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-sm p-6 text-white">
-              <Group justify="space-between">
-                <Stack gap={4}>
-                  <Text size="sm" c="red.1">
-                    High Priority
-                  </Text>
-                  <Text size="xl" fw={700}>
-                    {stats.highPriority}
-                  </Text>
-                </Stack>
-                <div className="h-12 w-12 bg-red-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                  <IconExclamationMark size={24} />
-                </div>
-              </Group>
-            </div>
-          </SimpleGrid>
+      {/* Priority Alert */}
+      {stats.highPriority > 0 && (
+        <Box
+          p="sm"
+          style={{
+            backgroundColor:
+              colorScheme === "dark"
+                ? rgba(theme.colors.red[9], 0.9)
+                : theme.colors.red[0],
+            border: `1px solid ${theme.colors.red[4]}`,
+            borderRadius: theme.radius.md,
+            boxShadow: getDefaultShadow(),
+          }}
+        >
+          <Group gap="sm">
+            <IconExclamationMark
+              size={18}
+              color={theme.colors.red[6]}
+              stroke={1.5}
+            />
+            <Stack gap={0}>
+              <Text
+                size="sm"
+                fw={600}
+                c={
+                  colorScheme === "dark"
+                    ? theme.colors.red[2]
+                    : theme.colors.red[7]
+                }
+              >
+                High Priority Alert
+              </Text>
+              <Text
+                size="xs"
+                c={
+                  colorScheme === "dark"
+                    ? theme.colors.red[3]
+                    : theme.colors.red[6]
+                }
+              >
+                You have {stats.highPriority} high-priority request
+                {stats.highPriority > 1 ? "s" : ""} requiring immediate
+                attention.
+              </Text>
+            </Stack>
+          </Group>
+        </Box>
+      )}
 
-          {/* Priority Alert */}
-          {stats.highPriority > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <Group gap={8}>
-                <IconExclamationMark
-                  size={20}
-                  color="var(--mantine-color-red-6)"
-                />
-                <Stack gap={0}>
-                  <Text size="sm" fw={500} c="red.8">
-                    High Priority Alert
-                  </Text>
-                  <Text size="sm" c="red.7">
-                    You have {stats.highPriority} high-priority request
-                    {stats.highPriority > 1 ? "s" : ""} requiring immediate
-                    attention.
-                  </Text>
-                </Stack>
-              </Group>
-            </div>
-          )}
+      {/* Search Bar */}
+      <Box
+        p="md"
+        style={{
+          backgroundColor: cardBackground,
+          borderRadius: theme.radius.md,
+          boxShadow: getDefaultShadow(),
+          border: `1px solid ${
+            colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[2]
+          }`,
+        }}
+      >
+        <Box style={{ position: "relative" }}>
+          <IconSearch
+            style={{
+              position: "absolute",
+              left: 12,
+              top: "50%",
+              transform: "translateY(-50%)",
+              height: 16,
+              width: 16,
+              color: secondaryTextColor,
+            }}
+          />
+          <TextInput
+            placeholder="Search requests by tenant, category, or email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.currentTarget.value)}
+            radius="md"
+            styles={{
+              input: {
+                paddingLeft: 36,
+                backgroundColor:
+                  colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+                color: primaryTextColor,
+                border: `1px solid ${
+                  colorScheme === "dark"
+                    ? theme.colors.dark[4]
+                    : theme.colors.gray[3]
+                }`,
+              },
+            }}
+          />
+        </Box>
+      </Box>
 
-          {/* Search Bar */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="relative">
-              <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <TextInput
-                placeholder="Search requests by tenant, category, or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-
-          {/* Requests Table */}
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tenant
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Priority
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredRequests.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-6 py-8 text-center text-gray-500"
+      {/* Requests Table */}
+      <Box
+        style={{
+          backgroundColor: cardBackground,
+          borderRadius: theme.radius.md,
+          boxShadow: getDefaultShadow(),
+          border: `1px solid ${
+            colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[2]
+          }`,
+          overflow: "hidden",
+        }}
+      >
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead
+            style={{
+              backgroundColor:
+                colorScheme === "dark"
+                  ? theme.colors.dark[8]
+                  : theme.colors.gray[0],
+            }}
+          >
+            <tr>
+              {[
+                "Tenant",
+                "Category",
+                "Date",
+                "Priority",
+                "Status",
+                "Actions",
+              ].map((header) => (
+                <th
+                  key={header}
+                  style={{
+                    padding: theme.spacing.sm,
+                    textAlign: "left",
+                    fontSize: theme.fontSizes.xs,
+                    fontWeight: 600,
+                    color: secondaryTextColor,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody style={{ color: primaryTextColor }}>
+            {filteredRequests.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={6}
+                  style={{
+                    padding: theme.spacing.lg,
+                    textAlign: "center",
+                    color: secondaryTextColor,
+                    fontSize: theme.fontSizes.sm,
+                  }}
+                >
+                  No service requests found
+                </td>
+              </tr>
+            ) : (
+              filteredRequests.map((request) => (
+                <tr
+                  key={request.id}
+                  style={{
+                    backgroundColor:
+                      colorScheme === "dark"
+                        ? theme.colors.dark[7]
+                        : theme.white,
+                    transition: "background-color 0.2s",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor = hoverBackground)
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor =
+                      colorScheme === "dark"
+                        ? theme.colors.dark[7]
+                        : theme.white)
+                  }
+                >
+                  <td style={{ padding: theme.spacing.sm }}>
+                    <Stack gap={2}>
+                      <Text size="sm" fw={500} c={primaryTextColor}>
+                        {request.user_name}
+                      </Text>
+                      <Text size="xs" c={secondaryTextColor}>
+                        {request.user_email}
+                      </Text>
+                    </Stack>
+                  </td>
+                  <td style={{ padding: theme.spacing.sm }}>
+                    <Text size="sm" c={primaryTextColor}>
+                      {request.category}
+                    </Text>
+                  </td>
+                  <td style={{ padding: theme.spacing.sm }}>
+                    <Text size="sm" c={primaryTextColor}>
+                      {request.date}
+                    </Text>
+                  </td>
+                  <td style={{ padding: theme.spacing.sm }}>
+                    <Badge
+                      color={getPriorityColor(request.priority)}
+                      variant="filled"
+                      radius="sm"
+                      size="sm"
                     >
-                      No service requests found
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRequests.map((request) => (
-                    <tr key={request.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Group>
-                          <Stack gap={0}>
-                            <Text size="sm" fw={500}>
-                              {request.user_name}
-                            </Text>
-                            <Text size="xs" c="dimmed">
-                              {request.user_email}
-                            </Text>
-                          </Stack>
-                        </Group>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Text size="sm">{request.category}</Text>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Text size="sm">{request.date}</Text>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge
-                          color={getPriorityColor(request.priority)}
-                          variant="filled"
-                        >
-                          {request.priority.toUpperCase()}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge
-                          color={
-                            request.status === "pending"
-                              ? "yellow"
-                              : request.status === "in-progress"
-                              ? "blue"
-                              : request.status === "completed"
-                              ? "green"
-                              : "red"
-                          }
-                          variant="filled"
-                        >
-                          {request.status.toUpperCase()}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Group gap="xs">
+                      {request.priority.toUpperCase()}
+                    </Badge>
+                  </td>
+                  <td style={{ padding: theme.spacing.sm }}>
+                    <Badge
+                      color={
+                        request.status === "pending"
+                          ? theme.colors.yellow[6]
+                          : request.status === "in-progress"
+                          ? theme.colors.blue[6]
+                          : request.status === "completed"
+                          ? theme.colors.green[6]
+                          : theme.colors.red[6]
+                      }
+                      variant="filled"
+                      radius="sm"
+                      size="sm"
+                    >
+                      {request.status.toUpperCase()}
+                    </Badge>
+                  </td>
+                  <td style={{ padding: theme.spacing.sm }}>
+                    <Group gap="xs">
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        color={colorScheme === "dark" ? "gray.4" : "gray.6"}
+                        radius="sm"
+                        leftSection={<IconEye size={12} stroke={1.5} />}
+                        onClick={() => {
+                          setSelectedRequest(request);
+                          openView();
+                        }}
+                        disabled={submitting}
+                      >
+                        View
+                      </Button>
+                      {request.status === "pending" && (
+                        <>
                           <Button
                             size="xs"
-                            variant="outline"
-                            color="gray"
-                            leftSection={<IconEye size={12} />}
+                            variant="gradient"
+                            gradient={{
+                              from: theme.colors.blue[5],
+                              to: theme.colors.blue[7],
+                              deg: 45,
+                            }}
+                            radius="sm"
                             onClick={() => {
                               setSelectedRequest(request);
-                              openView();
+                              openAssign();
                             }}
                             disabled={submitting}
                           >
-                            View
+                            Assign
                           </Button>
-                          {request.status === "pending" && (
-                            <>
-                              <Button
-                                size="xs"
-                                variant="filled"
-                                color="blue"
-                                onClick={() => {
-                                  setSelectedRequest(request);
-                                  openAssign();
-                                }}
-                                disabled={submitting}
-                              >
-                                Assign
-                              </Button>
-                              <Button
-                                size="xs"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedRequest(request);
-                                  openEstimate();
-                                }}
-                                disabled={submitting}
-                              >
-                                Estimate
-                              </Button>
-                            </>
-                          )}
-                          {request.status === "in-progress" && (
-                            <>
-                              <Button
-                                size="xs"
-                                variant="filled"
-                                color="green"
-                                onClick={() => {
-                                  setSelectedRequest(request);
-                                  openComplete();
-                                }}
-                                disabled={submitting}
-                              >
-                                Complete
-                              </Button>
-                              {!request.estimated_cost && (
-                                <Button
-                                  size="xs"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setSelectedRequest(request);
-                                    openEstimate();
-                                  }}
-                                  disabled={submitting}
-                                >
-                                  Estimate
-                                </Button>
-                              )}
-                            </>
-                          )}
-                        </Group>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* View Details Modal */}
-          <Modal
-            opened={viewModalOpened}
-            onClose={closeView}
-            title="Service Request Details"
-            centered
-            size="lg"
-          >
-            <Stack gap="md">
-              <Box className="bg-gray-50 rounded-lg p-4">
-                <Text size="sm" fw={500} mb="sm">
-                  Request Overview
-                </Text>
-                <Grid>
-                  <Grid.Col span={6}>
-                    <Text size="xs" c="dimmed">
-                      Tenant
-                    </Text>
-                    <Text size="sm" fw={500}>
-                      {selectedRequest?.user_name}
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      {selectedRequest?.user_email}
-                    </Text>
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <Text size="xs" c="dimmed">
-                      Category
-                    </Text>
-                    <Text size="sm">{selectedRequest?.category}</Text>
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <Text size="xs" c="dimmed">
-                      Created Date
-                    </Text>
-                    <Text size="sm">
-                      {formatDate(selectedRequest?.created_at)}
-                    </Text>
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <Text size="xs" c="dimmed">
-                      Priority
-                    </Text>
-                    <Badge
-                      color={getPriorityColor(
-                        selectedRequest?.priority || "low"
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            color={colorScheme === "dark" ? "blue.4" : "blue.6"}
+                            radius="sm"
+                            onClick={() => {
+                              setSelectedRequest(request);
+                              openEstimate();
+                            }}
+                            disabled={submitting}
+                          >
+                            Estimate
+                          </Button>
+                        </>
                       )}
-                      variant="filled"
-                    >
-                      {(selectedRequest?.priority || "low").toUpperCase()}
-                    </Badge>
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <Text size="xs" c="dimmed">
-                      Status
-                    </Text>
-                    <Badge
-                      color={
-                        selectedRequest?.status === "pending"
-                          ? "yellow"
-                          : selectedRequest?.status === "in-progress"
-                          ? "blue"
-                          : selectedRequest?.status === "completed"
-                          ? "green"
-                          : "red"
-                      }
-                      variant="filled"
-                    >
-                      {selectedRequest?.status?.toUpperCase()}
-                    </Badge>
-                  </Grid.Col>
-                  {selectedRequest?.scheduled_date && (
-                    <Grid.Col span={6}>
-                      <Text size="xs" c="dimmed">
-                        Scheduled Date
-                      </Text>
-                      <Text size="sm">
-                        {formatDate(selectedRequest.scheduled_date)}
-                      </Text>
-                    </Grid.Col>
-                  )}
-                  {selectedRequest?.assigned_technician && (
-                    <Grid.Col span={6}>
-                      <Text size="xs" c="dimmed">
-                        Assigned Technician
-                      </Text>
-                      <Text size="sm">
-                        {selectedRequest.assigned_technician}
-                      </Text>
-                    </Grid.Col>
-                  )}
-                </Grid>
-              </Box>
-
-              {selectedRequest?.property && (
-                <Box className="bg-gray-50 rounded-lg p-4">
-                  <Text size="sm" fw={500} mb="sm">
-                    Property Information
-                  </Text>
-                  <Grid>
-                    <Grid.Col span={6}>
-                      <Text size="xs" c="dimmed">
-                        Property Title
-                      </Text>
-                      <Text size="sm">{selectedRequest.property.title}</Text>
-                    </Grid.Col>
-                    <Grid.Col span={6}>
-                      <Text size="xs" c="dimmed">
-                        Location
-                      </Text>
-                      <Text size="sm">{selectedRequest.property.location}</Text>
-                    </Grid.Col>
-                    {(selectedRequest.property.type === "house-and-lot" ||
-                      selectedRequest.property.type === "condo") && (
-                      <>
-                        {selectedRequest.property.bedrooms &&
-                          selectedRequest.property.bedrooms > 0 && (
-                            <Grid.Col span={6}>
-                              <Text size="xs" c="dimmed">
-                                Bedrooms
-                              </Text>
-                              <Text size="sm">
-                                {selectedRequest.property.bedrooms} Bedroom
-                                {selectedRequest.property.bedrooms > 1
-                                  ? "s"
-                                  : ""}
-                              </Text>
-                            </Grid.Col>
+                      {request.status === "in-progress" && (
+                        <>
+                          <Button
+                            size="xs"
+                            variant="gradient"
+                            gradient={{
+                              from: theme.colors.green[5],
+                              to: theme.colors.green[7],
+                              deg: 45,
+                            }}
+                            radius="sm"
+                            onClick={() => {
+                              setSelectedRequest(request);
+                              openComplete();
+                            }}
+                            disabled={submitting}
+                          >
+                            Complete
+                          </Button>
+                          {!request.estimated_cost && (
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              color={
+                                colorScheme === "dark" ? "blue.4" : "blue.6"
+                              }
+                              radius="sm"
+                              onClick={() => {
+                                setSelectedRequest(request);
+                                openEstimate();
+                              }}
+                              disabled={submitting}
+                            >
+                              Estimate
+                            </Button>
                           )}
-                        {selectedRequest.property.bathrooms &&
-                          selectedRequest.property.bathrooms > 0 && (
-                            <Grid.Col span={6}>
-                              <Text size="xs" c="dimmed">
-                                Bathrooms
-                              </Text>
-                              <Text size="sm">
-                                {selectedRequest.property.bathrooms} Bathroom
-                                {selectedRequest.property.bathrooms > 1
-                                  ? "s"
-                                  : ""}
-                              </Text>
-                            </Grid.Col>
-                          )}
-                        {selectedRequest.property.sqft &&
-                          selectedRequest.property.sqft > 0 && (
-                            <Grid.Col span={6}>
-                              <Text size="xs" c="dimmed">
-                                Square Footage
-                              </Text>
-                              <Text size="sm">
-                                {selectedRequest.property.sqft} sq ft
-                              </Text>
-                            </Grid.Col>
-                          )}
-                      </>
-                    )}
-                  </Grid>
-                </Box>
-              )}
+                        </>
+                      )}
+                    </Group>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </Box>
 
-              <Divider />
-
-              <Box>
-                <Text size="sm" fw={500} mb="sm">
-                  Issue Description
-                </Text>
-                <Text size="sm">{selectedRequest?.description}</Text>
-              </Box>
-
-              {selectedRequest?.images && selectedRequest.images.length > 0 && (
-                <Box>
-                  <Text size="sm" fw={500} mb="sm">
-                    Attached Images
-                  </Text>
-                  <SimpleGrid cols={2} spacing="md">
-                    {selectedRequest.images.map((imageUrl, index) => (
-                      <MantineImage
-                        key={index}
-                        src={imageUrl}
-                        alt={`Issue image ${index + 1}`}
-                        height={200}
-                        fit="cover"
-                        radius="md"
-                      />
-                    ))}
-                  </SimpleGrid>
-                </Box>
-              )}
-
-              {selectedRequest?.assignment_message && (
-                <Box>
-                  <Text size="sm" fw={500} mb="sm">
-                    Assignment Message
-                  </Text>
-                  <Text size="sm" c="dimmed">
-                    {selectedRequest.assignment_message}
-                  </Text>
-                </Box>
-              )}
-
-              {selectedRequest?.technician_notes && (
-                <Box>
-                  <Text size="sm" fw={500} mb="sm">
-                    Technician Notes
-                  </Text>
-                  <Text size="sm" c="dimmed">
-                    {selectedRequest.technician_notes}
-                  </Text>
-                </Box>
-              )}
-
-              {selectedRequest?.estimated_cost && (
-                <Box>
-                  <Text size="sm" fw={500} mb="sm">
-                    Estimated Cost
-                  </Text>
-                  <Text size="sm">
-                    {formatCurrency(selectedRequest.estimated_cost)}
-                  </Text>
-                </Box>
-              )}
-
-              {selectedRequest?.completion_notes && (
-                <Box>
-                  <Text size="sm" fw={500} mb="sm">
-                    Completion Notes
-                  </Text>
-                  <Text size="sm" c="dimmed">
-                    {selectedRequest.completion_notes}
-                  </Text>
-                </Box>
-              )}
-
-              {selectedRequest?.final_cost && (
-                <Box>
-                  <Text size="sm" fw={500} mb="sm">
-                    Final Cost
-                  </Text>
-                  <Text size="sm">
-                    {formatCurrency(selectedRequest.final_cost)}
-                  </Text>
-                </Box>
-              )}
-
-              {selectedRequest?.payment_status && (
-                <Box>
-                  <Text size="sm" fw={500} mb="sm">
-                    Payment Status
-                  </Text>
-                  <Badge
-                    color={
-                      selectedRequest.payment_status === "paid"
-                        ? "green"
-                        : selectedRequest.payment_status === "failed"
-                        ? "red"
-                        : "yellow"
-                    }
-                    variant="filled"
-                  >
-                    {selectedRequest.payment_status.toUpperCase()}
-                  </Badge>
-                </Box>
-              )}
-
-              <Group justify="right">
-                <Button variant="outline" onClick={closeView}>
-                  Close
-                </Button>
-              </Group>
-            </Stack>
-          </Modal>
-
-          {/* Assign Technician Modal */}
-          <Modal
-            opened={assignModalOpened}
-            onClose={closeAssign}
-            title="Assign Technician"
-            centered
+      {/* View Details Modal */}
+      <Modal
+        opened={viewModalOpened}
+        onClose={closeView}
+        title="Service Request Details"
+        centered
+        size="lg"
+        styles={{
+          content: {
+            backgroundColor: cardBackground,
+            borderRadius: theme.radius.md,
+          },
+          header: {
+            backgroundColor: cardBackground,
+            padding: theme.spacing.md,
+          },
+          title: {
+            color: primaryTextColor,
+            fontSize: theme.fontSizes.lg,
+            fontWeight: 600,
+          },
+        }}
+      >
+        <Stack gap="md">
+          <Box
+            p="md"
+            style={{
+              backgroundColor:
+                colorScheme === "dark"
+                  ? theme.colors.dark[8]
+                  : theme.colors.gray[0],
+              borderRadius: theme.radius.md,
+              border: `1px solid ${
+                colorScheme === "dark"
+                  ? theme.colors.dark[6]
+                  : theme.colors.gray[2]
+              }`,
+            }}
           >
-            <LoadingOverlay visible={submitting} />
-            <Stack>
-              <Box className="bg-gray-50 rounded-lg p-4">
-                <Text size="sm" fw={500} mb="sm">
-                  Request Details
+            <Text size="sm" fw={600} c={primaryTextColor} mb="xs">
+              Request Overview
+            </Text>
+            <Grid>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Text size="xs" c={secondaryTextColor}>
+                  Tenant
                 </Text>
-                <Grid>
-                  <Grid.Col span={6}>
-                    <Text size="xs" c="dimmed">
-                      Tenant
-                    </Text>
-                    <Text size="sm">{selectedRequest?.user_name}</Text>
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <Text size="xs" c="dimmed">
-                      Category
-                    </Text>
-                    <Text size="sm">{selectedRequest?.category}</Text>
-                  </Grid.Col>
-                </Grid>
-              </Box>
-              <TextInput
-                label="Technician Name"
-                placeholder="Enter technician name"
-                value={technician}
-                onChange={(e) => setTechnician(e.currentTarget.value)}
-                required
-              />
-              <TextInput
-                label="Scheduled Date"
-                type="date"
-                placeholder="Select date"
-                value={scheduledDate}
-                onChange={(e) => setScheduledDate(e.currentTarget.value)}
-                required
-              />
-              <Textarea
-                label="Assignment Message"
-                placeholder="e.g., Please bear with it, I already sent a technician"
-                value={assignmentMessage}
-                onChange={(e) => setAssignmentMessage(e.currentTarget.value)}
-                autosize
-                minRows={2}
-                required
-              />
-              <Group justify="right">
-                <Button
-                  variant="outline"
-                  onClick={closeAssign}
-                  disabled={submitting}
+                <Text size="sm" fw={500} c={primaryTextColor}>
+                  {selectedRequest?.user_name}
+                </Text>
+                <Text size="xs" c={secondaryTextColor}>
+                  {selectedRequest?.user_email}
+                </Text>
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Text size="xs" c={secondaryTextColor}>
+                  Category
+                </Text>
+                <Text size="sm" c={primaryTextColor}>
+                  {selectedRequest?.category}
+                </Text>
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Text size="xs" c={secondaryTextColor}>
+                  Created Date
+                </Text>
+                <Text size="sm" c={primaryTextColor}>
+                  {formatDate(selectedRequest?.created_at)}
+                </Text>
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Text size="xs" c={secondaryTextColor}>
+                  Priority
+                </Text>
+                <Badge
+                  color={getPriorityColor(selectedRequest?.priority || "low")}
+                  variant="filled"
+                  radius="sm"
+                  size="sm"
                 >
-                  Cancel
-                </Button>
-                <Button onClick={assignTechnician} loading={submitting}>
-                  Assign Technician
-                </Button>
-              </Group>
-            </Stack>
-          </Modal>
+                  {(selectedRequest?.priority || "low").toUpperCase()}
+                </Badge>
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Text size="xs" c={secondaryTextColor}>
+                  Status
+                </Text>
+                <Badge
+                  color={
+                    selectedRequest?.status === "pending"
+                      ? theme.colors.yellow[6]
+                      : selectedRequest?.status === "in-progress"
+                      ? theme.colors.blue[6]
+                      : selectedRequest?.status === "completed"
+                      ? theme.colors.green[6]
+                      : theme.colors.red[6]
+                  }
+                  variant="filled"
+                  radius="sm"
+                  size="sm"
+                >
+                  {selectedRequest?.status?.toUpperCase()}
+                </Badge>
+              </Grid.Col>
+              {selectedRequest?.scheduled_date && (
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <Text size="xs" c={secondaryTextColor}>
+                    Scheduled Date
+                  </Text>
+                  <Text size="sm" c={primaryTextColor}>
+                    {formatDate(selectedRequest.scheduled_date)}
+                  </Text>
+                </Grid.Col>
+              )}
+              {selectedRequest?.assigned_technician && (
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <Text size="xs" c={secondaryTextColor}>
+                    Assigned Technician
+                  </Text>
+                  <Text size="sm" c={primaryTextColor}>
+                    {selectedRequest.assigned_technician}
+                  </Text>
+                </Grid.Col>
+              )}
+            </Grid>
+          </Box>
 
-          {/* Provide Estimate Modal */}
-          <Modal
-            opened={estimateModalOpened}
-            onClose={closeEstimate}
-            title="Provide Cost Estimate"
-            centered
-          >
-            <LoadingOverlay visible={submitting} />
-            <Stack>
-              <Box className="bg-gray-50 rounded-lg p-4">
-                <Text size="sm" fw={500} mb="sm">
-                  Request Details
-                </Text>
-                <Grid>
-                  <Grid.Col span={6}>
-                    <Text size="xs" c="dimmed">
-                      Tenant
-                    </Text>
-                    <Text size="sm">{selectedRequest?.user_name}</Text>
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <Text size="xs" c="dimmed">
-                      Category
-                    </Text>
-                    <Text size="sm">{selectedRequest?.category}</Text>
-                  </Grid.Col>
-                </Grid>
-              </Box>
-              <NumberInput
-                label="Estimated Cost (₱)"
-                placeholder="Enter estimated cost"
-                value={estimatedCost}
-                onChange={setEstimatedCost}
-                min={0}
-                decimalScale={2}
-                required
-              />
-              <Textarea
-                label="Estimate Notes"
-                placeholder="Explanation of costs, parts needed, etc."
-                value={estimateNotes}
-                onChange={(e) => setEstimateNotes(e.currentTarget.value)}
-                autosize
-                minRows={3}
-              />
-              <Group justify="right">
-                <Button
-                  variant="outline"
-                  onClick={closeEstimate}
-                  disabled={submitting}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={provideEstimate} loading={submitting}>
-                  Send Estimate
-                </Button>
-              </Group>
-            </Stack>
-          </Modal>
+          {selectedRequest?.property && (
+            <Box
+              p="md"
+              style={{
+                backgroundColor:
+                  colorScheme === "dark"
+                    ? theme.colors.dark[8]
+                    : theme.colors.gray[0],
+                borderRadius: theme.radius.md,
+                border: `1px solid ${
+                  colorScheme === "dark"
+                    ? theme.colors.dark[6]
+                    : theme.colors.gray[2]
+                }`,
+              }}
+            >
+              <Text size="sm" fw={600} c={primaryTextColor} mb="xs">
+                Property Information
+              </Text>
+              <Grid>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <Text size="xs" c={secondaryTextColor}>
+                    Property Title
+                  </Text>
+                  <Text size="sm" c={primaryTextColor}>
+                    {selectedRequest.property.title}
+                  </Text>
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <Text size="xs" c={secondaryTextColor}>
+                    Location
+                  </Text>
+                  <Text size="sm" c={primaryTextColor}>
+                    {selectedRequest.property.location}
+                  </Text>
+                </Grid.Col>
+                {(selectedRequest.property.type === "house-and-lot" ||
+                  selectedRequest.property.type === "condo") && (
+                  <>
+                    {selectedRequest.property.bedrooms &&
+                      selectedRequest.property.bedrooms > 0 && (
+                        <Grid.Col span={{ base: 12, sm: 6 }}>
+                          <Text size="xs" c={secondaryTextColor}>
+                            Bedrooms
+                          </Text>
+                          <Text size="sm" c={primaryTextColor}>
+                            {selectedRequest.property.bedrooms} Bedroom
+                            {selectedRequest.property.bedrooms > 1 ? "s" : ""}
+                          </Text>
+                        </Grid.Col>
+                      )}
+                    {selectedRequest.property.bathrooms &&
+                      selectedRequest.property.bathrooms > 0 && (
+                        <Grid.Col span={{ base: 12, sm: 6 }}>
+                          <Text size="xs" c={secondaryTextColor}>
+                            Bathrooms
+                          </Text>
+                          <Text size="sm" c={primaryTextColor}>
+                            {selectedRequest.property.bathrooms} Bathroom
+                            {selectedRequest.property.bathrooms > 1 ? "s" : ""}
+                          </Text>
+                        </Grid.Col>
+                      )}
+                    {selectedRequest.property.sqft &&
+                      selectedRequest.property.sqft > 0 && (
+                        <Grid.Col span={{ base: 12, sm: 6 }}>
+                          <Text size="xs" c={secondaryTextColor}>
+                            Square Footage
+                          </Text>
+                          <Text size="sm" c={primaryTextColor}>
+                            {selectedRequest.property.sqft} sq ft
+                          </Text>
+                        </Grid.Col>
+                      )}
+                  </>
+                )}
+              </Grid>
+            </Box>
+          )}
 
-          {/* Complete Request Modal */}
-          <Modal
-            opened={completeModalOpened}
-            onClose={closeComplete}
-            title="Complete Service Request"
-            centered
-          >
-            <LoadingOverlay visible={submitting} />
-            <Stack>
-              <Box className="bg-gray-50 rounded-lg p-4">
-                <Text size="sm" fw={500} mb="sm">
-                  Request Details
-                </Text>
-                <Grid>
-                  <Grid.Col span={6}>
-                    <Text size="xs" c="dimmed">
-                      Tenant
-                    </Text>
-                    <Text size="sm">{selectedRequest?.user_name}</Text>
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <Text size="xs" c="dimmed">
-                      Category
-                    </Text>
-                    <Text size="sm">{selectedRequest?.category}</Text>
-                  </Grid.Col>
-                </Grid>
-              </Box>
-              <NumberInput
-                label="Final Cost (₱)"
-                placeholder="Enter final cost"
-                value={finalCost}
-                onChange={setFinalCost}
-                min={0}
-                decimalScale={2}
-                required
-              />
-              <Textarea
-                label="Completion Notes"
-                placeholder="Describe work completed, parts used, etc."
-                value={completionNotes}
-                onChange={(e) => setCompletionNotes(e.currentTarget.value)}
-                autosize
-                minRows={3}
-              />
-              <Group justify="right">
-                <Button
-                  variant="outline"
-                  onClick={closeComplete}
-                  disabled={submitting}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={completeRequest} loading={submitting}>
-                  Mark as Completed
-                </Button>
-              </Group>
-            </Stack>
-          </Modal>
+          <Divider
+            style={{
+              borderColor:
+                colorScheme === "dark"
+                  ? theme.colors.dark[5]
+                  : theme.colors.gray[3],
+            }}
+          />
+
+          <Box>
+            <Text size="sm" fw={600} c={primaryTextColor} mb="xs">
+              Issue Description
+            </Text>
+            <Text size="sm" c={primaryTextColor}>
+              {selectedRequest?.description}
+            </Text>
+          </Box>
+
+          {selectedRequest?.images && selectedRequest.images.length > 0 && (
+            <Box>
+              <Text size="sm" fw={600} c={primaryTextColor} mb="xs">
+                Attached Images
+              </Text>
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                {selectedRequest.images.map((imageUrl, index) => (
+                  <MantineImage
+                    key={index}
+                    src={imageUrl}
+                    alt={`Issue image ${index + 1}`}
+                    height={180}
+                    fit="cover"
+                    radius="sm"
+                    style={{
+                      border: `1px solid ${
+                        colorScheme === "dark"
+                          ? theme.colors.dark[5]
+                          : theme.colors.gray[3]
+                      }`,
+                      boxShadow: theme.shadows.xs,
+                    }}
+                  />
+                ))}
+              </SimpleGrid>
+            </Box>
+          )}
+
+          {selectedRequest?.assignment_message && (
+            <Box>
+              <Text size="sm" fw={600} c={primaryTextColor} mb="xs">
+                Assignment Message
+              </Text>
+              <Text size="sm" c={secondaryTextColor}>
+                {selectedRequest.assignment_message}
+              </Text>
+            </Box>
+          )}
+
+          {selectedRequest?.technician_notes && (
+            <Box>
+              <Text size="sm" fw={600} c={primaryTextColor} mb="xs">
+                Technician Notes
+              </Text>
+              <Text size="sm" c={secondaryTextColor}>
+                {selectedRequest.technician_notes}
+              </Text>
+            </Box>
+          )}
+
+          {selectedRequest?.estimated_cost && (
+            <Box>
+              <Text size="sm" fw={600} c={primaryTextColor} mb="xs">
+                Estimated Cost
+              </Text>
+              <Text size="sm" c={primaryTextColor}>
+                {formatCurrency(selectedRequest.estimated_cost)}
+              </Text>
+            </Box>
+          )}
+
+          {selectedRequest?.completion_notes && (
+            <Box>
+              <Text size="sm" fw={600} c={primaryTextColor} mb="xs">
+                Completion Notes
+              </Text>
+              <Text size="sm" c={secondaryTextColor}>
+                {selectedRequest.completion_notes}
+              </Text>
+            </Box>
+          )}
+
+          {selectedRequest?.final_cost && (
+            <Box>
+              <Text size="sm" fw={600} c={primaryTextColor} mb="xs">
+                Final Cost
+              </Text>
+              <Text size="sm" c={primaryTextColor}>
+                {formatCurrency(selectedRequest.final_cost)}
+              </Text>
+            </Box>
+          )}
+
+          {selectedRequest?.payment_status && (
+            <Box>
+              <Text size="sm" fw={600} c={primaryTextColor} mb="xs">
+                Payment Status
+              </Text>
+              <Badge
+                color={
+                  selectedRequest.payment_status === "paid"
+                    ? theme.colors.green[6]
+                    : selectedRequest.payment_status === "failed"
+                    ? theme.colors.red[6]
+                    : theme.colors.yellow[6]
+                }
+                variant="filled"
+                radius="sm"
+                size="sm"
+              >
+                {selectedRequest.payment_status.toUpperCase()}
+              </Badge>
+            </Box>
+          )}
+
+          <Group justify="right">
+            <Button
+              variant="outline"
+              color={colorScheme === "dark" ? "gray.4" : "gray.6"}
+              radius="sm"
+              onClick={closeView}
+            >
+              Close
+            </Button>
+          </Group>
         </Stack>
-      </Container>
-    </div>
+      </Modal>
+
+      {/* Assign Technician Modal */}
+      <Modal
+        opened={assignModalOpened}
+        onClose={closeAssign}
+        title="Assign Technician"
+        centered
+        styles={{
+          content: {
+            backgroundColor: cardBackground,
+            borderRadius: theme.radius.md,
+          },
+          header: {
+            backgroundColor: cardBackground,
+            padding: theme.spacing.md,
+          },
+          title: {
+            color: primaryTextColor,
+            fontSize: theme.fontSizes.lg,
+            fontWeight: 600,
+          },
+        }}
+      >
+        <LoadingOverlay
+          visible={submitting}
+          overlayProps={{ radius: "sm", blur: 2 }}
+          loaderProps={{ color: theme.colors.blue[6], size: "lg" }}
+        />
+        <Stack gap="md">
+          <Box
+            p="md"
+            style={{
+              backgroundColor:
+                colorScheme === "dark"
+                  ? theme.colors.dark[8]
+                  : theme.colors.gray[0],
+              borderRadius: theme.radius.md,
+              border: `1px solid ${
+                colorScheme === "dark"
+                  ? theme.colors.dark[6]
+                  : theme.colors.gray[2]
+              }`,
+            }}
+          >
+            <Text size="sm" fw={600} c={primaryTextColor} mb="xs">
+              Request Details
+            </Text>
+            <Grid>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Text size="xs" c={secondaryTextColor}>
+                  Tenant
+                </Text>
+                <Text size="sm" c={primaryTextColor}>
+                  {selectedRequest?.user_name}
+                </Text>
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Text size="xs" c={secondaryTextColor}>
+                  Category
+                </Text>
+                <Text size="sm" c={primaryTextColor}>
+                  {selectedRequest?.category}
+                </Text>
+              </Grid.Col>
+            </Grid>
+          </Box>
+          <TextInput
+            label="Technician Name"
+            placeholder="Enter technician name"
+            value={technician}
+            onChange={(e) => setTechnician(e.currentTarget.value)}
+            required
+            radius="sm"
+            styles={{
+              label: {
+                color: primaryTextColor,
+                fontSize: theme.fontSizes.sm,
+                fontWeight: 500,
+              },
+              input: {
+                backgroundColor:
+                  colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+                color: primaryTextColor,
+                border: `1px solid ${
+                  colorScheme === "dark"
+                    ? theme.colors.dark[4]
+                    : theme.colors.gray[3]
+                }`,
+              },
+            }}
+          />
+          <TextInput
+            label="Scheduled Date"
+            type="date"
+            placeholder="Select date"
+            value={scheduledDate}
+            onChange={(e) => setScheduledDate(e.currentTarget.value)}
+            required
+            radius="sm"
+            styles={{
+              label: {
+                color: primaryTextColor,
+                fontSize: theme.fontSizes.sm,
+                fontWeight: 500,
+              },
+              input: {
+                backgroundColor:
+                  colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+                color: primaryTextColor,
+                border: `1px solid ${
+                  colorScheme === "dark"
+                    ? theme.colors.dark[4]
+                    : theme.colors.gray[3]
+                }`,
+              },
+            }}
+          />
+          <Textarea
+            label="Assignment Message"
+            placeholder="e.g., Please bear with it, I already sent a technician"
+            value={assignmentMessage}
+            onChange={(e) => setAssignmentMessage(e.currentTarget.value)}
+            autosize
+            minRows={2}
+            required
+            radius="sm"
+            styles={{
+              label: {
+                color: primaryTextColor,
+                fontSize: theme.fontSizes.sm,
+                fontWeight: 500,
+              },
+              input: {
+                backgroundColor:
+                  colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+                color: primaryTextColor,
+                border: `1px solid ${
+                  colorScheme === "dark"
+                    ? theme.colors.dark[4]
+                    : theme.colors.gray[3]
+                }`,
+              },
+            }}
+          />
+          <Group justify="right">
+            <Button
+              variant="outline"
+              color={colorScheme === "dark" ? "gray.4" : "gray.6"}
+              radius="sm"
+              onClick={closeAssign}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="gradient"
+              gradient={{
+                from: theme.colors.blue[5],
+                to: theme.colors.blue[7],
+                deg: 45,
+              }}
+              radius="sm"
+              onClick={assignTechnician}
+              loading={submitting}
+            >
+              Assign Technician
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Provide Estimate Modal */}
+      <Modal
+        opened={estimateModalOpened}
+        onClose={closeEstimate}
+        title="Provide Cost Estimate"
+        centered
+        styles={{
+          content: {
+            backgroundColor: cardBackground,
+            borderRadius: theme.radius.md,
+          },
+          header: {
+            backgroundColor: cardBackground,
+            padding: theme.spacing.md,
+          },
+          title: {
+            color: primaryTextColor,
+            fontSize: theme.fontSizes.lg,
+            fontWeight: 600,
+          },
+        }}
+      >
+        <LoadingOverlay
+          visible={submitting}
+          overlayProps={{ radius: "sm", blur: 2 }}
+          loaderProps={{ color: theme.colors.blue[6], size: "lg" }}
+        />
+        <Stack gap="md">
+          <Box
+            p="md"
+            style={{
+              backgroundColor:
+                colorScheme === "dark"
+                  ? theme.colors.dark[8]
+                  : theme.colors.gray[0],
+              borderRadius: theme.radius.md,
+              border: `1px solid ${
+                colorScheme === "dark"
+                  ? theme.colors.dark[6]
+                  : theme.colors.gray[2]
+              }`,
+            }}
+          >
+            <Text size="sm" fw={600} c={primaryTextColor} mb="xs">
+              Request Details
+            </Text>
+            <Grid>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Text size="xs" c={secondaryTextColor}>
+                  Tenant
+                </Text>
+                <Text size="sm" c={primaryTextColor}>
+                  {selectedRequest?.user_name}
+                </Text>
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Text size="xs" c={secondaryTextColor}>
+                  Category
+                </Text>
+                <Text size="sm" c={primaryTextColor}>
+                  {selectedRequest?.category}
+                </Text>
+              </Grid.Col>
+            </Grid>
+          </Box>
+          <NumberInput
+            label="Estimated Cost (₱)"
+            placeholder="Enter estimated cost"
+            value={estimatedCost}
+            onChange={setEstimatedCost}
+            min={0}
+            decimalScale={2}
+            thousandSeparator=","
+            required
+            radius="sm"
+            styles={{
+              label: {
+                color: primaryTextColor,
+                fontSize: theme.fontSizes.sm,
+                fontWeight: 500,
+              },
+              input: {
+                backgroundColor:
+                  colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+                color: primaryTextColor,
+                border: `1px solid ${
+                  colorScheme === "dark"
+                    ? theme.colors.dark[4]
+                    : theme.colors.gray[3]
+                }`,
+              },
+            }}
+          />
+          <Textarea
+            label="Estimate Notes"
+            placeholder="Explanation of costs, parts needed, etc."
+            value={estimateNotes}
+            onChange={(e) => setEstimateNotes(e.currentTarget.value)}
+            autosize
+            minRows={3}
+            radius="sm"
+            styles={{
+              label: {
+                color: primaryTextColor,
+                fontSize: theme.fontSizes.sm,
+                fontWeight: 500,
+              },
+              input: {
+                backgroundColor:
+                  colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+                color: primaryTextColor,
+                border: `1px solid ${
+                  colorScheme === "dark"
+                    ? theme.colors.dark[4]
+                    : theme.colors.gray[3]
+                }`,
+              },
+            }}
+          />
+          <Group justify="right">
+            <Button
+              variant="outline"
+              color={colorScheme === "dark" ? "gray.4" : "gray.6"}
+              radius="sm"
+              onClick={closeEstimate}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="gradient"
+              gradient={{
+                from: theme.colors.blue[5],
+                to: theme.colors.blue[7],
+                deg: 45,
+              }}
+              radius="sm"
+              onClick={provideEstimate}
+              loading={submitting}
+            >
+              Send Estimate
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Complete Request Modal */}
+      <Modal
+        opened={completeModalOpened}
+        onClose={closeComplete}
+        title="Complete Service Request"
+        centered
+        styles={{
+          content: {
+            backgroundColor: cardBackground,
+            borderRadius: theme.radius.md,
+          },
+          header: {
+            backgroundColor: cardBackground,
+            padding: theme.spacing.md,
+          },
+          title: {
+            color: primaryTextColor,
+            fontSize: theme.fontSizes.lg,
+            fontWeight: 600,
+          },
+        }}
+      >
+        <LoadingOverlay
+          visible={submitting}
+          overlayProps={{ radius: "sm", blur: 2 }}
+          loaderProps={{ color: theme.colors.blue[6], size: "lg" }}
+        />
+        <Stack gap="md">
+          <Box
+            p="md"
+            style={{
+              backgroundColor:
+                colorScheme === "dark"
+                  ? theme.colors.dark[8]
+                  : theme.colors.gray[0],
+              borderRadius: theme.radius.md,
+              border: `1px solid ${
+                colorScheme === "dark"
+                  ? theme.colors.dark[6]
+                  : theme.colors.gray[2]
+              }`,
+            }}
+          >
+            <Text size="sm" fw={600} c={primaryTextColor} mb="xs">
+              Request Details
+            </Text>
+            <Grid>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Text size="xs" c={secondaryTextColor}>
+                  Tenant
+                </Text>
+                <Text size="sm" c={primaryTextColor}>
+                  {selectedRequest?.user_name}
+                </Text>
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Text size="xs" c={secondaryTextColor}>
+                  Category
+                </Text>
+                <Text size="sm" c={primaryTextColor}>
+                  {selectedRequest?.category}
+                </Text>
+              </Grid.Col>
+            </Grid>
+          </Box>
+          <NumberInput
+            label="Final Cost (₱)"
+            placeholder="Enter final cost"
+            value={finalCost}
+            onChange={setFinalCost}
+            min={0}
+            decimalScale={2}
+            thousandSeparator=","
+            required
+            radius="sm"
+            styles={{
+              label: {
+                color: primaryTextColor,
+                fontSize: theme.fontSizes.sm,
+                fontWeight: 500,
+              },
+              input: {
+                backgroundColor:
+                  colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+                color: primaryTextColor,
+                border: `1px solid ${
+                  colorScheme === "dark"
+                    ? theme.colors.dark[4]
+                    : theme.colors.gray[3]
+                }`,
+              },
+            }}
+          />
+          <Textarea
+            label="Completion Notes"
+            placeholder="Describe work completed, parts used, etc."
+            value={completionNotes}
+            onChange={(e) => setCompletionNotes(e.currentTarget.value)}
+            autosize
+            minRows={3}
+            radius="sm"
+            styles={{
+              label: {
+                color: primaryTextColor,
+                fontSize: theme.fontSizes.sm,
+                fontWeight: 500,
+              },
+              input: {
+                backgroundColor:
+                  colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+                color: primaryTextColor,
+                border: `1px solid ${
+                  colorScheme === "dark"
+                    ? theme.colors.dark[4]
+                    : theme.colors.gray[3]
+                }`,
+              },
+            }}
+          />
+          <Group justify="right">
+            <Button
+              variant="outline"
+              color={colorScheme === "dark" ? "gray.4" : "gray.6"}
+              radius="sm"
+              onClick={closeComplete}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="gradient"
+              gradient={{
+                from: theme.colors.green[5],
+                to: theme.colors.green[7],
+                deg: 45,
+              }}
+              radius="sm"
+              onClick={completeRequest}
+              loading={submitting}
+            >
+              Mark as Completed
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </Stack>
   );
 };
 

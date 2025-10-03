@@ -430,11 +430,7 @@ const TenantsSection = () => {
           setShowEditModal(false);
           setFormErrors({});
         }}
-        title={
-          <Title order={2}>
-            {editingTenant ? "Edit Tenant" : "Create Tenant"}
-          </Title>
-        }
+        title={<>{editingTenant ? "Edit Tenant" : "Create Tenant"}</>}
         size="lg"
       >
         <Stack>
