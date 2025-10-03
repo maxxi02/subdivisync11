@@ -5,7 +5,6 @@ import {
   MantineProvider,
   ActionIcon,
   useMantineColorScheme,
-  ColorSchemeScript,
 } from "@mantine/core";
 import { Toaster } from "react-hot-toast";
 import { IconMoonStars, IconSun } from "@tabler/icons-react";

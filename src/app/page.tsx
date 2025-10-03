@@ -1,9 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useState, useCallback } from "react";
+import {
+  Container,
+  Card,
+  CardSection,
+  Badge,
+  Title,
+  Text,
+  Stack,
+  Group,
+  Button as MantineButton,
+  Image,
+  Center,
+  Paper,
+} from "@mantine/core";
 import {
   Home,
   Building2,
@@ -12,11 +23,13 @@ import {
   Shield,
   Globe,
   ArrowRight,
-  ArrowLeftIcon,
-  ArrowRightIcon,
+  ArrowLeft,
+  ArrowRight as ArrowRightIcon,
 } from "lucide-react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useMantineTheme, useMantineColorScheme, rgba } from "@mantine/core";
+import { ToggleColorScheme } from "./LayoutWrapper";
+import Link from "next/link";
 
 interface Announcement {
   _id: string;
@@ -32,94 +45,205 @@ interface Announcement {
 }
 
 const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const [currentIndex, setCurrentIndex] = useState(0);
   const images = announcement.images;
 
-  const prev = () =>
-    setCurrentIndex((i) => (i === 0 ? images.length - 1 : i - 1));
-  const next = () =>
-    setCurrentIndex((i) => (i === images.length - 1 ? 0 : i + 1));
+  const prev = useCallback(
+    () => setCurrentIndex((i) => (i === 0 ? images.length - 1 : i - 1)),
+    [images.length]
+  );
+  const next = useCallback(
+    () => setCurrentIndex((i) => (i === images.length - 1 ? 0 : i + 1)),
+    [images.length]
+  );
 
   const priorityColor = {
-    high: "bg-red-500",
-    medium: "bg-yellow-500",
-    low: "bg-green-500",
+    high: theme.colors.red[6],
+    medium: theme.colors.yellow[6],
+    low: theme.colors.green[6],
   }[announcement.priority];
 
+  const getDefaultShadow = () => {
+    const baseShadow = "0 1px 3px";
+    const opacity = colorScheme === "dark" ? 0.2 : 0.12;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-      <div className="relative">
-        {images.length === 0 ? (
-          <div className="w-full h-48 bg-purple-100" />
-        ) : (
-          <>
-            <div className="overflow-hidden w-full h-80">
-              <div
-                className="flex transition-transform duration-300"
-                style={{ transform: `translateX(-${currentIndex * 100}%)` }}
-              >
-                {images.map((img) => (
-                  <Image
-                    width={500}
-                    height={500}
-                    key={img.publicId}
-                    src={img.url}
-                    alt={announcement.title}
-                    className="w-full h-80 object-cover flex-shrink-0"
-                  />
-                ))}
+    <Card
+      shadow="sm"
+      radius="md"
+      withBorder
+      style={{
+        overflow: "hidden",
+        backgroundColor:
+          colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+        transition: "box-shadow 0.3s",
+        "&:hover": { boxShadow: theme.shadows.lg },
+      }}
+    >
+      <CardSection>
+        <div style={{ position: "relative" }}>
+          {images.length === 0 ? (
+            <div
+              style={{
+                width: "100%",
+                height: 192,
+                backgroundColor:
+                  colorScheme === "dark"
+                    ? theme.colors.purple[9]
+                    : theme.colors.purple[1],
+              }}
+            />
+          ) : (
+            <>
+              <div style={{ overflow: "hidden", width: "100%", height: 320 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    transition: "transform 0.3s",
+                    transform: `translateX(-${currentIndex * 100}%)`,
+                  }}
+                >
+                  {images.map((img) => (
+                    <Image
+                      width={500}
+                      height={320}
+                      key={img.publicId}
+                      src={img.url}
+                      alt={announcement.title}
+                      style={{
+                        width: "100%",
+                        height: 320,
+                        objectFit: "cover",
+                        flexShrink: 0,
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-            {images.length > 1 && (
-              <>
-                <button
-                  onClick={prev}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/70 p-1 rounded-full hover:bg-white/90"
-                >
-                  <ArrowLeftIcon />
-                </button>
-                <button
-                  onClick={next}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/70 p-1 rounded-full hover:bg-white/90"
-                >
-                  <ArrowRightIcon />
-                </button>
-              </>
-            )}
-          </>
-        )}
-        <Badge className="absolute top-3 left-3 bg-blue-600 text-white">
-          {announcement.category}
-        </Badge>
-        <Badge className={`absolute top-3 right-3 ${priorityColor} text-white`}>
-          {announcement.priority}
-        </Badge>
-      </div>
-      <CardContent className="p-4">
-        <h3 className="font-semibold text-gray-900 mb-2">
-          {announcement.title}
-        </h3>
-        <p className="text-gray-500 text-sm leading-5 mb-2">
-          {announcement.content}
-        </p>
-        <div className="text-sm text-gray-400">
-          Posted on {new Date(announcement.scheduledDate).toLocaleDateString()}
+              {images.length > 1 && (
+                <>
+                  <MantineButton
+                    variant="filled"
+                    color="gray"
+                    size="xs"
+                    style={{
+                      position: "absolute",
+                      left: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      backgroundColor:
+                        colorScheme === "dark"
+                          ? "rgba(255, 255, 255, 0.3)"
+                          : "rgba(255, 255, 255, 0.7)",
+                      "&:hover": {
+                        backgroundColor: "rgba(255, 255, 255, 0.9)",
+                      },
+                    }}
+                    onClick={prev}
+                  >
+                    <ArrowLeft size={16} />
+                  </MantineButton>
+                  <MantineButton
+                    variant="filled"
+                    color="gray"
+                    size="xs"
+                    style={{
+                      position: "absolute",
+                      right: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      backgroundColor:
+                        colorScheme === "dark"
+                          ? "rgba(255, 255, 255, 0.3)"
+                          : "rgba(255, 255, 255, 0.7)",
+                      "&:hover": {
+                        backgroundColor: "rgba(255, 255, 255, 0.9)",
+                      },
+                    }}
+                    onClick={next}
+                  >
+                    <ArrowRightIcon size={16} />
+                  </MantineButton>
+                </>
+              )}
+            </>
+          )}
+          <Badge
+            color="blue"
+            style={{ position: "absolute", top: 12, left: 12 }}
+          >
+            {announcement.category}
+          </Badge>
+          <Badge
+            color={priorityColor}
+            style={{ position: "absolute", top: 12, right: 12 }}
+          >
+            {announcement.priority}
+          </Badge>
         </div>
-      </CardContent>
+      </CardSection>
+      <CardSection style={{ padding: 16 }}>
+        <Title
+          order={3}
+          style={{
+            marginBottom: 8,
+            color: colorScheme === "dark" ? theme.white : theme.colors.gray[9],
+          }}
+        >
+          {announcement.title}
+        </Title>
+        <Text
+          size="sm"
+          style={{
+            color:
+              colorScheme === "dark"
+                ? theme.colors.gray[4]
+                : theme.colors.gray[5],
+            marginBottom: 8,
+          }}
+        >
+          {announcement.content}
+        </Text>
+        <Text
+          size="sm"
+          style={{
+            color:
+              colorScheme === "dark"
+                ? theme.colors.gray[5]
+                : theme.colors.gray[4],
+          }}
+        >
+          Posted on {new Date(announcement.scheduledDate).toLocaleDateString()}
+        </Text>
+      </CardSection>
     </Card>
   );
 };
 
 export default function HomePage() {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const router = useRouter();
+
+  const primaryTextColor = colorScheme === "dark" ? "white" : "dark";
+  const getDefaultShadow = () => {
+    const baseShadow = "0 1px 3px";
+    const opacity = colorScheme === "dark" ? 0.2 : 0.12;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
         const response = await fetch("/api/announcements");
         const data = await response.json();
         if (data.success) {
-          const currentDate = new Date("2025-09-28");
+          const currentDate = new Date(); // Use current date (October 3, 2025)
           const filtered = data.announcements.filter(
             (ann: Announcement) => new Date(ann.scheduledDate) <= currentDate
           );
@@ -165,357 +289,702 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div
+      style={{
+        minHeight: "100vh",
+        backgroundColor:
+          colorScheme === "dark" ? theme.colors.dark[7] : theme.white,
+      }}
+    >
       {/* Header */}
-      <header className="border-b bg-white sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Home className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-gray-900">
-                Subdivisync{" "}
-              </span>
-            </div>
-
-            <nav className="hidden md:flex items-center space-x-8">
-              <a
-                href="#"
-                className="text-gray-900 font-medium hover:text-blue-600"
+      <header
+        style={{
+          borderBottom: `1px solid ${
+            colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[2]
+          }`,
+          backgroundColor:
+            colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+        }}
+      >
+        <Container size="lg" py="sm">
+          <Group justify="space-between" align="center">
+            <Group gap="xs">
+              <Paper
+                radius="md"
+                style={{
+                  width: 32,
+                  height: 32,
+                  backgroundColor: theme.colors.blue[6],
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
               >
-                Home
-              </a>
-              <a href="#" className="text-gray-600 hover:text-blue-600">
-                For Rent
-              </a>
-              <a href="#" className="text-gray-600 hover:text-blue-600">
-                For Buy
-              </a>
-              <a href="#" className="text-gray-600 hover:text-blue-600">
-                Services
-              </a>
-              <a href="#" className="text-gray-600 hover:text-blue-600">
-                About Us
-              </a>
-            </nav>
-
-            <div className="flex items-center space-x-3">
-              <Button
-                variant="ghost"
-                className="text-gray-600"
+                <Home size={20} color={theme.white} />
+              </Paper>
+              <Title
+                order={4}
+                style={{
+                  color:
+                    colorScheme === "dark" ? theme.white : theme.colors.gray[9],
+                }}
+              >
+                Subdivisync
+              </Title>
+            </Group>
+   
+            <Group gap="sm">
+              <MantineButton
+                variant="subtle"
+                color={colorScheme === "dark" ? "gray.4" : "gray.6"}
                 onClick={() => router.push("/login")}
               >
                 Log In
-              </Button>
-            </div>
-          </div>
-        </div>
+              </MantineButton>
+              <ToggleColorScheme />
+            </Group>
+          </Group>
+        </Container>
       </header>
 
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-gray-50 to-white py-20">
-        <div className="container mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8">
-              <div className="space-y-6">
-                <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight text-balance">
+      <section
+        style={{
+          background:
+            colorScheme === "dark"
+              ? `linear-gradient(to bottom right, ${theme.colors.dark[5]}, ${theme.colors.dark[7]})`
+              : `linear-gradient(to bottom right, ${theme.colors.gray[0]}, ${theme.white})`,
+          padding: "5rem 0",
+        }}
+      >
+        <Container size="lg">
+          <Group
+            align="center"
+            gap="xl"
+            wrap="nowrap"
+            style={{ flexDirection: "row" }}
+          >
+            <Stack gap="xl" style={{ flex: 1 }}>
+              <Stack gap="md">
+                <Title
+                  order={1}
+                  style={{
+                    fontSize: "clamp(2.5rem, 5vw, 3.75rem)",
+                    fontWeight: 700,
+                    color:
+                      colorScheme === "dark"
+                        ? theme.white
+                        : theme.colors.gray[9],
+                    lineHeight: 1.2,
+                  }}
+                >
                   Find a Perfect Property to Suit Your Lifestyle
-                </h1>
-                <p className="text-lg text-gray-600 leading-relaxed">
+                </Title>
+                <Text
+                  size="lg"
+                  style={{
+                    color:
+                      colorScheme === "dark"
+                        ? theme.colors.gray[4]
+                        : theme.colors.gray[6],
+                    lineHeight: 1.6,
+                  }}
+                >
                   Seamlessly blend life and living. Discover a property that
                   complements your rhythm, turning every moment into a
                   reflection of your lifestyle.
-                </p>
-              </div>
-
-              {/* Property Types */}
-              <div className="flex flex-wrap gap-4">
+                </Text>
+              </Stack>
+              <Group gap="md" wrap="wrap">
                 {propertyTypes.map((type, index) => (
-                  <div
+                  <Paper
                     key={index}
-                    className="flex items-center space-x-3 bg-white p-4 rounded-lg shadow-sm border"
+                    shadow="sm"
+                    radius="md"
+                    p="md"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      backgroundColor:
+                        colorScheme === "dark"
+                          ? theme.colors.dark[6]
+                          : theme.white,
+                      border: `1px solid ${
+                        colorScheme === "dark"
+                          ? theme.colors.dark[4]
+                          : theme.colors.gray[2]
+                      }`,
+                    }}
                   >
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <type.icon className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-900">
+                    <Paper
+                      radius="md"
+                      style={{
+                        width: 40,
+                        height: 40,
+                        backgroundColor: theme.colors.blue[1],
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <type.icon size={20} color={theme.colors.blue[6]} />
+                    </Paper>
+                    <Stack gap={0}>
+                      <Text
+                        style={{
+                          fontWeight: 600,
+                          color:
+                            colorScheme === "dark"
+                              ? theme.white
+                              : theme.colors.gray[9],
+                        }}
+                      >
                         {type.label}
-                      </div>
-                      <div className="text-sm text-gray-500">{type.count}</div>
-                    </div>
-                  </div>
+                      </Text>
+                      <Text
+                        size="sm"
+                        style={{
+                          color:
+                            colorScheme === "dark"
+                              ? theme.colors.gray[4]
+                              : theme.colors.gray[5],
+                        }}
+                      >
+                        {type.count}
+                      </Text>
+                    </Stack>
+                  </Paper>
                 ))}
-              </div>
-
-              <div className="text-center">
-                <p className="text-gray-500 mb-2">Scroll down to explore</p>
-                <ChevronDown className="w-5 h-5 text-gray-400 mx-auto animate-bounce" />
-              </div>
-            </div>
-
-            <div className="relative">
+              </Group>
+              <Center>
+                <Stack align="center" gap="xs">
+                  <Text
+                    style={{
+                      color:
+                        colorScheme === "dark"
+                          ? theme.colors.gray[4]
+                          : theme.colors.gray[5],
+                    }}
+                  >
+                    Scroll down to explore
+                  </Text>
+                  <ChevronDown
+                    size={20}
+                    style={{
+                      color:
+                        colorScheme === "dark"
+                          ? theme.colors.gray[4]
+                          : theme.colors.gray[4],
+                      animation: "bounce 1s infinite",
+                    }}
+                  />
+                </Stack>
+              </Center>
+            </Stack>
+            <div style={{ flex: 1, maxWidth: 500 }}>
               <Image
                 width={500}
                 height={500}
                 src="/modern-house.jpg"
                 alt="Modern luxury property"
-                className="w-full h-auto rounded-2xl shadow-2xl"
+                style={{
+                  width: "100%",
+                  height: "auto",
+                  borderRadius: theme.radius.xl,
+                  boxShadow: getDefaultShadow(),
+                }}
               />
             </div>
-          </div>
-        </div>
+          </Group>
+        </Container>
       </section>
 
       {/* Announcements Section */}
-      <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">Announcements</h2>
-            <Button
-              variant="ghost"
-              className="text-blue-600 hover:text-blue-700"
+      <section
+        style={{
+          padding: "4rem 0",
+          backgroundColor:
+            colorScheme === "dark"
+              ? theme.colors.dark[8]
+              : theme.colors.gray[0],
+        }}
+      >
+        <Container size="lg">
+          <Group justify="space-between" align="center" mb="lg">
+            <Title
+              order={2}
+              style={{
+                color:
+                  colorScheme === "dark" ? theme.white : theme.colors.gray[9],
+              }}
             >
-              See More <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              Announcements
+            </Title>
+            <MantineButton
+              variant="subtle"
+              color="blue"
+              rightSection={<ArrowRight size={16} />}
+            >
+              <Link href={"/announcements"}>See More</Link>
+            </MantineButton>
+          </Group>
+          <Group
+            gap="md"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+            }}
+          >
             {announcements.map((announcement) => (
               <AnnouncementCard
                 key={announcement._id}
                 announcement={announcement}
               />
             ))}
-          </div>
-        </div>
+          </Group>
+        </Container>
       </section>
 
-      {/* Popular Properties */}
-      {/* <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">
-              Popular Property
-            </h2>
-            <Button
-              variant="ghost"
-              className="text-blue-600 hover:text-blue-700"
-            >
-              See More <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {featuredProperties.map((property) => (
-              <Card
-                key={property.id}
-                className="overflow-hidden hover:shadow-lg transition-shadow"
-              >
-                <div className="relative">
-                  <img
-                    src={property.image}
-                    alt={property.title}
-                    className="w-full h-48 object-cover"
-                  />
-                  <Badge className="absolute top-3 left-3 bg-blue-600 text-white">
-                    {property.type}
-                  </Badge>
-                </div>
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold text-gray-900">
-                      {property.title}
-                    </h3>
-                    <span className="text-lg font-bold text-blue-600">
-                      {property.price}
-                    </span>
-                  </div>
-                  <div className="flex items-center text-gray-500 text-sm">
-                    <MapPin className="w-4 h-4 mr-1" />
-                    {property.location}
-                  </div>
-                  <div className="flex justify-between items-center mt-4">
-                    <div className="flex items-center">
-                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <span className="text-sm text-gray-600 ml-1">4.8</span>
-                    </div>
-                    <Button size="sm" variant="outline">
-                      View Details
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section> */}
-
       {/* Statistics Section */}
-      <section className="py-16 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6">
-              <h2 className="text-4xl font-bold text-gray-900 text-balance">
+      <section
+        style={{
+          padding: "4rem 0",
+          backgroundColor:
+            colorScheme === "dark" ? theme.colors.dark[7] : theme.white,
+        }}
+      >
+        <Container size="lg">
+          <Group
+            align="center"
+            gap="xl"
+            wrap="nowrap"
+            style={{ flexDirection: "row" }}
+          >
+            <Stack gap="md" style={{ flex: 1 }}>
+              <Title
+                order={2}
+                style={{
+                  fontSize: "clamp(2rem, 4vw, 2.5rem)",
+                  fontWeight: 700,
+                  color:
+                    colorScheme === "dark" ? theme.white : theme.colors.gray[9],
+                }}
+              >
                 Take a big step into the future of living
-              </h2>
-              <p className="text-gray-600 leading-relaxed">
+              </Title>
+              <Text
+                size="md"
+                style={{
+                  color:
+                    colorScheme === "dark"
+                      ? theme.colors.gray[4]
+                      : theme.colors.gray[6],
+                  lineHeight: 1.6,
+                }}
+              >
                 Our approach goes beyond transactions through transparent
                 dealings, ethical practices, and a genuine commitment to client
                 satisfaction. We prioritize building lasting relationships over
                 quick sales ventures. With a rich legacy of excellence, we have
                 consistently surpassed industry standards to redefine the art of
                 property acquisition and sales.
-              </p>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                Learn More <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
+              </Text>
+              <MantineButton
+                color="blue"
+                rightSection={<ArrowRight size={16} />}
+              >
+                Learn More
+              </MantineButton>
+            </Stack>
+            <div
+              style={{
+                flex: 1,
+                display: "grid",
+                gridTemplateColumns: "repeat(2, 1fr)",
+                gap: 24,
+              }}
+            >
+              <Card
+                shadow="sm"
+                radius="md"
+                style={{
+                  textAlign: "center",
+                  backgroundColor: theme.colors.blue[6],
+                  color: theme.white,
+                }}
+              >
+                <CardSection p="lg">
+                  <Text size="xl" fw={700} style={{ marginBottom: 8 }}>
+                    3500+
+                  </Text>
+                  <Text size="sm" style={{ color: theme.colors.blue[1] }}>
+                    Happy Customer
+                  </Text>
+                </CardSection>
+              </Card>
+              <Card
+                shadow="sm"
+                radius="md"
+                style={{
+                  textAlign: "center",
+                  backgroundColor:
+                    colorScheme === "dark"
+                      ? theme.colors.dark[6]
+                      : theme.colors.gray[9],
+                  color: theme.white,
+                }}
+              >
+                <CardSection p="lg">
+                  <Text size="xl" fw={700} style={{ marginBottom: 8 }}>
+                    15+
+                  </Text>
+                  <Text size="sm" style={{ color: theme.colors.gray[3] }}>
+                    Years Experience
+                  </Text>
+                </CardSection>
+              </Card>
+              <Card
+                shadow="sm"
+                radius="md"
+                withBorder
+                style={{
+                  textAlign: "center",
+                  backgroundColor:
+                    colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+                }}
+              >
+                <CardSection p="lg">
+                  <Text
+                    size="xl"
+                    fw={700}
+                    style={{
+                      marginBottom: 8,
+                      color:
+                        colorScheme === "dark"
+                          ? theme.white
+                          : theme.colors.gray[9],
+                    }}
+                  >
+                    10,000+
+                  </Text>
+                  <Text
+                    size="sm"
+                    style={{
+                      color:
+                        colorScheme === "dark"
+                          ? theme.colors.gray[4]
+                          : theme.colors.gray[6],
+                    }}
+                  >
+                    Property Ready
+                  </Text>
+                </CardSection>
+              </Card>
+              <Card
+                shadow="sm"
+                radius="md"
+                withBorder
+                style={{
+                  textAlign: "center",
+                  backgroundColor:
+                    colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+                }}
+              >
+                <CardSection p="lg">
+                  <Text
+                    size="xl"
+                    fw={700}
+                    style={{
+                      marginBottom: 8,
+                      color:
+                        colorScheme === "dark"
+                          ? theme.white
+                          : theme.colors.gray[9],
+                    }}
+                  >
+                    500+
+                  </Text>
+                  <Text
+                    size="sm"
+                    style={{
+                      color:
+                        colorScheme === "dark"
+                          ? theme.colors.gray[4]
+                          : theme.colors.gray[6],
+                    }}
+                  >
+                    Financing Assistance
+                  </Text>
+                </CardSection>
+              </Card>
             </div>
-
-            <div className="grid grid-cols-2 gap-6">
-              <Card className="p-6 text-center bg-blue-600 text-white">
-                <div className="text-3xl font-bold mb-2">3500+</div>
-                <div className="text-blue-100">Happy Customer</div>
-              </Card>
-              <Card className="p-6 text-center bg-gray-900 text-white">
-                <div className="text-3xl font-bold mb-2">15+</div>
-                <div className="text-gray-300">Years Experience</div>
-              </Card>
-              <Card className="p-6 text-center border-2 border-gray-200">
-                <div className="text-3xl font-bold mb-2 text-gray-900">
-                  10,000+
-                </div>
-                <div className="text-gray-600">Property Ready</div>
-              </Card>
-              <Card className="p-6 text-center border-2 border-gray-200">
-                <div className="text-3xl font-bold mb-2 text-gray-900">
-                  500+
-                </div>
-                <div className="text-gray-600">Financing Assistance</div>
-              </Card>
-            </div>
-          </div>
-        </div>
+          </Group>
+        </Container>
       </section>
 
       {/* Differentiators Section */}
-      <section className="py-16 bg-gray-900 text-white">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">
+      <section
+        style={{
+          padding: "4rem 0",
+          backgroundColor:
+            colorScheme === "dark"
+              ? theme.colors.dark[6]
+              : theme.colors.gray[9],
+        }}
+      >
+        <Container size="lg">
+          <Stack align="center" gap="md" mb="xl">
+            <Title order={2} style={{ color: theme.white }}>
               What are Our Differentiation?
-            </h2>
-            <p className="text-gray-300 max-w-2xl mx-auto">
-              Our properties has been designed with attention to every detail,
+            </Title>
+            <Text
+              size="md"
+              style={{
+                color: theme.colors.gray[3],
+                maxWidth: 672,
+                textAlign: "center",
+              }}
+            >
+              Our properties have been designed with attention to every detail,
               both commercial and client.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            </Text>
+          </Stack>
+          <Group
+            gap="lg"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+            }}
+          >
             {differentiators.map((item, index) => (
-              <Card key={index} className="bg-gray-800 border-gray-700 p-6">
-                <CardContent className="p-0">
-                  <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
-                    <item.icon className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-white mb-3">
+              <Card
+                key={index}
+                shadow="sm"
+                radius="md"
+                withBorder
+                style={{
+                  backgroundColor:
+                    colorScheme === "dark"
+                      ? theme.colors.dark[5]
+                      : theme.colors.gray[8],
+                  borderColor:
+                    colorScheme === "dark"
+                      ? theme.colors.dark[4]
+                      : theme.colors.gray[7],
+                }}
+              >
+                <CardSection p="md">
+                  <Paper
+                    radius="md"
+                    style={{
+                      width: 48,
+                      height: 48,
+                      backgroundColor: theme.colors.blue[6],
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: 16,
+                    }}
+                  >
+                    <item.icon size={24} color={theme.white} />
+                  </Paper>
+                  <Title
+                    order={3}
+                    style={{ marginBottom: 12, color: theme.white }}
+                  >
                     {item.title}
-                  </h3>
-                  <p className="text-gray-300 leading-relaxed">
+                  </Title>
+                  <Text
+                    size="sm"
+                    style={{ color: theme.colors.gray[3], lineHeight: 1.6 }}
+                  >
                     {item.description}
-                  </p>
-                </CardContent>
+                  </Text>
+                </CardSection>
               </Card>
             ))}
-          </div>
-        </div>
+          </Group>
+        </Container>
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Home className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-xl font-bold">Subdivisync</span>
-              </div>
-              <p className="text-gray-400">
+      <footer
+        style={{
+          backgroundColor:
+            colorScheme === "dark"
+              ? theme.colors.dark[6]
+              : theme.colors.gray[9],
+          padding: "3rem 0",
+          color: theme.white,
+        }}
+      >
+        <Container size="lg">
+          <Group
+            gap="xl"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            }}
+          >
+            <Stack gap="md">
+              <Group gap="xs">
+                <Paper
+                  radius="md"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    backgroundColor: theme.colors.blue[6],
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Home size={20} color={theme.white} />
+                </Paper>
+                <Title order={4} style={{ color: theme.white }}>
+                  Subdivisync
+                </Title>
+              </Group>
+              <Text size="sm" style={{ color: theme.colors.gray[4] }}>
                 Your trusted partner in finding the perfect property that suits
                 your lifestyle.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Quick Links</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li>
-                  <a href="#" className="hover:text-white">
-                    Home
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-white">
-                    Properties
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-white">
-                    Services
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-white">
-                    About Us
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Services</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li>
-                  <a href="#" className="hover:text-white">
-                    Buy Property
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-white">
-                    Rent Property
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-white">
-                    Property Management
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-white">
-                    Investment
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Contact</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li>123 Real Estate St.</li>
-                <li>City, State 12345</li>
-                <li>Phone: (555) 123-4567</li>
-                <li>Email: info@Subdivisync.com</li>
-              </ul>
-            </div>
+              </Text>
+            </Stack>
+            <Stack gap="md">
+              <Title order={4} style={{ color: theme.white }}>
+                Quick Links
+              </Title>
+              <Stack gap="xs">
+                <Text
+                  component="a"
+                  href="#"
+                  style={{
+                    color: theme.colors.gray[4],
+                    "&:hover": { color: theme.white },
+                  }}
+                >
+                  Home
+                </Text>
+                <Text
+                  component="a"
+                  href="#"
+                  style={{
+                    color: theme.colors.gray[4],
+                    "&:hover": { color: theme.white },
+                  }}
+                >
+                  Properties
+                </Text>
+                <Text
+                  component="a"
+                  href="#"
+                  style={{
+                    color: theme.colors.gray[4],
+                    "&:hover": { color: theme.white },
+                  }}
+                >
+                  Services
+                </Text>
+                <Text
+                  component="a"
+                  href="#"
+                  style={{
+                    color: theme.colors.gray[4],
+                    "&:hover": { color: theme.white },
+                  }}
+                >
+                  About Us
+                </Text>
+              </Stack>
+            </Stack>
+            <Stack gap="md">
+              <Title order={4} style={{ color: theme.white }}>
+                Services
+              </Title>
+              <Stack gap="xs">
+                <Text
+                  component="a"
+                  href="#"
+                  style={{
+                    color: theme.colors.gray[4],
+                    "&:hover": { color: theme.white },
+                  }}
+                >
+                  Buy Property
+                </Text>
+                <Text
+                  component="a"
+                  href="#"
+                  style={{
+                    color: theme.colors.gray[4],
+                    "&:hover": { color: theme.white },
+                  }}
+                >
+                  Rent Property
+                </Text>
+                <Text
+                  component="a"
+                  href="#"
+                  style={{
+                    color: theme.colors.gray[4],
+                    "&:hover": { color: theme.white },
+                  }}
+                >
+                  Property Management
+                </Text>
+                <Text
+                  component="a"
+                  href="#"
+                  style={{
+                    color: theme.colors.gray[4],
+                    "&:hover": { color: theme.white },
+                  }}
+                >
+                  Investment
+                </Text>
+              </Stack>
+            </Stack>
+            <Stack gap="md">
+              <Title order={4} style={{ color: theme.white }}>
+                Contact
+              </Title>
+              <Stack gap="xs">
+                <Text size="sm" style={{ color: theme.colors.gray[4] }}>
+                  123 Real Estate St.
+                </Text>
+                <Text size="sm" style={{ color: theme.colors.gray[4] }}>
+                  City, State 12345
+                </Text>
+                <Text size="sm" style={{ color: theme.colors.gray[4] }}>
+                  Phone: (555) 123-4567
+                </Text>
+                <Text size="sm" style={{ color: theme.colors.gray[4] }}>
+                  Email: info@Subdivisync.com
+                </Text>
+              </Stack>
+            </Stack>
+          </Group>
+          <div
+            style={{
+              borderTop: `1px solid ${
+                colorScheme === "dark"
+                  ? theme.colors.dark[4]
+                  : theme.colors.gray[8]
+              }`,
+              marginTop: 32,
+              paddingTop: 32,
+              textAlign: "center",
+            }}
+          >
+            <Text size="sm" style={{ color: theme.colors.gray[4] }}>
+              &copy; 2025 Subdivisync. All rights reserved.
+            </Text>
           </div>
-
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2025 Subdivisync. All rights reserved.</p>
-          </div>
-        </div>
+        </Container>
       </footer>
     </div>
   );

@@ -1,32 +1,57 @@
 "use client";
+
 import { getServerSession } from "@/better-auth/action";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Session } from "@/better-auth/auth-types";
 import {
-  Button,
-  TextInput,
-  FileInput,
+  Container,
   Title,
   Text,
   Paper,
   Avatar,
-  Alert,
   Loader,
   Stack,
   Divider,
+  TextInput,
+  FileInput,
+  Button as MantineButton,
+  Center,
+  Group,
+  useMantineTheme,
+  useMantineColorScheme,
+  rgba,
+  Notification,
 } from "@mantine/core";
-import { IconUpload, IconAlertCircle } from "@tabler/icons-react";
+import { IconUpload, IconCheck, IconX } from "@tabler/icons-react";
 import { useForm } from "@mantine/form";
-import { notifications } from "@mantine/notifications";
 import { authClient } from "@/lib/auth-client";
+
+interface NotificationType {
+  type: "success" | "error";
+  message: string;
+}
 
 const TenantProfilePage = () => {
   const router = useRouter();
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const [session, setSession] = useState<null | Session>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>("");
   const [imagePreview, setImagePreview] = useState<string>("");
+  const [notification, setNotification] = useState<NotificationType | null>(null);
+
+  const primaryTextColor = colorScheme === "dark" ? "white" : "dark";
+  const getDefaultShadow = () => {
+    const baseShadow = "0 1px 3px";
+    const opacity = colorScheme === "dark" ? 0.2 : 0.12;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
+  const showNotification = (type: "success" | "error", message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
 
   const profileForm = useForm({
     initialValues: {
@@ -82,13 +107,21 @@ const TenantProfilePage = () => {
 
   useEffect(() => {
     const fetchTenantProfile = async () => {
-      const session = await getServerSession();
-      setSession(session);
-      if (session?.user?.role !== "tenant") {
-        router.push("/dashboard");
-      } else {
-        profileForm.setValues({ name: session?.user?.name || "" });
-        setImagePreview(session?.user?.image || "");
+      try {
+        const session = await getServerSession();
+        setSession(session);
+        if (session?.user?.role !== "tenant") {
+          router.push("/dashboard");
+        } else {
+          profileForm.setValues({ name: session?.user?.name || "" });
+          setImagePreview(session?.user?.image || "");
+          showNotification("success", "Profile data loaded successfully");
+        }
+      } catch (error) {
+        showNotification(
+          "error",
+          "Failed to load profile data. Please try again."
+        );
       }
     };
 
@@ -115,20 +148,19 @@ const TenantProfilePage = () => {
     } else {
       setImagePreview(session?.user?.image || "");
     }
-    if (error) setError("");
   };
 
   const handleProfileSubmit = async (values: typeof profileForm.values) => {
     const validationError = profileForm.validate();
     if (validationError.hasErrors) {
-      setError(
+      showNotification(
+        "error",
         String(Object.values(validationError.errors)[0]) || "Invalid input"
       );
       return;
     }
 
     setLoading(true);
-    setError("");
 
     try {
       let imageData = session?.user?.image || "";
@@ -145,18 +177,12 @@ const TenantProfilePage = () => {
       setSession(updatedSession);
       setImagePreview(updatedSession?.user?.image || "");
 
-      notifications.show({
-        title: "Success",
-        message: "Profile updated successfully",
-        color: "green",
-      });
+      showNotification("success", "Profile updated successfully");
     } catch (error) {
-      setError((error as Error).message || "Failed to update profile");
-      notifications.show({
-        title: "Error",
-        message: (error as Error).message || "Failed to update profile",
-        color: "red",
-      });
+      showNotification(
+        "error",
+        error instanceof Error ? error.message : "Failed to update profile"
+      );
     } finally {
       setLoading(false);
     }
@@ -165,14 +191,14 @@ const TenantProfilePage = () => {
   const handlePasswordSubmit = async (values: typeof passwordForm.values) => {
     const validationError = passwordForm.validate();
     if (validationError.hasErrors) {
-      setError(
+      showNotification(
+        "error",
         String(Object.values(validationError.errors)[0]) || "Invalid input"
       );
       return;
     }
 
     setLoading(true);
-    setError("");
 
     try {
       const { error: authError } = await authClient.changePassword({
@@ -182,28 +208,20 @@ const TenantProfilePage = () => {
       });
 
       if (authError) {
-        setError(authError.message || "Failed to change password");
-        notifications.show({
-          title: "Error",
-          message: authError.message || "Failed to change password",
-          color: "red",
-        });
+        showNotification(
+          "error",
+          authError.message || "Failed to change password"
+        );
         return;
       }
 
-      notifications.show({
-        title: "Success",
-        message: "Password changed successfully",
-        color: "green",
-      });
+      showNotification("success", "Password changed successfully");
       passwordForm.reset();
     } catch (error) {
-      setError((error as Error).message || "Failed to change password");
-      notifications.show({
-        title: "Error",
-        message: (error as Error).message || "Failed to change password",
-        color: "red",
-      });
+      showNotification(
+        "error",
+        error instanceof Error ? error.message : "Failed to change password"
+      );
     } finally {
       setLoading(false);
     }
@@ -212,51 +230,44 @@ const TenantProfilePage = () => {
   const handleTwoFactorSubmit = async (values: typeof twoFactorForm.values) => {
     const validationError = twoFactorForm.validate();
     if (validationError.hasErrors) {
-      setError(
+      showNotification(
+        "error",
         String(Object.values(validationError.errors)[0]) || "Invalid input"
       );
       return;
     }
 
     setLoading(true);
-    setError("");
 
     try {
-      const { data, error: authError } = await authClient.twoFactor.enable({
+      const { error: authError } = await authClient.twoFactor.enable({
         password: values.password,
         issuer: "TenantApp",
       });
 
       if (authError) {
-        setError(
+        showNotification(
+          "error",
           authError.message || "Failed to enable two-factor authentication"
         );
-        notifications.show({
-          title: "Error",
-          message:
-            authError.message || "Failed to enable two-factor authentication",
-          color: "red",
-        });
         return;
       }
 
-      // Refresh session to update twoFactorEnabled status
       const updatedSession = await getServerSession();
       setSession(updatedSession);
 
-      notifications.show({
-        title: "Success",
-        message: "Two-factor authentication enabled successfully",
-        color: "green",
-      });
+      showNotification(
+        "success",
+        "Two-factor authentication enabled successfully"
+      );
       twoFactorForm.reset();
     } catch (error) {
-      setError((error as Error).message || "Failed to enable two-factor authentication");
-      notifications.show({
-        title: "Error",
-        message: (error as Error).message || "Failed to enable two-factor authentication",
-        color: "red",
-      });
+      showNotification(
+        "error",
+        error instanceof Error
+          ? error.message
+          : "Failed to enable two-factor authentication"
+      );
     } finally {
       setLoading(false);
     }
@@ -264,91 +275,107 @@ const TenantProfilePage = () => {
 
   if (!session) {
     return (
-      <Paper
-        className="w-full max-w-sm bg-white/95 backdrop-blur-sm"
-        p="xl"
-        radius="md"
-        withBorder
-      >
-        <div className="text-center">
-          <Loader size="sm" />
-          <Text>Loading...</Text>
-        </div>
-      </Paper>
+      <Container size="sm" py="xl">
+        <Paper
+          p="xl"
+          radius="lg"
+          withBorder
+          shadow="sm"
+          style={{
+            maxWidth: 500,
+            margin: "auto",
+            boxShadow: getDefaultShadow(),
+          }}
+        >
+          <Center>
+            <Stack align="center" gap="md">
+              <Loader size="lg" />
+              <Text c={primaryTextColor}>Loading...</Text>
+            </Stack>
+          </Center>
+        </Paper>
+      </Container>
     );
   }
 
   return (
-    <Paper
-      className="w-full max-w-vwh bg-white/95 backdrop-blur-sm"
-      p="xl"
-      radius="md"
-      withBorder
-    >
-      <Title order={2} className="text-xl text-gray-900 mb-2" ta="center">
-        Manage Your Profile
-      </Title>
-      <Text size="sm" c="dimmed" ta="center" mb="lg">
-        Update your profile information
-      </Text>
+    <>
+      {notification && (
+        <Notification
+          icon={
+            notification.type === "success" ? (
+              <IconCheck size={18} />
+            ) : (
+              <IconX size={18} />
+            )
+          }
+          color={notification.type === "success" ? "green" : "red"}
+          title={notification.type === "success" ? "Success" : "Error"}
+          onClose={() => setNotification(null)}
+          style={{ position: "fixed", top: 20, right: 20, zIndex: 1000 }}
+        >
+          {notification.message}
+        </Notification>
+      )}
+      <Paper
+        p="xl"
+        radius="lg"
+        withBorder
+        shadow="sm"
+        style={{
+          maxWidth: "100%",
+          margin: "auto",
+          boxShadow: getDefaultShadow(),
+        }}
+      >
+      <Stack gap="lg">
+        <Title order={2} size="h2" fw={600} ta="center" c={primaryTextColor}>
+          Manage Your Profile
+        </Title>
+        <Text size="md" c="dimmed" ta="center">
+          Update your profile information
+        </Text>
 
-      <Stack gap="md">
-        {error && (
-          <Alert
-            icon={<IconAlertCircle size="1rem" />}
-            color="red"
-            variant="light"
-          >
-            {error}
-          </Alert>
-        )}
-
-        {/* Profile Update Section */}
-        <form onSubmit={profileForm.onSubmit(handleProfileSubmit)}>
+        <form
+          onSubmit={profileForm.onSubmit(handleProfileSubmit)}
+          method="dialog"
+        >
           <Stack gap="md">
-            <div className="text-center">
-              <div className="mb-3">
+            <Center>
+              <Stack align="center" gap="md">
                 <Avatar
                   src={
                     imagePreview ||
                     session.user?.image ||
                     "/default-profile.png"
                   }
-                  size="lg"
+                  size={100}
                   radius="xl"
-                  mx="auto"
-                  className="border-2 border-gray-200"
+                  style={{ border: `2px solid ${theme.colors.gray[2]}` }}
                 >
                   {session.user?.name?.charAt(0).toUpperCase()}
                 </Avatar>
-              </div>
-              <FileInput
-                label="Profile Picture"
-                placeholder="Choose image file"
-                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                leftSection={<IconUpload size="1rem" />}
-                {...profileForm.getInputProps("image")}
-                onChange={handleFileChange}
-                styles={{
-                  label: {
-                    color: "#374151",
-                    fontWeight: 500,
-                    textAlign: "center",
-                  },
-                }}
-                clearable
-                disabled={loading}
-              />
-              <Text size="xs" c="dimmed" mt="xs">
-                Max file size: 5MB. Supported formats: JPEG, PNG, GIF, WebP
-              </Text>
-            </div>
+                <FileInput
+                  label="Profile Picture"
+                  placeholder="Choose image file"
+                  accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                  leftSection={<IconUpload size={16} />}
+                  {...profileForm.getInputProps("image")}
+                  onChange={handleFileChange}
+                  clearable
+                  disabled={loading}
+                  style={{ width: "100%", maxWidth: 300 }}
+                />
+                <Text size="xs" c="dimmed">
+                  Max file size: 5MB. Supported formats: JPEG, PNG, GIF, WebP
+                </Text>
+              </Stack>
+            </Center>
 
             <TextInput
               label="Name"
               placeholder="Enter your name"
               {...profileForm.getInputProps("name")}
-              styles={{ label: { color: "#374151", fontWeight: 500 } }}
               disabled={loading}
             />
             <Text size="sm" c="dimmed">
@@ -362,36 +389,39 @@ const TenantProfilePage = () => {
               {session.user?.twoFactorEnabled ? "Enabled" : "Disabled"}
             </Text>
             <Text size="sm" c="dimmed">
-              Created At: {session.user?.createdAt.toLocaleDateString()}
+              Created At:{" "}
+              {new Date(session.user?.createdAt).toLocaleDateString()}
             </Text>
             <Text size="sm" c="dimmed">
-              Updated At: {session.user?.updatedAt.toLocaleDateString()}
+              Updated At:{" "}
+              {new Date(session.user?.updatedAt).toLocaleDateString()}
             </Text>
 
-            <Button
+            <MantineButton
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700"
+              color="blue"
               size="md"
               fullWidth
               loading={loading}
               disabled={loading}
             >
-              {loading ? <Loader size="sm" /> : "Update Profile"}
-            </Button>
+              Update Profile
+            </MantineButton>
           </Stack>
         </form>
 
         <Divider label="Change Password" labelPosition="center" />
 
-        {/* Password Change Section */}
-        <form onSubmit={passwordForm.onSubmit(handlePasswordSubmit)}>
+        <form
+          onSubmit={passwordForm.onSubmit(handlePasswordSubmit)}
+          method="dialog"
+        >
           <Stack gap="md">
             <TextInput
               label="Current Password"
               placeholder="Enter your current password"
               type="password"
               {...passwordForm.getInputProps("currentPassword")}
-              styles={{ label: { color: "#374151", fontWeight: 500 } }}
               disabled={loading}
             />
             <TextInput
@@ -399,7 +429,6 @@ const TenantProfilePage = () => {
               placeholder="Enter your new password"
               type="password"
               {...passwordForm.getInputProps("newPassword")}
-              styles={{ label: { color: "#374151", fontWeight: 500 } }}
               disabled={loading}
             />
             <TextInput
@@ -407,59 +436,56 @@ const TenantProfilePage = () => {
               placeholder="Confirm your new password"
               type="password"
               {...passwordForm.getInputProps("confirmNewPassword")}
-              styles={{ label: { color: "#374151", fontWeight: 500 } }}
               disabled={loading}
             />
-            <Button
+            <MantineButton
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700"
+              color="blue"
               size="md"
               fullWidth
               loading={loading}
               disabled={loading}
             >
-              {loading ? <Loader size="sm" /> : "Change Password"}
-            </Button>
+              Change Password
+            </MantineButton>
           </Stack>
         </form>
 
         <Divider label="Two-Factor Authentication" labelPosition="center" />
 
-        {/* Two-Factor Authentication Section */}
         {session.user?.twoFactorEnabled ? (
           <Text size="sm" c="dimmed" ta="center">
             Two-Factor Authentication is already enabled.
           </Text>
         ) : (
-          <form onSubmit={twoFactorForm.onSubmit(handleTwoFactorSubmit)}>
+          <form
+            onSubmit={twoFactorForm.onSubmit(handleTwoFactorSubmit)}
+            method="dialog"
+          >
             <Stack gap="md">
               <TextInput
                 label="Password"
                 placeholder="Enter your password"
                 type="password"
                 {...twoFactorForm.getInputProps("password")}
-                styles={{ label: { color: "#374151", fontWeight: 500 } }}
                 disabled={loading}
               />
-              <Button
+              <MantineButton
                 type="submit"
-                className="bg-blue-600 hover:bg-blue-700"
+                color="blue"
                 size="md"
                 fullWidth
                 loading={loading}
                 disabled={loading}
               >
-                {loading ? (
-                  <Loader size="sm" />
-                ) : (
-                  "Enable Two-Factor Authentication"
-                )}
-              </Button>
+                Enable Two-Factor Authentication
+              </MantineButton>
             </Stack>
           </form>
         )}
       </Stack>
     </Paper>
+    </>
   );
 };
 

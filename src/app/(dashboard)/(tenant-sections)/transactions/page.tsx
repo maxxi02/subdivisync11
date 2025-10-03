@@ -1,15 +1,39 @@
 "use client";
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  Clock,
-  AlertCircle,
-  CreditCard,
-  RefreshCw,
-  Eye,
-  X,
-  Home,
-  TrendingUp,
-} from "lucide-react";
+  Container,
+  Title,
+  Group,
+  Text,
+  Select,
+  Button as MantineButton,
+  Card,
+  SimpleGrid,
+  Modal,
+  Stack,
+  LoadingOverlay,
+  Notification,
+  Badge,
+  ActionIcon,
+  Progress,
+  Table,
+  useMantineTheme,
+  useMantineColorScheme,
+  rgba,
+} from "@mantine/core";
+import {
+  IconClock,
+  IconAlertCircle,
+  IconCreditCard,
+  IconRefresh,
+  IconEye,
+  IconX,
+  IconHome,
+  IconTrendingUp,
+  IconCheck,
+  IconExclamationMark,
+} from "@tabler/icons-react";
 
 interface PaymentPlan {
   _id: string;
@@ -52,60 +76,68 @@ interface MonthlyPayment {
   updated_at: string;
 }
 
+interface NotificationType {
+  type: "success" | "error";
+  message: string;
+}
+
 const TransactionPage = () => {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const [paymentPlans, setPaymentPlans] = useState<PaymentPlan[]>([]);
   const [monthlyPayments, setMonthlyPayments] = useState<MonthlyPayment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [processingPayment, setProcessingPayment] = useState<string | null>(
-    null
-  );
+  const [processingPayment, setProcessingPayment] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<PaymentPlan | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<MonthlyPayment | null>(
-    null
-  );
-  const [filter, setFilter] = useState<
-    "all" | "active" | "completed" | "overdue"
-  >("all");
+  const [selectedPayment, setSelectedPayment] = useState<MonthlyPayment | null>(null);
+  const [filter, setFilter] = useState<"all" | "active" | "completed" | "overdue">("all");
+  const [notification, setNotification] = useState<NotificationType | null>(null);
 
-  // Fetch tenant's payment plans
-  const fetchPaymentPlans = async () => {
+  const primaryTextColor = colorScheme === "dark" ? "white" : "dark";
+  const getDefaultShadow = () => {
+    const baseShadow = "0 1px 3px";
+    const opacity = colorScheme === "dark" ? 0.2 : 0.12;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
+  const showNotification = (type: "success" | "error", message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
+
+  const fetchPaymentPlans = useCallback(async () => {
     try {
       const response = await fetch("/api/tenant/payment-plans");
       const data = await response.json();
       if (data.success) {
         setPaymentPlans(data.paymentPlans);
+        showNotification("success", "Payment plans loaded successfully");
       } else {
-        console.error("Failed to fetch payment plans:", data.error);
-        if (data.error === "Unauthorized") {
-          alert("Please log in to view your payment plans.");
-        }
+        throw new Error(data.error || "Failed to fetch payment plans");
       }
     } catch (error) {
       console.error("Error fetching payment plans:", error);
-      alert("Failed to load payment plans. Please try again.");
+      showNotification("error", (error as Error).message || "Failed to load payment plans");
     }
-  };
+  }, []);
 
-  // Fetch tenant's monthly payments
-  const fetchMonthlyPayments = async () => {
+  const fetchMonthlyPayments = useCallback(async () => {
     try {
       const response = await fetch("/api/tenant/monthly-payments");
       const data = await response.json();
       if (data.success) {
         setMonthlyPayments(data.payments);
+        showNotification("success", "Monthly payments loaded successfully");
       } else {
-        console.error("Failed to fetch monthly payments:", data.error);
-        if (data.error === "Unauthorized") {
-          alert("Please log in to view your payments.");
-        }
+        throw new Error(data.error || "Failed to fetch monthly payments");
       }
     } catch (error) {
       console.error("Error fetching monthly payments:", error);
-      alert("Failed to load monthly payments. Please try again.");
+      showNotification("error", (error as Error).message || "Failed to load monthly payments");
     }
-  };
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -114,9 +146,8 @@ const TransactionPage = () => {
       setLoading(false);
     };
     fetchData();
-  }, []);
+  }, [fetchPaymentPlans, fetchMonthlyPayments]);
 
-  // Filter payment plans based on status
   const filteredPaymentPlans = paymentPlans.filter((plan) => {
     if (filter === "all") return true;
     if (filter === "active") return plan.status === "active";
@@ -124,63 +155,48 @@ const TransactionPage = () => {
     return false;
   });
 
-  // Get payments for a specific plan
   const getPaymentsForPlan = (planId: string) => {
-    return monthlyPayments.filter(
-      (payment) => payment.paymentPlanId === planId
-    );
+    return monthlyPayments.filter((payment) => payment.paymentPlanId === planId);
   };
 
-  // Get overdue payments
   const getOverduePayments = () => {
     const today = new Date();
     return monthlyPayments.filter(
-      (payment) =>
-        payment.status === "pending" && new Date(payment.dueDate) < today
+      (payment) => payment.status === "pending" && new Date(payment.dueDate) < today
     );
   };
 
-  // Update payment plan progress after successful payment
-  const updatePaymentPlanProgress = async (
-    paymentPlanId: string,
-    paymentAmount: number
-  ) => {
+  const updatePaymentPlanProgress = async (paymentPlanId: string, paymentAmount: number) => {
     try {
-      const response = await fetch(
-        `/api/tenant/payment-plans/${[paymentPlanId]}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            paymentAmount,
-            updateType: "payment_made",
-          }),
-        }
-      );
+      const response = await fetch(`/api/tenant/payment-plans/${paymentPlanId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          paymentAmount,
+          updateType: "payment_made",
+        }),
+      });
 
       const data = await response.json();
       if (!data.success) {
-        console.error("Failed to update payment plan progress:", data.error);
-        alert("Failed to update payment plan progress.");
+        throw new Error(data.error || "Failed to update payment plan progress");
       }
+      showNotification("success", "Payment plan updated successfully");
       return data.success;
     } catch (error) {
       console.error("Error updating payment plan progress:", error);
-      alert("Failed to update payment plan progress.");
+      showNotification("error", "Failed to update payment plan progress");
       return false;
     }
   };
 
-  // Process payment with PayMongo
   const processPayment = async (payment: MonthlyPayment) => {
     if (!payment) return;
 
     try {
       setProcessingPayment(payment._id);
-
-      // Create PayMongo payment intent through tenant endpoint
       const response = await fetch("/api/tenant/payments/process", {
         method: "POST",
         headers: {
@@ -195,19 +211,10 @@ const TransactionPage = () => {
 
       if (data.success) {
         if (data.paymentProcessed) {
-          // Update payment status - Calls PUT /api/tenant/monthly-payments/[paymentId]
           await markPaymentAsPaid(payment._id, data.paymentIntentId);
-
-          // Update payment plan progress - Calls PUT /api/tenant/payment-plans/[paymentPlanId]/progress
-          await updatePaymentPlanProgress(
-            payment.paymentPlanId,
-            payment.amount
-          );
-
-          // Refresh data to update UI
+          await updatePaymentPlanProgress(payment.paymentPlanId, payment.amount);
           await Promise.all([fetchPaymentPlans(), fetchMonthlyPayments()]);
-
-          alert("Payment successful!");
+          showNotification("success", "Payment successful!");
           setShowPaymentModal(false);
         } else if (data.checkoutUrl) {
           localStorage.setItem(
@@ -227,56 +234,41 @@ const TransactionPage = () => {
       }
     } catch (error) {
       console.error("Error processing payment:", error);
-      alert(
-        `Failed to process payment: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
+      showNotification("error", (error as Error).message || "Failed to process payment");
       setProcessingPayment(null);
       setShowPaymentModal(false);
     }
   };
 
-  // Mark payment as paid
-  const markPaymentAsPaid = async (
-    paymentId: string,
-    paymentIntentId?: string
-  ) => {
+  const markPaymentAsPaid = async (paymentId: string, paymentIntentId?: string) => {
     try {
-      const response = await fetch(
-        `/api/tenant/monthly-payments/${paymentId}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            status: "paid",
-            paidDate: new Date().toISOString(),
-            paymentMethod: "PayMongo",
-            paymentIntentId: paymentIntentId || undefined,
-          }),
-        }
-      );
+      const response = await fetch(`/api/tenant/monthly-payments/${paymentId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "paid",
+          paidDate: new Date().toISOString(),
+          paymentMethod: "PayMongo",
+          paymentIntentId: paymentIntentId || undefined,
+        }),
+      });
 
       const data = await response.json();
       if (data.success) {
+        showNotification("success", "Payment marked as paid");
         return true;
       } else {
         throw new Error(data.error || "Failed to update payment");
       }
     } catch (error) {
       console.error("Error updating payment:", error);
-      alert(
-        `Failed to update payment: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
+      showNotification("error", (error as Error).message || "Failed to update payment");
       return false;
     }
   };
 
-  // Check for pending payments when component loads
   useEffect(() => {
     const checkPendingPayment = async () => {
       const pendingPayment = localStorage.getItem("pendingPayment");
@@ -287,31 +279,21 @@ const TransactionPage = () => {
           const paymentStatus = urlParams.get("status");
 
           if (paymentStatus === "success") {
-            // Mark payment as paid - Calls PUT /api/tenant/monthly-payments/[paymentId]
             const success = await markPaymentAsPaid(paymentInfo.paymentId);
             if (success) {
-              // Update payment plan progress - Calls PUT /api/tenant/payment-plans/[paymentPlanId]/progress
-              await updatePaymentPlanProgress(
-                paymentInfo.paymentPlanId,
-                paymentInfo.amount
-              );
-              // Refresh data to update UI
+              await updatePaymentPlanProgress(paymentInfo.paymentPlanId, paymentInfo.amount);
               await Promise.all([fetchPaymentPlans(), fetchMonthlyPayments()]);
-              alert("Payment completed successfully!");
+              showNotification("success", "Payment completed successfully!");
             }
           }
           localStorage.removeItem("pendingPayment");
           if (paymentStatus) {
-            window.history.replaceState(
-              {},
-              document.title,
-              window.location.pathname
-            );
+            window.history.replaceState({}, document.title, window.location.pathname);
           }
         } catch (error) {
           console.error("Error processing pending payment:", error);
+          showNotification("error", "Failed to process pending payment");
           localStorage.removeItem("pendingPayment");
-          alert("Failed to process pending payment.");
         }
       }
     };
@@ -319,23 +301,22 @@ const TransactionPage = () => {
     if (!loading) {
       checkPendingPayment();
     }
-  }, [loading]);
+  }, [loading, fetchPaymentPlans, fetchMonthlyPayments]);
 
   const getStatusBadge = (status: string) => {
-    const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
     switch (status) {
       case "pending":
-        return `${baseClasses} bg-yellow-100 text-yellow-800`;
+        return { color: "yellow", text: "Pending" };
       case "paid":
-        return `${baseClasses} bg-green-100 text-green-800`;
+        return { color: "green", text: "Paid" };
       case "overdue":
-        return `${baseClasses} bg-red-100 text-red-800`;
+        return { color: "red", text: "Overdue" };
       case "active":
-        return `${baseClasses} bg-blue-100 text-blue-800`;
+        return { color: "blue", text: "Active" };
       case "completed":
-        return `${baseClasses} bg-purple-100 text-purple-800`;
+        return { color: "purple", text: "Completed" };
       default:
-        return `${baseClasses} bg-gray-100 text-gray-800`;
+        return { color: "gray", text: status };
     }
   };
 
@@ -351,592 +332,538 @@ const TransactionPage = () => {
     });
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading payment data...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <Container size="100%" py="xl">
+      <LoadingOverlay visible={loading} />
+      {notification && (
+        <Notification
+          icon={
+            notification.type === "success" ? (
+              <IconCheck size={18} />
+            ) : (
+              <IconExclamationMark size={18} />
+            )
+          }
+          color={notification.type === "success" ? "green" : "red"}
+          title={notification.type === "success" ? "Success" : "Error"}
+          onClose={() => setNotification(null)}
+          style={{ position: "fixed", top: 20, right: 20, zIndex: 1000 }}
+        >
+          {notification.message}
+        </Notification>
+      )}
+      <Stack gap="xl">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">My Payments</h1>
-              <p className="text-gray-600 mt-2">
+        <Card shadow="sm" padding="lg" radius="lg" withBorder style={{ boxShadow: getDefaultShadow() }}>
+          <Group justify="space-between" align="center">
+            <Stack gap="xs">
+              <Title order={1} size="h2" fw={600} c={primaryTextColor}>
+                Transactions
+              </Title>
+              <Text size="md" c={primaryTextColor} lh={1.5}>
                 Manage your property lease payments
-              </p>
-            </div>
-            <div className="flex gap-4">
-              <select
+              </Text>
+            </Stack>
+            <Group gap="md">
+              <Select
                 value={filter}
-                onChange={(e) =>
-                  setFilter(
-                    e.target.value as "all" | "active" | "completed" | "overdue"
-                  )
-                }
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Plans</option>
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
-              </select>
-              <button
+                onChange={(value) => setFilter(value as "all" | "active" | "completed" | "overdue")}
+                data={[
+                  { value: "all", label: "All Plans" },
+                  { value: "active", label: "Active" },
+                  { value: "completed", label: "Completed" },
+                ]}
+                radius="md"
+                style={{ minWidth: 150 }}
+              />
+              <MantineButton
+                variant="outline"
+                color="gray"
                 onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                leftSection={<IconRefresh size={16} />}
               >
-                <RefreshCw className="w-4 h-4" />
                 Refresh
-              </button>
-            </div>
-          </div>
-        </div>
+              </MantineButton>
+            </Group>
+          </Group>
+        </Card>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">
+        <SimpleGrid cols={{ base: 1, md: 4 }} spacing="md">
+          <Card shadow="sm" padding="lg" radius="lg" withBorder style={{ boxShadow: getDefaultShadow() }}>
+            <Group justify="space-between" align="center">
+              <Stack gap="xs">
+                <Text size="sm" c={primaryTextColor} fw={500}>
                   Active Plans
-                </p>
-                <p className="text-2xl font-bold text-blue-600">
+                </Text>
+                <Text size="xl" fw={700} c="blue.6">
                   {paymentPlans.filter((p) => p.status === "active").length}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Home className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">
+                </Text>
+              </Stack>
+              <Group className="h-12 w-12 bg-blue-100 rounded-lg" justify="center">
+                <IconHome size={24} color="blue" />
+              </Group>
+            </Group>
+          </Card>
+          <Card shadow="sm" padding="lg" radius="lg" withBorder style={{ boxShadow: getDefaultShadow() }}>
+            <Group justify="space-between" align="center">
+              <Stack gap="xs">
+                <Text size="sm" c={primaryTextColor} fw={500}>
                   Pending Payments
-                </p>
-                <p className="text-2xl font-bold text-yellow-600">
+                </Text>
+                <Text size="xl" fw={700} c="yellow.6">
                   {monthlyPayments.filter((p) => p.status === "pending").length}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <Clock className="h-6 w-6 text-yellow-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Overdue</p>
-                <p className="text-2xl font-bold text-red-600">
+                </Text>
+              </Stack>
+              <Group className="h-12 w-12 bg-yellow-100 rounded-lg" justify="center">
+                <IconClock size={24} color="yellow" />
+              </Group>
+            </Group>
+          </Card>
+          <Card shadow="sm" padding="lg" radius="lg" withBorder style={{ boxShadow: getDefaultShadow() }}>
+            <Group justify="space-between" align="center">
+              <Stack gap="xs">
+                <Text size="sm" c={primaryTextColor} fw={500}>
+                  Overdue
+                </Text>
+                <Text size="xl" fw={700} c="red.6">
                   {getOverduePayments().length}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
-                <AlertCircle className="h-6 w-6 text-red-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">
+                </Text>
+              </Stack>
+              <Group className="h-12 w-12 bg-red-100 rounded-lg" justify="center">
+                <IconAlertCircle size={24} color="red" />
+              </Group>
+            </Group>
+          </Card>
+          <Card shadow="sm" padding="lg" radius="lg" withBorder style={{ boxShadow: getDefaultShadow() }}>
+            <Group justify="space-between" align="center">
+              <Stack gap="xs">
+                <Text size="sm" c={primaryTextColor} fw={500}>
                   Total Remaining
-                </p>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(
-                    paymentPlans.reduce(
-                      (sum, plan) => sum + plan.remainingBalance,
-                      0
-                    )
-                  )}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-        </div>
+                </Text>
+                <Text size="xl" fw={700} c="green.6">
+                  {formatCurrency(paymentPlans.reduce((sum, plan) => sum + plan.remainingBalance, 0))}
+                </Text>
+              </Stack>
+              <Group className="h-12 w-12 bg-green-100 rounded-lg" justify="center">
+                <IconTrendingUp size={24} color="green" />
+              </Group>
+            </Group>
+          </Card>
+        </SimpleGrid>
 
         {/* Payment Plans */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {filteredPaymentPlans.map((plan) => {
-            const planPayments = getPaymentsForPlan(plan._id);
-            const pendingPayments = planPayments.filter(
-              (p) => p.status === "pending"
-            );
-            const nextPayment = pendingPayments.sort(
-              (a, b) =>
-                new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-            )[0];
+        <Card shadow="sm" padding="lg" radius="lg" withBorder style={{ boxShadow: getDefaultShadow() }}>
+          {filteredPaymentPlans.length === 0 ? (
+            <Stack align="center" gap="md" py="xl">
+              <IconHome size={64} color="gray" />
+              <Text size="xl" fw={500} c={primaryTextColor}>
+                No Payment Plans Found
+              </Text>
+              <Text size="sm" c={primaryTextColor}>
+                You don&apos;t have any {filter !== "all" ? filter : ""} payment plans at the moment.
+              </Text>
+            </Stack>
+          ) : (
+            <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
+              {filteredPaymentPlans.map((plan) => {
+                const planPayments = getPaymentsForPlan(plan._id);
+                const pendingPayments = planPayments.filter((p) => p.status === "pending");
+                const nextPayment = pendingPayments.sort(
+                  (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+                )[0];
 
-            return (
-              <div key={plan._id} className="bg-white rounded-lg shadow-sm p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      {plan.propertyTitle}
-                    </h3>
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <span className={getStatusBadge(plan.status)}>
-                        {plan.status.charAt(0).toUpperCase() +
-                          plan.status.slice(1)}
-                      </span>
-                      <span>
-                        Month {plan.currentMonth} of {plan.leaseDuration}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                return (
+                  <Card key={plan._id} padding="lg" radius="lg" withBorder style={{ boxShadow: getDefaultShadow() }}>
+                    <Stack gap="md">
+                      <Group justify="space-between" align="flex-start">
+                        <Stack gap="xs">
+                          <Text size="lg" fw={700} c={primaryTextColor}>
+                            {plan.propertyTitle}
+                          </Text>
+                          <Group gap="xs">
+                            <Badge
+                              variant="light"
+                              color={getStatusBadge(plan.status).color}
+                              size="sm"
+                              radius="md"
+                            >
+                              {getStatusBadge(plan.status).text}
+                            </Badge>
+                            <Text size="sm" c={primaryTextColor}>
+                              Month {plan.currentMonth} of {plan.leaseDuration}
+                            </Text>
+                          </Group>
+                        </Stack>
+                      </Group>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Monthly Payment</p>
-                    <p className="font-semibold text-gray-900">
-                      {formatCurrency(plan.monthlyPayment)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Remaining Balance</p>
-                    <p className="font-semibold text-gray-900">
-                      {formatCurrency(plan.remainingBalance)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Next Payment</p>
-                    <p className="font-semibold text-gray-900">
-                      {formatDate(plan.nextPaymentDate)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Progress</p>
-                    <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                        style={{
-                          width: `${
-                            (plan.currentMonth / plan.leaseDuration) * 100
-                          }%`,
-                        }}
-                      ></div>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {Math.round(
-                        (plan.currentMonth / plan.leaseDuration) * 100
+                      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                        <Stack gap="xs">
+                          <Text size="sm" c={primaryTextColor}>
+                            Monthly Payment
+                          </Text>
+                          <Text fw={500} c={primaryTextColor}>
+                            {formatCurrency(plan.monthlyPayment)}
+                          </Text>
+                        </Stack>
+                        <Stack gap="xs">
+                          <Text size="sm" c={primaryTextColor}>
+                            Remaining Balance
+                          </Text>
+                          <Text fw={500} c={primaryTextColor}>
+                            {formatCurrency(plan.remainingBalance)}
+                          </Text>
+                        </Stack>
+                        <Stack gap="xs">
+                          <Text size="sm" c={primaryTextColor}>
+                            Next Payment
+                          </Text>
+                          <Text fw={500} c={primaryTextColor}>
+                            {formatDate(plan.nextPaymentDate)}
+                          </Text>
+                        </Stack>
+                        <Stack gap="xs">
+                          <Text size="sm" c={primaryTextColor}>
+                            Progress
+                          </Text>
+                          <Progress
+                            value={(plan.currentMonth / plan.leaseDuration) * 100}
+                            color="blue"
+                            size="sm"
+                            radius="md"
+                          />
+                          <Text size="xs" c={primaryTextColor}>
+                            {Math.round((plan.currentMonth / plan.leaseDuration) * 100)}% Complete
+                          </Text>
+                        </Stack>
+                      </SimpleGrid>
+
+                      {nextPayment && (
+                        <Card
+                          withBorder
+                          radius="md"
+                          bg={colorScheme === "dark" ? "yellow.9" : "yellow.1"}
+                          p="md"
+                        >
+                          <Group justify="space-between" align="center">
+                            <Stack gap="xs">
+                              <Text size="sm" fw={500} c={colorScheme === "dark" ? "white" : "yellow.8"}>
+                                Payment Due: Month {nextPayment.monthNumber}
+                              </Text>
+                              <Text size="xs" c={colorScheme === "dark" ? "white" : "yellow.6"}>
+                                Due: {formatDate(nextPayment.dueDate)}
+                              </Text>
+                            </Stack>
+                            <Stack gap="xs" align="flex-end">
+                              <Text fw={500} c={colorScheme === "dark" ? "white" : "yellow.8"}>
+                                {formatCurrency(nextPayment.amount)}
+                              </Text>
+                              <Badge
+                                variant="light"
+                                color={getStatusBadge(nextPayment.status).color}
+                                size="sm"
+                                radius="md"
+                              >
+                                {getStatusBadge(nextPayment.status).text}
+                              </Badge>
+                            </Stack>
+                          </Group>
+                        </Card>
                       )}
-                      % Complete
-                    </p>
-                  </div>
-                </div>
 
-                {nextPayment && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-sm font-medium text-yellow-800">
-                          Payment Due: Month {nextPayment.monthNumber}
-                        </p>
-                        <p className="text-xs text-yellow-600">
-                          Due: {formatDate(nextPayment.dueDate)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-yellow-800">
-                          {formatCurrency(nextPayment.amount)}
-                        </p>
-                        <span className={getStatusBadge(nextPayment.status)}>
-                          {nextPayment.status}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex gap-3">
-                  {nextPayment && (
-                    <button
-                      onClick={() => {
-                        setSelectedPayment(nextPayment);
-                        setSelectedPlan(plan);
-                        setShowPaymentModal(true);
-                      }}
-                      disabled={processingPayment === nextPayment._id}
-                      className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      <CreditCard className="h-4 w-4" />
-                      {processingPayment === nextPayment._id
-                        ? "Processing..."
-                        : "Pay Now"}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      setSelectedPlan(plan);
-                      setShowDetailsModal(true);
-                    }}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 flex items-center gap-2"
-                  >
-                    <Eye className="h-4 w-4" />
-                    Details
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {filteredPaymentPlans.length === 0 && (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-              <Home className="h-8 w-8 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No Payment Plans Found
-            </h3>
-            <p className="text-gray-600">
-              You don&#39;t have any {filter !== "all" ? filter : ""} payment
-              plans at the moment.
-            </p>
-          </div>
-        )}
+                      <Group gap="md">
+                        {nextPayment && (
+                          <MantineButton
+                            size="xs"
+                            color="green"
+                            onClick={() => {
+                              setSelectedPayment(nextPayment);
+                              setSelectedPlan(plan);
+                              setShowPaymentModal(true);
+                            }}
+                            disabled={processingPayment === nextPayment._id}
+                            leftSection={<IconCreditCard size={16} />}
+                          >
+                            {processingPayment === nextPayment._id ? "Processing..." : "Pay Now"}
+                          </MantineButton>
+                        )}
+                        <MantineButton
+                          size="xs"
+                          variant="outline"
+                          color="gray"
+                          onClick={() => {
+                            setSelectedPlan(plan);
+                            setShowDetailsModal(true);
+                          }}
+                          leftSection={<IconEye size={16} />}
+                        >
+                          Details
+                        </MantineButton>
+                      </Group>
+                    </Stack>
+                  </Card>
+                );
+              })}
+            </SimpleGrid>
+          )}
+        </Card>
 
         {/* Payment Modal */}
-        {showPaymentModal && selectedPayment && selectedPlan && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Confirm Payment
-              </h3>
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-600">Property:</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {selectedPlan.propertyTitle}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-600">Payment Month:</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {selectedPayment.monthNumber} of{" "}
-                    {selectedPlan.leaseDuration}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-600">Due Date:</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {formatDate(selectedPayment.dueDate)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-600">
-                    Current Progress:
-                  </span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {selectedPlan.currentMonth} / {selectedPlan.leaseDuration}{" "}
-                    months
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Amount:</span>
-                  <span className="text-lg font-bold text-green-600">
-                    {formatCurrency(selectedPayment.amount)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                <p className="text-xs text-blue-800">
-                  <strong>After payment:</strong> Progress will advance to month{" "}
-                  {selectedPayment.monthNumber}, and your remaining balance will
-                  be reduced by {formatCurrency(selectedPayment.amount)}.
-                </p>
-              </div>
-
-              <div className="flex gap-3">
-                <button
+        <Modal
+          opened={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          title={<Text fw={600} c={primaryTextColor}>Confirm Payment</Text>}
+          centered
+          size="md"
+        >
+          {selectedPayment && selectedPlan && (
+            <Stack gap="md">
+              <Card withBorder radius="lg" style={{ boxShadow: getDefaultShadow() }}>
+                <Stack gap="sm">
+                  <Group justify="space-between">
+                    <Text size="sm" c={primaryTextColor}>Property:</Text>
+                    <Text fw={500} c={primaryTextColor}>{selectedPlan.propertyTitle}</Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c={primaryTextColor}>Payment Month:</Text>
+                    <Text fw={500} c={primaryTextColor}>
+                      {selectedPayment.monthNumber} of {selectedPlan.leaseDuration}
+                    </Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c={primaryTextColor}>Due Date:</Text>
+                    <Text fw={500} c={primaryTextColor}>{formatDate(selectedPayment.dueDate)}</Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c={primaryTextColor}>Current Progress:</Text>
+                    <Text fw={500} c={primaryTextColor}>
+                      {selectedPlan.currentMonth} / {selectedPlan.leaseDuration} months
+                    </Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c={primaryTextColor}>Amount:</Text>
+                    <Text fw={700} c="green.6" size="lg">
+                      {formatCurrency(selectedPayment.amount)}
+                    </Text>
+                  </Group>
+                </Stack>
+              </Card>
+              <Card withBorder radius="md" bg={colorScheme === "dark" ? "blue.9" : "blue.1"} p="sm">
+                <Text size="xs" c={colorScheme === "dark" ? "white" : "blue.8"}>
+                  <strong>After payment:</strong> Progress will advance to month {selectedPayment.monthNumber}, and your remaining balance will be reduced by {formatCurrency(selectedPayment.amount)}.
+                </Text>
+              </Card>
+              <Group gap="md">
+                <MantineButton
+                  size="md"
+                  color="green"
                   onClick={() => processPayment(selectedPayment)}
                   disabled={processingPayment === selectedPayment._id}
-                  className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  leftSection={<IconCreditCard size={16} />}
+                  fullWidth
                 >
-                  <CreditCard className="h-4 w-4" />
-                  {processingPayment === selectedPayment._id
-                    ? "Processing..."
-                    : "Pay with PayMongo"}
-                </button>
-                <button
+                  {processingPayment === selectedPayment._id ? "Processing..." : "Pay with PayMongo"}
+                </MantineButton>
+                <MantineButton
+                  size="md"
+                  variant="outline"
+                  color="gray"
                   onClick={() => setShowPaymentModal(false)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                  fullWidth
                 >
                   Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+                </MantineButton>
+              </Group>
+            </Stack>
+          )}
+        </Modal>
 
         {/* Plan Details Modal */}
-        {showDetailsModal && selectedPlan && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-semibold text-gray-900">
-                  Payment Plan Details
-                </h3>
-                <button
-                  onClick={() => setShowDetailsModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
+        <Modal
+          opened={showDetailsModal}
+          onClose={() => setShowDetailsModal(false)}
+          title={<Text fw={600} c={primaryTextColor}>Payment Plan Details</Text>}
+          centered
+          size="xl"
+          styles={{ content: { maxHeight: "90vh", overflowY: "auto" } }}
+        >
+          {selectedPlan && (
+            <Stack gap="md">
               {/* Plan Overview */}
-              <div className="bg-gray-50 rounded-lg p-6 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">
-                      Property Information
-                    </h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Property:</span>
-                        <span className="text-sm font-medium">
-                          {selectedPlan.propertyTitle}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">
-                          Property Price:
-                        </span>
-                        <span className="text-sm font-medium">
-                          {formatCurrency(selectedPlan.propertyPrice)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">
-                          Down Payment:
-                        </span>
-                        <span className="text-sm font-medium">
-                          {formatCurrency(selectedPlan.downPayment)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">
-                      Payment Terms
-                    </h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">
-                          Monthly Payment:
-                        </span>
-                        <span className="text-sm font-medium">
-                          {formatCurrency(selectedPlan.monthlyPayment)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">
-                          Interest Rate:
-                        </span>
-                        <span className="text-sm font-medium">
-                          {selectedPlan.interestRate}% per annum
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">
-                          Lease Duration:
-                        </span>
-                        <span className="text-sm font-medium">
-                          {selectedPlan.leaseDuration} months
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">
-                          Total Amount:
-                        </span>
-                        <span className="text-sm font-medium">
-                          {formatCurrency(selectedPlan.totalAmount)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <Card withBorder radius="lg" style={{ boxShadow: getDefaultShadow() }}>
+                <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+                  <Stack gap="md">
+                    <Text fw={600} c={primaryTextColor}>Property Information</Text>
+                    <Stack gap="xs">
+                      <Text size="sm" c={primaryTextColor}>Property:</Text>
+                      <Text fw={500} c={primaryTextColor}>{selectedPlan.propertyTitle}</Text>
+                    </Stack>
+                    <Stack gap="xs">
+                      <Text size="sm" c={primaryTextColor}>Property Price:</Text>
+                      <Text fw={500} c={primaryTextColor}>{formatCurrency(selectedPlan.propertyPrice)}</Text>
+                    </Stack>
+                    <Stack gap="xs">
+                      <Text size="sm" c={primaryTextColor}>Down Payment:</Text>
+                      <Text fw={500} c={primaryTextColor}>{formatCurrency(selectedPlan.downPayment)}</Text>
+                    </Stack>
+                  </Stack>
+                  <Stack gap="md">
+                    <Text fw={600} c={primaryTextColor}>Payment Terms</Text>
+                    <Stack gap="xs">
+                      <Text size="sm" c={primaryTextColor}>Monthly Payment:</Text>
+                      <Text fw={500} c={primaryTextColor}>{formatCurrency(selectedPlan.monthlyPayment)}</Text>
+                    </Stack>
+                    <Stack gap="xs">
+                      <Text size="sm" c={primaryTextColor}>Interest Rate:</Text>
+                      <Text fw={500} c={primaryTextColor}>{selectedPlan.interestRate}% per annum</Text>
+                    </Stack>
+                    <Stack gap="xs">
+                      <Text size="sm" c={primaryTextColor}>Lease Duration:</Text>
+                      <Text fw={500} c={primaryTextColor}>{selectedPlan.leaseDuration} months</Text>
+                    </Stack>
+                    <Stack gap="xs">
+                      <Text size="sm" c={primaryTextColor}>Total Amount:</Text>
+                      <Text fw={500} c={primaryTextColor}>{formatCurrency(selectedPlan.totalAmount)}</Text>
+                    </Stack>
+                  </Stack>
+                </SimpleGrid>
+              </Card>
 
               {/* Progress */}
-              <div className="bg-blue-50 rounded-lg p-6 mb-6">
-                <h4 className="font-semibold text-gray-900 mb-3">Progress</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-blue-600">
-                      {selectedPlan.currentMonth}
-                    </p>
-                    <p className="text-sm text-gray-600">Payments Made</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-yellow-600">
-                      {selectedPlan.leaseDuration - selectedPlan.currentMonth}
-                    </p>
-                    <p className="text-sm text-gray-600">Payments Remaining</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-green-600">
-                      {formatCurrency(selectedPlan.remainingBalance)}
-                    </p>
-                    <p className="text-sm text-gray-600">Remaining Balance</p>
-                  </div>
-                </div>
+              <Card withBorder radius="lg" style={{ boxShadow: getDefaultShadow() }}>
+                <Stack gap="md">
+                  <Text fw={600} c={primaryTextColor}>Progress</Text>
+                  <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+                    <Stack align="center" gap="xs">
+                      <Text size="xl" fw={700} c="blue.6">{selectedPlan.currentMonth}</Text>
+                      <Text size="sm" c={primaryTextColor}>Payments Made</Text>
+                    </Stack>
+                    <Stack align="center" gap="xs">
+                      <Text size="xl" fw={700} c="yellow.6">{selectedPlan.leaseDuration - selectedPlan.currentMonth}</Text>
+                      <Text size="sm" c={primaryTextColor}>Payments Remaining</Text>
+                    </Stack>
+                    <Stack align="center" gap="xs">
+                      <Text size="xl" fw={700} c="green.6">{formatCurrency(selectedPlan.remainingBalance)}</Text>
+                      <Text size="sm" c={primaryTextColor}>Remaining Balance</Text>
+                    </Stack>
+                  </SimpleGrid>
+                </Stack>
+              </Card>
 
-                {/* Payment History */}
-                <div className="mt-6">
-                  <h4 className="font-semibold text-gray-900 mb-3">
-                    Payment History
-                  </h4>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Month
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Amount
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Due Date
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Paid Date
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+              {/* Payment History */}
+              <Card withBorder radius="lg" style={{ boxShadow: getDefaultShadow() }}>
+                <Stack gap="md">
+                  <Text fw={600} c={primaryTextColor}>Payment History</Text>
+                  {getPaymentsForPlan(selectedPlan._id).length === 0 ? (
+                    <Text size="sm" c={primaryTextColor} ta="center" py="md">
+                      No payment history available.
+                    </Text>
+                  ) : (
+                    <Table verticalSpacing="sm" horizontalSpacing="md">
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>Month</Table.Th>
+                          <Table.Th>Amount</Table.Th>
+                          <Table.Th>Due Date</Table.Th>
+                          <Table.Th>Status</Table.Th>
+                          <Table.Th>Paid Date</Table.Th>
+                          <Table.Th>Action</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
                         {getPaymentsForPlan(selectedPlan._id).map((payment) => (
-                          <tr key={payment._id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              Month {payment.monthNumber}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {formatCurrency(payment.amount)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {formatDate(payment.dueDate)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={getStatusBadge(payment.status)}>
-                                {payment.status.charAt(0).toUpperCase() +
-                                  payment.status.slice(1)}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {payment.paidDate
-                                ? formatDate(payment.paidDate)
-                                : "-"}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <Table.Tr key={payment._id}>
+                            <Table.Td>Month {payment.monthNumber}</Table.Td>
+                            <Table.Td>{formatCurrency(payment.amount)}</Table.Td>
+                            <Table.Td>{formatDate(payment.dueDate)}</Table.Td>
+                            <Table.Td>
+                              <Badge
+                                variant="light"
+                                color={getStatusBadge(payment.status).color}
+                                size="sm"
+                                radius="md"
+                              >
+                                {getStatusBadge(payment.status).text}
+                              </Badge>
+                            </Table.Td>
+                            <Table.Td>{payment.paidDate ? formatDate(payment.paidDate) : "-"}</Table.Td>
+                            <Table.Td>
                               {payment.status === "pending" && (
-                                <button
+                                <MantineButton
+                                  size="xs"
+                                  color="green"
                                   onClick={() => {
                                     setSelectedPayment(payment);
                                     setShowPaymentModal(true);
                                     setShowDetailsModal(false);
                                   }}
                                   disabled={processingPayment === payment._id}
-                                  className="text-green-600 hover:text-green-800 disabled:opacity-50 flex items-center gap-1"
+                                  leftSection={<IconCreditCard size={16} />}
                                 >
-                                  <CreditCard className="h-4 w-4" />
                                   Pay Now
-                                </button>
+                                </MantineButton>
                               )}
-                              {payment.status === "paid" &&
-                                payment.receiptUrl && (
-                                  <a
-                                    href={payment.receiptUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                    View Receipt
-                                  </a>
-                                )}
-                            </td>
-                          </tr>
+                              {payment.status === "paid" && payment.receiptUrl && (
+                                <MantineButton
+                                  size="xs"
+                                  variant="outline"
+                                  color="blue"
+                                  component="a"
+                                  href={payment.receiptUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  leftSection={<IconEye size={16} />}
+                                >
+                                  View Receipt
+                                </MantineButton>
+                              )}
+                            </Table.Td>
+                          </Table.Tr>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {getPaymentsForPlan(selectedPlan._id).length === 0 && (
-                    <div className="text-center py-6 text-gray-600">
-                      No payment history available.
-                    </div>
+                      </Table.Tbody>
+                    </Table>
                   )}
-                </div>
+                </Stack>
+              </Card>
 
-                {/* Tenant Information */}
-                <div className="mt-6">
-                  <h4 className="font-semibold text-gray-900 mb-3">
-                    Tenant Information
-                  </h4>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-600">Full Name:</p>
-                        <p className="text-sm font-medium text-gray-900">
-                          {selectedPlan.tenant.fullName}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Email:</p>
-                        <p className="text-sm font-medium text-gray-900">
-                          {selectedPlan.tenant.email}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Phone:</p>
-                        <p className="text-sm font-medium text-gray-900">
-                          {selectedPlan.tenant.phone}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Start Date:</p>
-                        <p className="text-sm font-medium text-gray-900">
-                          {formatDate(selectedPlan.startDate)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* Tenant Information */}
+              <Card withBorder radius="lg" style={{ boxShadow: getDefaultShadow() }}>
+                <Stack gap="md">
+                  <Text fw={600} c={primaryTextColor}>Tenant Information</Text>
+                  <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+                    <Stack gap="xs">
+                      <Text size="sm" c={primaryTextColor}>Full Name:</Text>
+                      <Text fw={500} c={primaryTextColor}>{selectedPlan.tenant.fullName}</Text>
+                    </Stack>
+                    <Stack gap="xs">
+                      <Text size="sm" c={primaryTextColor}>Email:</Text>
+                      <Text fw={500} c={primaryTextColor}>{selectedPlan.tenant.email}</Text>
+                    </Stack>
+                    <Stack gap="xs">
+                      <Text size="sm" c={primaryTextColor}>Phone:</Text>
+                      <Text fw={500} c={primaryTextColor}>{selectedPlan.tenant.phone}</Text>
+                    </Stack>
+                    <Stack gap="xs">
+                      <Text size="sm" c={primaryTextColor}>Start Date:</Text>
+                      <Text fw={500} c={primaryTextColor}>{formatDate(selectedPlan.startDate)}</Text>
+                    </Stack>
+                  </SimpleGrid>
+                </Stack>
+              </Card>
 
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setShowDetailsModal(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+              <MantineButton
+                variant="outline"
+                color="gray"
+                onClick={() => setShowDetailsModal(false)}
+                fullWidth
+              >
+                Close
+              </MantineButton>
+            </Stack>
+          )}
+        </Modal>
+      </Stack>
+    </Container>
   );
 };
 

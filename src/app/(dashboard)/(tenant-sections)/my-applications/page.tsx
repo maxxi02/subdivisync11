@@ -9,28 +9,33 @@ import {
   Badge,
   Group,
   Stack,
-  Button,
+  Button as MantineButton,
   Modal,
   Loader,
   Center,
   SimpleGrid,
   Card,
+  Notification,
+  useMantineTheme,
+  useMantineColorScheme,
+  rgba,
 } from "@mantine/core";
 import {
-  Calendar,
-  DollarSign,
-  Eye,
-  MapPin,
-  Clock,
-  CreditCard,
-  User,
-  Square,
-  Bed,
-  Bath,
-  AlertCircle,
-} from "lucide-react";
+  IconCalendar,
+  IconCurrencyDollar,
+  IconEye,
+  IconMapPin,
+  IconClock,
+  IconCreditCard,
+  IconUser,
+  IconSquare,
+  IconBed,
+  IconBath,
+  IconAlertCircle,
+  IconCheck,
+  IconX,
+} from "@tabler/icons-react";
 import Image from "next/image";
-import { toast } from "react-hot-toast";
 import { getServerSession } from "@/better-auth/action";
 import { Session } from "@/better-auth/auth-types";
 import PropertyCarousel from "./_components/property-carousel";
@@ -101,7 +106,14 @@ interface PaymentPlan {
   nextPaymentDate: string;
 }
 
+interface NotificationType {
+  type: "success" | "error";
+  message: string;
+}
+
 const MyApplication = () => {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const [inquiries, setInquiries] = useState<InquiryWithProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedInquiry, setSelectedInquiry] =
@@ -112,6 +124,21 @@ const MyApplication = () => {
     null
   );
   const [isFetchingPayment, setIsFetchingPayment] = useState(false);
+  const [notification, setNotification] = useState<NotificationType | null>(
+    null
+  );
+
+  const primaryTextColor = colorScheme === "dark" ? "white" : "dark";
+  const getDefaultShadow = () => {
+    const baseShadow = "0 1px 3px";
+    const opacity = colorScheme === "dark" ? 0.2 : 0.12;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
+  const showNotification = (type: "success" | "error", message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
 
   // Validate inquiry data
   const validateInquiry = (inquiry: InquiryWithProperty) => {
@@ -147,9 +174,9 @@ const MyApplication = () => {
       try {
         const session = await getServerSession();
         setSession(session);
-        toast.success("Session loaded successfully");
+        showNotification("success", "Session loaded successfully");
       } catch (error) {
-        toast.error("Failed to load session. Please try again.");
+        showNotification("error", "Failed to load session. Please try again.");
       }
     };
     getSession();
@@ -170,12 +197,13 @@ const MyApplication = () => {
 
       if (data.success) {
         setPaymentPlanData(data.paymentPlan);
-        toast.success("Payment plan loaded successfully");
+        showNotification("success", "Payment plan loaded successfully");
       } else {
         throw new Error(data.error || "Failed to fetch payment plan");
       }
     } catch (error) {
-      toast.error(
+      showNotification(
+        "error",
         error instanceof Error
           ? error.message
           : "Failed to fetch payment plan. Please try again."
@@ -222,12 +250,13 @@ const MyApplication = () => {
           }
         });
         setInquiries(userInquiries);
-        toast.success("Applications loaded successfully");
+        showNotification("success", "Applications loaded successfully");
       } else {
         throw new Error(data.error || "Failed to fetch applications");
       }
     } catch (error) {
-      toast.error(
+      showNotification(
+        "error",
         error instanceof Error
           ? error.message
           : "Failed to fetch applications. Please try again."
@@ -265,7 +294,7 @@ const MyApplication = () => {
         <Center style={{ height: 400 }}>
           <Stack align="center">
             <Loader size="lg" />
-            <Text c="gray.6">Loading your applications...</Text>
+            <Text c={primaryTextColor}>Loading your applications...</Text>
           </Stack>
         </Center>
       </Container>
@@ -273,39 +302,68 @@ const MyApplication = () => {
   }
 
   return (
-    <Container size="xl" py="xl">
+    <Container size="100%" py="xl">
+      {notification && (
+        <Notification
+          icon={
+            notification.type === "success" ? (
+              <IconCheck size={18} />
+            ) : (
+              <IconX size={18} />
+            )
+          }
+          color={notification.type === "success" ? "green" : "red"}
+          title={notification.type === "success" ? "Success" : "Error"}
+          onClose={() => setNotification(null)}
+          style={{ position: "fixed", top: 20, right: 20, zIndex: 1000 }}
+        >
+          {notification.message}
+        </Notification>
+      )}
       <Stack gap="xl">
         {/* Header */}
         <Stack gap="xs">
-          <Title order={1} size="h2" fw={600} c="gray.9">
+          <Title order={1} size="h2" fw={600} c={primaryTextColor}>
             My Applications
           </Title>
-          <Text c="gray.6" size="md" lh={1.5}>
+          <Text c={primaryTextColor} size="md" lh={1.5}>
             View your submitted property inquiries
           </Text>
         </Stack>
 
         {/* Stats Cards */}
         <SimpleGrid cols={{ base: 1, md: 4 }} spacing="md">
-          <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <Card
+            shadow="sm"
+            padding="lg"
+            radius="lg"
+            withBorder
+            style={{ boxShadow: getDefaultShadow() }}
+          >
             <Group justify="space-between" align="center">
               <Stack gap="xs">
-                <Text size="sm" c="gray.6" fw={500}>
+                <Text size="sm" c={primaryTextColor} fw={500}>
                   Total Applications
                 </Text>
-                <Text size="xl" fw={700} c="gray.9">
+                <Text size="xl" fw={700} c={primaryTextColor}>
                   {inquiries.length}
                 </Text>
               </Stack>
               <Center className="h-12 w-12 bg-blue-100 rounded-lg">
-                <User className="h-6 w-6 text-blue-600" />
+                <IconUser size={24} color="blue" />
               </Center>
             </Group>
           </Card>
-          <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <Card
+            shadow="sm"
+            padding="lg"
+            radius="lg"
+            withBorder
+            style={{ boxShadow: getDefaultShadow() }}
+          >
             <Group justify="space-between" align="center">
               <Stack gap="xs">
-                <Text size="sm" c="gray.6" fw={500}>
+                <Text size="sm" c={primaryTextColor} fw={500}>
                   Pending
                 </Text>
                 <Text size="xl" fw={700} c="yellow.6">
@@ -319,14 +377,20 @@ const MyApplication = () => {
                 </Text>
               </Stack>
               <Center className="h-12 w-12 bg-yellow-100 rounded-lg">
-                <Clock className="h-6 w-6 text-yellow-600" />
+                <IconClock size={24} color="yellow" />
               </Center>
             </Group>
           </Card>
-          <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <Card
+            shadow="sm"
+            padding="lg"
+            radius="lg"
+            withBorder
+            style={{ boxShadow: getDefaultShadow() }}
+          >
             <Group justify="space-between" align="center">
               <Stack gap="xs">
-                <Text size="sm" c="gray.6" fw={500}>
+                <Text size="sm" c={primaryTextColor} fw={500}>
                   Approved/Leased
                 </Text>
                 <Text size="xl" fw={700} c="green.6">
@@ -340,14 +404,20 @@ const MyApplication = () => {
                 </Text>
               </Stack>
               <Center className="h-12 w-12 bg-green-100 rounded-lg">
-                <CreditCard className="h-6 w-6 text-green-600" />
+                <IconCreditCard size={24} color="green" />
               </Center>
             </Group>
           </Card>
-          <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <Card
+            shadow="sm"
+            padding="lg"
+            radius="lg"
+            withBorder
+            style={{ boxShadow: getDefaultShadow() }}
+          >
             <Group justify="space-between" align="center">
               <Stack gap="xs">
-                <Text size="sm" c="gray.6" fw={500}>
+                <Text size="sm" c={primaryTextColor} fw={500}>
                   Rejected
                 </Text>
                 <Text size="xl" fw={700} c="red.6">
@@ -355,14 +425,20 @@ const MyApplication = () => {
                 </Text>
               </Stack>
               <Center className="h-12 w-12 bg-red-100 rounded-lg">
-                <AlertCircle className="h-6 w-6 text-red-600" />
+                <IconAlertCircle size={24} color="red" />
               </Center>
             </Group>
           </Card>
         </SimpleGrid>
 
         {/* Applications Table */}
-        <Card shadow="sm" padding="lg" radius="md" withBorder>
+        <Card
+          shadow="sm"
+          padding="lg"
+          radius="lg"
+          withBorder
+          style={{ boxShadow: getDefaultShadow() }}
+        >
           <Table>
             <Table.Thead>
               <Table.Tr>
@@ -376,7 +452,7 @@ const MyApplication = () => {
               {inquiries.length === 0 ? (
                 <Table.Tr>
                   <Table.Td colSpan={4} ta="center" py="xl">
-                    <Text c="gray.6">No applications found.</Text>
+                    <Text c={primaryTextColor}>No applications found.</Text>
                   </Table.Td>
                 </Table.Tr>
               ) : (
@@ -386,18 +462,18 @@ const MyApplication = () => {
                   >
                     <Table.Td>
                       <Stack gap="xs">
-                        <Text fw={500} c="gray.9">
+                        <Text fw={500} c={primaryTextColor}>
                           {inquiry.propertyTitle}
                         </Text>
                         <Group gap="xs">
-                          <MapPin className="h-4 w-4 text-gray-400" />
-                          <Text size="sm" c="gray.6">
+                          <IconMapPin size={16} color="gray" />
+                          <Text size="sm" c={primaryTextColor}>
                             {inquiry.propertyLocation}
                           </Text>
                         </Group>
                         <Group gap="xs">
-                          <DollarSign className="h-4 w-4 text-gray-400" />
-                          <Text size="sm" c="gray.6">
+                          <IconCurrencyDollar size={16} color="gray" />
+                          <Text size="sm" c={primaryTextColor}>
                             {new Intl.NumberFormat("en-PH", {
                               style: "currency",
                               currency: "PHP",
@@ -408,8 +484,8 @@ const MyApplication = () => {
                     </Table.Td>
                     <Table.Td>
                       <Group gap="xs">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        <Text size="sm" c="gray.9">
+                        <IconCalendar size={16} color="gray" />
+                        <Text size="sm" c={primaryTextColor}>
                           {new Date(inquiry.submittedAt).toLocaleDateString()}
                         </Text>
                       </Group>
@@ -420,6 +496,9 @@ const MyApplication = () => {
                           inquiry.status,
                           inquiry.propertyStatus
                         )}
+                        variant="light"
+                        size="sm"
+                        radius="md"
                       >
                         {inquiry.propertyStatus === "LEASED"
                           ? "Leased"
@@ -430,25 +509,28 @@ const MyApplication = () => {
                         inquiry.rejectionReason && (
                           <Text size="xs" c="red.6" mt="xs">
                             <Group gap="xs">
-                              <AlertCircle className="h-3 w-3" />
+                              <IconAlertCircle size={12} />
                               {inquiry.rejectionReason}
                             </Group>
                           </Text>
                         )}
                     </Table.Td>
                     <Table.Td>
-                      <Button
+                      <MantineButton
                         size="xs"
                         color="blue"
                         onClick={async () => {
                           const errors = validateInquiry(inquiry);
                           if (errors.length > 0) {
-                            toast.error(errors[0]);
+                            showNotification("error", errors[0]);
                             return;
                           }
                           setSelectedInquiry(inquiry);
                           setShowViewModal(true);
-                          toast.success("Viewing application details");
+                          showNotification(
+                            "success",
+                            "Viewing application details"
+                          );
                           if (
                             inquiry.propertyStatus === "LEASED" ||
                             inquiry.status === "approved"
@@ -460,10 +542,10 @@ const MyApplication = () => {
                           }
                         }}
                         disabled={isFetchingPayment}
-                        leftSection={<Eye className="h-4 w-4" />}
+                        leftSection={<IconEye size={16} />}
                       >
                         View
-                      </Button>
+                      </MantineButton>
                     </Table.Td>
                   </Table.Tr>
                 ))
@@ -481,7 +563,7 @@ const MyApplication = () => {
             setPaymentPlanData(null);
           }}
           size="xl"
-          title={<Title order={2}>Application Details</Title>}
+          title={<>Application Details</>}
           centered
         >
           {selectedInquiry && (
@@ -492,7 +574,9 @@ const MyApplication = () => {
                   selectedInquiry.status,
                   selectedInquiry.propertyStatus
                 )}
+                variant="light"
                 size="lg"
+                radius="md"
               >
                 {selectedInquiry.propertyStatus === "LEASED"
                   ? "Leased"
@@ -513,7 +597,13 @@ const MyApplication = () => {
                 )}
 
               {/* Applicant Information */}
-              <Card shadow="sm" padding="lg" radius="md" withBorder>
+              <Card
+                shadow="sm"
+                padding="lg"
+                radius="lg"
+                withBorder
+                style={{ boxShadow: getDefaultShadow() }}
+              >
                 <Group gap="xs" mb="md">
                   <Image
                     className="h-10 w-10 rounded-full object-cover"
@@ -522,16 +612,16 @@ const MyApplication = () => {
                     width={40}
                     height={40}
                   />
-                  <Text fw={600} c="gray.8">
+                  <Text fw={600} c={primaryTextColor}>
                     Applicant Information
                   </Text>
                 </Group>
                 <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
                   <Stack gap="xs">
-                    <Text size="sm" c="gray.6">
+                    <Text size="sm" c={primaryTextColor}>
                       Full Name
                     </Text>
-                    <Text fw={500} c="gray.9">
+                    <Text fw={500} c={primaryTextColor}>
                       {validateInquiry(selectedInquiry).length === 0 &&
                       selectedInquiry.fullName
                         ? selectedInquiry.fullName
@@ -539,10 +629,10 @@ const MyApplication = () => {
                     </Text>
                   </Stack>
                   <Stack gap="xs">
-                    <Text size="sm" c="gray.6">
+                    <Text size="sm" c={primaryTextColor}>
                       Email Address
                     </Text>
-                    <Text fw={500} c="gray.9">
+                    <Text fw={500} c={primaryTextColor}>
                       {validateInquiry(selectedInquiry).length === 0 &&
                       selectedInquiry.email
                         ? selectedInquiry.email
@@ -550,10 +640,10 @@ const MyApplication = () => {
                     </Text>
                   </Stack>
                   <Stack gap="xs">
-                    <Text size="sm" c="gray.6">
+                    <Text size="sm" c={primaryTextColor}>
                       Phone Number
                     </Text>
-                    <Text fw={500} c="gray.9">
+                    <Text fw={500} c={primaryTextColor}>
                       {validateInquiry(selectedInquiry).length === 0 &&
                       selectedInquiry.phone
                         ? selectedInquiry.phone
@@ -561,10 +651,10 @@ const MyApplication = () => {
                     </Text>
                   </Stack>
                   <Stack gap="xs">
-                    <Text size="sm" c="gray.6">
+                    <Text size="sm" c={primaryTextColor}>
                       Application Date
                     </Text>
-                    <Text fw={500} c="gray.9">
+                    <Text fw={500} c={primaryTextColor}>
                       {new Date(selectedInquiry.submittedAt).toLocaleDateString(
                         "en-US",
                         {
@@ -581,35 +671,41 @@ const MyApplication = () => {
               </Card>
 
               {/* Property Information */}
-              <Card shadow="sm" padding="lg" radius="md" withBorder>
+              <Card
+                shadow="sm"
+                padding="lg"
+                radius="lg"
+                withBorder
+                style={{ boxShadow: getDefaultShadow() }}
+              >
                 <Group gap="xs" mb="md">
-                  <MapPin className="h-5 w-5 text-gray-400" />
-                  <Text fw={600} c="gray.8">
+                  <IconMapPin size={20} color="gray" />
+                  <Text fw={600} c={primaryTextColor}>
                     Property Information
                   </Text>
                 </Group>
                 <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
                   <Stack gap="xs">
-                    <Text size="sm" c="gray.6">
+                    <Text size="sm" c={primaryTextColor}>
                       Property Title
                     </Text>
-                    <Text fw={500} c="gray.9">
+                    <Text fw={500} c={primaryTextColor}>
                       {selectedInquiry.propertyTitle}
                     </Text>
                   </Stack>
                   <Stack gap="xs">
-                    <Text size="sm" c="gray.6">
+                    <Text size="sm" c={primaryTextColor}>
                       Location
                     </Text>
-                    <Text fw={500} c="gray.9">
+                    <Text fw={500} c={primaryTextColor}>
                       {selectedInquiry.propertyLocation}
                     </Text>
                   </Stack>
                   <Stack gap="xs">
-                    <Text size="sm" c="gray.6">
+                    <Text size="sm" c={primaryTextColor}>
                       Price
                     </Text>
-                    <Text fw={500} c="gray.9">
+                    <Text fw={500} c="green.6">
                       {new Intl.NumberFormat("en-PH", {
                         style: "currency",
                         currency: "PHP",
@@ -617,10 +713,10 @@ const MyApplication = () => {
                     </Text>
                   </Stack>
                   <Stack gap="xs">
-                    <Text size="sm" c="gray.6">
+                    <Text size="sm" c={primaryTextColor}>
                       Type
                     </Text>
-                    <Text fw={500} c="gray.9">
+                    <Text fw={500} c={primaryTextColor}>
                       {selectedInquiry.propertyType
                         .replace("-", " ")
                         .replace(/\b\w/g, (l) => l.toUpperCase())}
@@ -631,10 +727,10 @@ const MyApplication = () => {
                     <>
                       {(selectedInquiry.bedrooms ?? 0) > 0 && (
                         <Stack gap="xs">
-                          <Text size="sm" c="gray.6">
+                          <Text size="sm" c={primaryTextColor}>
                             Bedrooms
                           </Text>
-                          <Text fw={500} c="gray.9">
+                          <Text fw={500} c={primaryTextColor}>
                             {selectedInquiry.bedrooms} Bedroom
                             {selectedInquiry.bedrooms !== 1 ? "s" : ""}
                           </Text>
@@ -642,10 +738,10 @@ const MyApplication = () => {
                       )}
                       {(selectedInquiry.bathrooms ?? 0) > 0 && (
                         <Stack gap="xs">
-                          <Text size="sm" c="gray.6">
+                          <Text size="sm" c={primaryTextColor}>
                             Bathrooms
                           </Text>
-                          <Text fw={500} c="gray.9">
+                          <Text fw={500} c={primaryTextColor}>
                             {selectedInquiry.bathrooms} Bathroom
                             {selectedInquiry.bathrooms !== 1 ? "s" : ""}
                           </Text>
@@ -653,10 +749,10 @@ const MyApplication = () => {
                       )}
                       {(selectedInquiry.sqft ?? 0) > 0 && (
                         <Stack gap="xs">
-                          <Text size="sm" c="gray.6">
+                          <Text size="sm" c={primaryTextColor}>
                             Square Footage
                           </Text>
-                          <Text fw={500} c="gray.9">
+                          <Text fw={500} c={primaryTextColor}>
                             {selectedInquiry.sqft} sq ft
                           </Text>
                         </Stack>
@@ -667,11 +763,17 @@ const MyApplication = () => {
               </Card>
 
               {/* Application Reason */}
-              <Card shadow="sm" padding="lg" radius="md" withBorder>
-                <Text fw={600} c="gray.8" mb="md">
+              <Card
+                shadow="sm"
+                padding="lg"
+                radius="lg"
+                withBorder
+                style={{ boxShadow: getDefaultShadow() }}
+              >
+                <Text fw={600} c={primaryTextColor} mb="md">
                   Reason for Application
                 </Text>
-                <Text c="gray.7">
+                <Text c={primaryTextColor}>
                   {validateInquiry(selectedInquiry).length === 0 &&
                   selectedInquiry.reason
                     ? selectedInquiry.reason
@@ -682,9 +784,15 @@ const MyApplication = () => {
               {/* Rejection Reason (if rejected) */}
               {selectedInquiry.status === "rejected" &&
                 selectedInquiry.rejectionReason && (
-                  <Card shadow="sm" padding="lg" radius="md" withBorder>
+                  <Card
+                    shadow="sm"
+                    padding="lg"
+                    radius="lg"
+                    withBorder
+                    style={{ boxShadow: getDefaultShadow() }}
+                  >
                     <Group gap="xs" mb="md">
-                      <AlertCircle className="h-5 w-5 text-red-600" />
+                      <IconAlertCircle size={20} color="red" />
                       <Text fw={600} c="red.8">
                         Rejection Reason
                       </Text>
@@ -695,9 +803,15 @@ const MyApplication = () => {
 
               {/* Approval Status (if approved) */}
               {selectedInquiry.status === "approved" && (
-                <Card shadow="sm" padding="lg" radius="md" withBorder>
+                <Card
+                  shadow="sm"
+                  padding="lg"
+                  radius="lg"
+                  withBorder
+                  style={{ boxShadow: getDefaultShadow() }}
+                >
                   <Group gap="xs" mb="md">
-                    <CreditCard className="h-5 w-5 text-green-600" />
+                    <IconCreditCard size={20} color="green" />
                     <Text fw={600} c="green.8">
                       Application Status
                     </Text>
@@ -713,19 +827,25 @@ const MyApplication = () => {
               {(selectedInquiry.propertyStatus === "LEASED" ||
                 selectedInquiry.status === "approved") &&
                 paymentPlanData && (
-                  <Card shadow="sm" padding="lg" radius="md" withBorder>
+                  <Card
+                    shadow="sm"
+                    padding="lg"
+                    radius="lg"
+                    withBorder
+                    style={{ boxShadow: getDefaultShadow() }}
+                  >
                     <Group gap="xs" mb="md">
-                      <CreditCard className="h-5 w-5 text-green-600" />
+                      <IconCreditCard size={20} color="green" />
                       <Text fw={600} c="green.8">
                         Payment Plan Details
                       </Text>
                     </Group>
                     <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
                       <Stack gap="xs">
-                        <Text size="sm" c="green.6">
+                        <Text size="sm" c={primaryTextColor}>
                           Property Price
                         </Text>
-                        <Text fw={500} c="green.9">
+                        <Text fw={500} c="green.6">
                           {new Intl.NumberFormat("en-PH", {
                             style: "currency",
                             currency: "PHP",
@@ -733,10 +853,10 @@ const MyApplication = () => {
                         </Text>
                       </Stack>
                       <Stack gap="xs">
-                        <Text size="sm" c="green.6">
+                        <Text size="sm" c={primaryTextColor}>
                           Down Payment
                         </Text>
-                        <Text fw={500} c="green.9">
+                        <Text fw={500} c="green.6">
                           {new Intl.NumberFormat("en-PH", {
                             style: "currency",
                             currency: "PHP",
@@ -744,10 +864,10 @@ const MyApplication = () => {
                         </Text>
                       </Stack>
                       <Stack gap="xs">
-                        <Text size="sm" c="green.6">
+                        <Text size="sm" c={primaryTextColor}>
                           Monthly Payment
                         </Text>
-                        <Text fw={500} c="green.9">
+                        <Text fw={500} c="green.6">
                           {new Intl.NumberFormat("en-PH", {
                             style: "currency",
                             currency: "PHP",
@@ -755,20 +875,20 @@ const MyApplication = () => {
                         </Text>
                       </Stack>
                       <Stack gap="xs">
-                        <Text size="sm" c="green.6">
+                        <Text size="sm" c={primaryTextColor}>
                           Interest Rate
                         </Text>
-                        <Text fw={500} c="green.9">
+                        <Text fw={500} c="green.6">
                           {paymentPlanData.interestRate}% per annum
                         </Text>
                       </Stack>
                       <Stack gap="xs">
-                        <Text size="sm" c="green.6">
+                        <Text size="sm" c={primaryTextColor}>
                           Lease Duration
                         </Text>
-                        <Text fw={500} c="green.9">
+                        <Text fw={500} c="green.6">
                           {paymentPlanData.leaseDuration} months
-                          <Text size="sm" c="green.6" component="span">
+                          <Text size="sm" c={primaryTextColor} component="span">
                             {" "}
                             ({Math.floor(
                               paymentPlanData.leaseDuration / 12
@@ -778,10 +898,10 @@ const MyApplication = () => {
                         </Text>
                       </Stack>
                       <Stack gap="xs">
-                        <Text size="sm" c="green.6">
+                        <Text size="sm" c={primaryTextColor}>
                           Total Amount
                         </Text>
-                        <Text fw={500} c="green.9">
+                        <Text fw={500} c="green.6">
                           {new Intl.NumberFormat("en-PH", {
                             style: "currency",
                             currency: "PHP",
@@ -789,10 +909,10 @@ const MyApplication = () => {
                         </Text>
                       </Stack>
                       <Stack gap="xs">
-                        <Text size="sm" c="green.6">
+                        <Text size="sm" c={primaryTextColor}>
                           Start Date
                         </Text>
-                        <Text fw={500} c="green.9">
+                        <Text fw={500} c="green.6">
                           {new Date(
                             paymentPlanData.startDate
                           ).toLocaleDateString("en-US", {
@@ -803,7 +923,7 @@ const MyApplication = () => {
                         </Text>
                       </Stack>
                       <Stack gap="xs">
-                        <Text size="sm" c="green.6">
+                        <Text size="sm" c={primaryTextColor}>
                           Plan Status
                         </Text>
                         <Badge
@@ -812,26 +932,28 @@ const MyApplication = () => {
                               ? "green"
                               : "gray"
                           }
+                          variant="light"
                           size="sm"
+                          radius="md"
                         >
                           {paymentPlanData.status.charAt(0).toUpperCase() +
                             paymentPlanData.status.slice(1)}
                         </Badge>
                       </Stack>
                       <Stack gap="xs">
-                        <Text size="sm" c="green.6">
+                        <Text size="sm" c={primaryTextColor}>
                           Current Month
                         </Text>
-                        <Text fw={500} c="green.9">
+                        <Text fw={500} c="green.6">
                           {paymentPlanData.currentMonth} of{" "}
                           {paymentPlanData.leaseDuration}
                         </Text>
                       </Stack>
                       <Stack gap="xs">
-                        <Text size="sm" c="green.6">
+                        <Text size="sm" c={primaryTextColor}>
                           Remaining Balance
                         </Text>
-                        <Text fw={500} c="green.9">
+                        <Text fw={500} c="green.6">
                           {new Intl.NumberFormat("en-PH", {
                             style: "currency",
                             currency: "PHP",
@@ -839,10 +961,10 @@ const MyApplication = () => {
                         </Text>
                       </Stack>
                       <Stack gap="xs">
-                        <Text size="sm" c="green.6">
+                        <Text size="sm" c={primaryTextColor}>
                           Next Payment Date
                         </Text>
-                        <Text fw={500} c="green.9">
+                        <Text fw={500} c="green.6">
                           {new Date(
                             paymentPlanData.nextPaymentDate
                           ).toLocaleDateString("en-US", {
@@ -853,7 +975,7 @@ const MyApplication = () => {
                         </Text>
                       </Stack>
                       <Stack gap="xs">
-                        <Text size="sm" c="green.6">
+                        <Text size="sm" c={primaryTextColor}>
                           Total Interest
                         </Text>
                         <Text fw={500} c="orange.6">
@@ -872,9 +994,15 @@ const MyApplication = () => {
 
               {/* Property Status (if leased) */}
               {selectedInquiry.propertyStatus === "LEASED" && (
-                <Card shadow="sm" padding="lg" radius="md" withBorder>
+                <Card
+                  shadow="sm"
+                  padding="lg"
+                  radius="lg"
+                  withBorder
+                  style={{ boxShadow: getDefaultShadow() }}
+                >
                   <Group gap="xs" mb="md">
-                    <CreditCard className="h-5 w-5 text-blue-600" />
+                    <IconCreditCard size={20} color="blue" />
                     <Text fw={600} c="blue.8">
                       Property Status
                     </Text>
@@ -885,7 +1013,7 @@ const MyApplication = () => {
                 </Card>
               )}
 
-              <Button
+              <MantineButton
                 onClick={() => {
                   setShowViewModal(false);
                   setSelectedInquiry(null);
@@ -896,7 +1024,7 @@ const MyApplication = () => {
                 fullWidth
               >
                 Close
-              </Button>
+              </MantineButton>
             </Stack>
           )}
         </Modal>

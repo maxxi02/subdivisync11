@@ -12,6 +12,7 @@ import {
   Box,
   Container,
   Center,
+  useMantineColorScheme,
 } from "@mantine/core";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -19,6 +20,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 
 export function ResetPasswordForm() {
+  const { colorScheme } = useMantineColorScheme();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -169,13 +171,16 @@ export function ResetPasswordForm() {
       <Container className="min-h-screen">
         <Center className="min-h-screen">
           <Paper
-            className="w-full max-w-sm bg-white/95 backdrop-blur-sm"
+            className="w-full max-w-sm backdrop-blur-sm"
             p="xl"
             radius="md"
             withBorder
+            style={{
+              backgroundColor: colorScheme === "dark" ? "rgba(255, 255, 255, 0.05)" : "rgba(255, 255, 255, 0.95)"
+            }}
           >
             <div className="text-center mb-6">
-              <Title order={2} className="text-xl text-gray-900 mb-2">
+              <Title order={2} className="text-xl mb-2" c={colorScheme === "dark" ? "white" : "dark"}>
                 Password Reset Successful
               </Title>
               <Text size="sm" c="dimmed">
@@ -184,7 +189,13 @@ export function ResetPasswordForm() {
             </div>
 
             <Stack gap="md">
-              <div className="text-center p-4 bg-green-50 rounded-md border border-green-200">
+              <div 
+                className="text-center p-4 rounded-md border"
+                style={{
+                  backgroundColor: colorScheme === "dark" ? "rgba(34, 197, 94, 0.1)" : "#f0fdf4",
+                  borderColor: colorScheme === "dark" ? "rgba(34, 197, 94, 0.2)" : "#bbf7d0"
+                }}
+              >
                 <Text size="sm" c="green.7">
                   You can now sign in with your new password. Redirecting to
                   login in 3 seconds...
@@ -207,13 +218,16 @@ export function ResetPasswordForm() {
     <Container className="min-h-screen">
       <Center className="min-h-screen">
         <Paper
-          className="w-full max-w-sm bg-white/95 backdrop-blur-sm"
+          className="w-full max-w-sm backdrop-blur-sm"
           p="xl"
           radius="md"
           withBorder
+          style={{
+            backgroundColor: colorScheme === "dark" ? "rgba(255, 255, 255, 0.05)" : "rgba(255, 255, 255, 0.95)"
+          }}
         >
           <div className="text-center mb-6">
-            <Title order={2} className="text-xl text-gray-900 mb-2">
+            <Title order={2} className="text-xl mb-2" c={colorScheme === "dark" ? "white" : "dark"}>
               Reset Your Password
             </Title>
             <Text size="sm" c="dimmed">
@@ -224,7 +238,13 @@ export function ResetPasswordForm() {
           <form onSubmit={handleSubmit}>
             <Stack gap="md">
               {error && (
-                <div className="p-3 bg-red-50 rounded-md border border-red-200">
+                <div 
+                  className="p-3 rounded-md border"
+                  style={{
+                    backgroundColor: colorScheme === "dark" ? "rgba(239, 68, 68, 0.1)" : "#fef2f2",
+                    borderColor: colorScheme === "dark" ? "rgba(239, 68, 68, 0.2)" : "#fecaca"
+                  }}
+                >
                   <Text size="sm" c="red.7">
                     {error}
                   </Text>
@@ -241,7 +261,10 @@ export function ResetPasswordForm() {
                   required
                   disabled={isLoading}
                   styles={{
-                    label: { color: "#374151", fontWeight: 500 },
+                    label: { 
+                      color: colorScheme === "dark" ? "#ffffff" : "#374151", 
+                      fontWeight: 500 
+                    },
                   }}
                 />
 
@@ -269,7 +292,10 @@ export function ResetPasswordForm() {
                 required
                 disabled={isLoading}
                 styles={{
-                  label: { color: "#374151", fontWeight: 500 },
+                  label: { 
+                    color: colorScheme === "dark" ? "#ffffff" : "#374151", 
+                    fontWeight: 500 
+                  },
                 }}
                 error={
                   confirmPassword && password !== confirmPassword
@@ -278,42 +304,42 @@ export function ResetPasswordForm() {
                 }
               />
 
-              <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+              <div 
+                className="text-xs p-2 rounded"
+                style={{
+                  backgroundColor: colorScheme === "dark" ? "rgba(107, 114, 128, 0.1)" : "#f9fafb",
+                  color: colorScheme === "dark" ? "#d1d5db" : "#6b7280"
+                }}
+              >
                 <Text size="xs" c="dimmed">
                   Password requirements:
                 </Text>
                 <ul className="mt-1 space-y-1 text-xs">
                   <li
-                    className={
-                      password.length >= 8 ? "text-green-600" : "text-gray-500"
-                    }
+                    style={{
+                      color: password.length >= 8 ? "#16a34a" : (colorScheme === "dark" ? "#9ca3af" : "#6b7280")
+                    }}
                   >
                     • At least 8 characters
                   </li>
                   <li
-                    className={
-                      /[a-z]/.test(password)
-                        ? "text-green-600"
-                        : "text-gray-500"
-                    }
+                    style={{
+                      color: /[a-z]/.test(password) ? "#16a34a" : (colorScheme === "dark" ? "#9ca3af" : "#6b7280")
+                    }}
                   >
                     • One lowercase letter
                   </li>
                   <li
-                    className={
-                      /[A-Z]/.test(password)
-                        ? "text-green-600"
-                        : "text-gray-500"
-                    }
+                    style={{
+                      color: /[A-Z]/.test(password) ? "#16a34a" : (colorScheme === "dark" ? "#9ca3af" : "#6b7280")
+                    }}
                   >
                     • One uppercase letter
                   </li>
                   <li
-                    className={
-                      /[0-9]/.test(password)
-                        ? "text-green-600"
-                        : "text-gray-500"
-                    }
+                    style={{
+                      color: /[0-9]/.test(password) ? "#16a34a" : (colorScheme === "dark" ? "#9ca3af" : "#6b7280")
+                    }}
                   >
                     • One number
                   </li>
@@ -322,7 +348,7 @@ export function ResetPasswordForm() {
 
               <Button
                 type="submit"
-                className="bg-blue-600 hover:bg-blue-700"
+                color="blue"
                 size="md"
                 fullWidth
                 loading={isLoading}

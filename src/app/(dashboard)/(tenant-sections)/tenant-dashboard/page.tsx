@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-
 import {
   Title,
   Text,
@@ -15,19 +14,23 @@ import {
   Flex,
   Box,
   ThemeIcon,
+  Notification,
+  useMantineTheme,
+  useMantineColorScheme,
+  rgba,
 } from "@mantine/core";
 import {
   IconHome,
   IconCurrencyDollar,
   IconAlertCircle,
   IconClipboardCheck,
+  IconCheck,
+  IconX,
 } from "@tabler/icons-react";
 import { BarChart, PieChart } from "@mantine/charts";
 import { useRouter } from "next/navigation";
 import { getServerSession } from "@/better-auth/action";
 
-// Assuming these interfaces are defined elsewhere or imported
-// For completeness, including minimal versions here
 interface Announcement {
   _id: string;
   title: string;
@@ -76,23 +79,52 @@ interface MonthlyPayment {
   status: "pending" | "paid" | "overdue";
 }
 
+interface NotificationType {
+  type: "success" | "error";
+  message: string;
+}
+
 const TenantDashboard = () => {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const router = useRouter();
-
-  useEffect(() => {
-    const fetchSession = async () => {
-      const session = await getServerSession();
-      if (session?.user?.role !== "tenant") {
-        router.push("/admin-dashboard");
-      }
-    };
-    fetchSession();
-  }, []);
-
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
   const [payments, setPayments] = useState<MonthlyPayment[]>([]);
+  const [notification, setNotification] = useState<NotificationType | null>(
+    null
+  );
+
+  const primaryTextColor = colorScheme === "dark" ? "white" : "dark";
+  const getDefaultShadow = () => {
+    const baseShadow = "0 1px 3px";
+    const opacity = colorScheme === "dark" ? 0.2 : 0.12;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
+  const showNotification = (type: "success" | "error", message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const session = await getServerSession();
+        if (session?.user?.role !== "tenant") {
+          router.push("/admin-dashboard");
+        }
+      } catch (error) {
+        console.error("Error fetching session:", error);
+        showNotification(
+          "error",
+          "Failed to verify session. Please try again."
+        );
+      }
+    };
+    fetchSession();
+  }, [router]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -102,13 +134,25 @@ const TenantDashboard = () => {
         const annData = await annRes.json();
         if (annData.success) {
           setAnnouncements(annData.announcements);
+          showNotification("success", "Announcements loaded successfully");
+        } else {
+          showNotification(
+            "error",
+            annData.error || "Failed to load announcements"
+          );
         }
 
-        // Fetch payment plans (changed from properties to get payment plan details)
+        // Fetch payment plans
         const propRes = await fetch("/api/tenant/payment-plans");
         const propData = await propRes.json();
         if (propData.success) {
           setProperties(propData.paymentPlans);
+          showNotification("success", "Payment plans loaded successfully");
+        } else {
+          showNotification(
+            "error",
+            propData.error || "Failed to load payment plans"
+          );
         }
 
         // Fetch service requests history
@@ -116,6 +160,12 @@ const TenantDashboard = () => {
         const srData = await srRes.json();
         if (srData.success) {
           setServiceRequests(srData.serviceRequests);
+          showNotification("success", "Service requests loaded successfully");
+        } else {
+          showNotification(
+            "error",
+            srData.error || "Failed to load service requests"
+          );
         }
 
         // Fetch payments and calculate overdue
@@ -130,9 +180,17 @@ const TenantDashboard = () => {
             return p;
           });
           setPayments(updatedPayments);
+          showNotification("success", "Payments loaded successfully");
+        } else {
+          showNotification("error", payData.error || "Failed to load payments");
         }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
+        showNotification(
+          "error",
+          (error as Error).message ||
+            "Failed to load dashboard data. Please try again."
+        );
       }
     };
 
@@ -244,13 +302,30 @@ const TenantDashboard = () => {
   ];
 
   return (
-    <Container size="xl" px="md">
+    <Container size="100%" py="xl">
+      {notification && (
+        <Notification
+          icon={
+            notification.type === "success" ? (
+              <IconCheck size={18} />
+            ) : (
+              <IconX size={18} />
+            )
+          }
+          color={notification.type === "success" ? "green" : "red"}
+          title={notification.type === "success" ? "Success" : "Error"}
+          onClose={() => setNotification(null)}
+          style={{ position: "fixed", top: 20, right: 20, zIndex: 1000 }}
+        >
+          {notification.message}
+        </Notification>
+      )}
       <Stack gap="xl">
         <Box py="md">
-          <Title order={1} size="h2" fw={600} c="gray.9" mb="xs">
+          <Title order={1} size="h2" fw={600} c={primaryTextColor}>
             Tenant Dashboard
           </Title>
-          <Text c="gray.6" size="md" lh={1.5}>
+          <Text c={primaryTextColor} size="md" lh={1.5}>
             Welcome back! Here&#39;s what&#39;s happening with your tenancy
             today.
           </Text>
@@ -267,8 +342,8 @@ const TenantDashboard = () => {
               padding="xl"
               radius="lg"
               withBorder
-              shadow="sm"
               style={{
+                boxShadow: getDefaultShadow(),
                 transition: "transform 0.2s ease, box-shadow 0.2s ease",
                 cursor: "pointer",
               }}
@@ -279,14 +354,13 @@ const TenantDashboard = () => {
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow =
-                  "0 1px 3px rgba(0, 0, 0, 0.12)";
+                e.currentTarget.style.boxShadow = getDefaultShadow();
               }}
             >
               <Flex justify="space-between" align="flex-start" gap="md">
                 <Stack gap="xs" flex={1}>
                   <Text
-                    c="gray.6"
+                    c={primaryTextColor}
                     size="sm"
                     tt="uppercase"
                     fw={600}
@@ -296,7 +370,7 @@ const TenantDashboard = () => {
                   >
                     {stat.title}
                   </Text>
-                  <Text fw={700} size="xl" c="gray.9" lh={1.2}>
+                  <Text fw={700} size="xl" c={primaryTextColor} lh={1.2}>
                     {stat.value}
                   </Text>
                   <Badge
@@ -329,31 +403,27 @@ const TenantDashboard = () => {
               padding="xl"
               radius="lg"
               withBorder
-              shadow="sm"
-              h={{ base: "auto", lg: 400 }}
+              style={{ boxShadow: getDefaultShadow(), height: "400px" }}
             >
               <Stack gap="lg" h="100%">
                 <Group justify="space-between" align="center">
-                  <Title order={3} size="h4" fw={600} c="gray.8">
+                  <Title order={3} size="h4" fw={600} c={primaryTextColor}>
                     Monthly Payments Overview
                   </Title>
-                  <Text size="sm" c="gray.6">
+                  <Text size="sm" c={primaryTextColor}>
                     Last 6 months
                   </Text>
                 </Group>
                 <Box flex={1}>
                   <BarChart
-                    h={280}
+                    h={300}
                     data={barData}
                     dataKey="month"
                     series={[
-                      { name: "paid", color: "green.6", label: "Paid" },
-                      { name: "due", color: "red.6", label: "Due" },
+                      { name: "paid", color: "#2e7d32", label: "Paid" },
+                      { name: "due", color: "#d32f2f", label: "Due" },
                     ]}
                     gridAxis="xy"
-                    withLegend
-                    legendProps={{ verticalAlign: "bottom", height: 50 }}
-                    aria-label="Bar chart showing monthly payments"
                   />
                 </Box>
               </Stack>
@@ -365,24 +435,20 @@ const TenantDashboard = () => {
               padding="xl"
               radius="lg"
               withBorder
-              shadow="sm"
-              h={{ base: "auto", lg: 400 }}
+              style={{ boxShadow: getDefaultShadow(), height: "400px" }}
             >
               <Stack gap="lg" h="100%">
                 <Group justify="space-between" align="center">
-                  <Title order={3} size="h4" fw={600} c="gray.8">
+                  <Title order={3} size="h4" fw={600} c={primaryTextColor}>
                     Service Requests Status
                   </Title>
                 </Group>
                 <Box flex={1}>
                   <PieChart
-                    h={280}
+                    h={300}
                     data={srStats}
-                    withLabelsLine
-                    labelsPosition="outside"
-                    labelsType="percent"
                     withTooltip
-                    aria-label="Pie chart showing service request statuses"
+                    tooltipDataSource="segment"
                   />
                 </Box>
               </Stack>
@@ -392,20 +458,22 @@ const TenantDashboard = () => {
 
         <Grid gutter={{ base: "md", md: "xl" }}>
           <Grid.Col span={{ base: 12, md: 5 }}>
-            <Card padding="xl" radius="lg" withBorder shadow="sm">
+            <Card
+              padding="xl"
+              radius="lg"
+              withBorder
+              style={{ boxShadow: getDefaultShadow() }}
+            >
               <Stack gap="lg">
-                <Title order={3} size="h4" fw={600} c="gray.8">
+                <Title order={3} size="h4" fw={600} c={primaryTextColor}>
                   Payment Statuses
                 </Title>
                 <Box>
                   <PieChart
-                    h={220}
+                    h={200}
                     data={paymentStats}
-                    withLabelsLine
-                    labelsPosition="outside"
-                    labelsType="percent"
                     withTooltip
-                    aria-label="Pie chart showing payment statuses"
+                    tooltipDataSource="segment"
                   />
                 </Box>
                 <Flex justify="center" gap="xl" wrap="wrap">
@@ -418,7 +486,7 @@ const TenantDashboard = () => {
                         style={{ borderRadius: 3 }}
                         aria-hidden="true"
                       />
-                      <Text size="sm" c="gray.7" fw={500}>
+                      <Text size="sm" c={primaryTextColor} fw={500}>
                         {stat.name} ({stat.value})
                       </Text>
                     </Group>
@@ -429,10 +497,15 @@ const TenantDashboard = () => {
           </Grid.Col>
 
           <Grid.Col span={{ base: 12, md: 7 }}>
-            <Card padding="xl" radius="lg" withBorder shadow="sm">
+            <Card
+              padding="xl"
+              radius="lg"
+              withBorder
+              style={{ boxShadow: getDefaultShadow() }}
+            >
               <Stack gap="lg">
                 <Group justify="space-between" align="center">
-                  <Title order={3} size="h4" fw={600} c="gray.8">
+                  <Title order={3} size="h4" fw={600} c={primaryTextColor}>
                     Latest Announcements
                   </Title>
                   <span
@@ -444,7 +517,7 @@ const TenantDashboard = () => {
                 </Group>
                 <Stack gap="lg">
                   {announcements.length === 0 ? (
-                    <Text c="gray.6">No announcements available.</Text>
+                    <Text c={primaryTextColor}>No announcements available.</Text>
                   ) : (
                     announcements.map((ann) => (
                       <Flex
@@ -454,10 +527,10 @@ const TenantDashboard = () => {
                         gap="md"
                       >
                         <Stack gap={4} flex={1}>
-                          <Text size="sm" fw={500} c="gray.8" lh={1.4}>
+                          <Text size="sm" fw={500} c={primaryTextColor} lh={1.4}>
                             {ann.title}
                           </Text>
-                          <Text size="xs" c="gray.5">
+                          <Text size="xs" c={primaryTextColor}>
                             {new Date(ann.scheduledDate).toLocaleDateString()}
                           </Text>
                         </Stack>
@@ -480,37 +553,42 @@ const TenantDashboard = () => {
 
         <Grid>
           <Grid.Col span={{ base: 12, md: 8, lg: 6 }}>
-            <Card padding="xl" radius="lg" withBorder shadow="sm">
+            <Card
+              padding="xl"
+              radius="lg"
+              withBorder
+              style={{ boxShadow: getDefaultShadow() }}
+            >
               <Stack gap="lg">
-                <Title order={3} size="h4" fw={600} c="gray.8">
+                <Title order={3} size="h4" fw={600} c={primaryTextColor}>
                   My Properties
                 </Title>
                 <Stack gap="xl">
                   {properties.length === 0 ? (
-                    <Text c="gray.6">No properties leased.</Text>
+                    <Text c={primaryTextColor}>No properties leased.</Text>
                   ) : (
                     properties.map((prop) => (
                       <Stack key={prop._id} gap="xs">
                         <Group justify="space-between" align="center">
-                          <Text size="sm" fw={500} c="gray.7">
+                          <Text size="sm" fw={500} c={primaryTextColor}>
                             {prop.propertyTitle}
                           </Text>
-                          <Text size="sm" fw={600} c="gray.8">
+                          <Text size="sm" fw={600} c={primaryTextColor}>
                             ₱{prop.propertyPrice.toLocaleString()}
                           </Text>
                         </Group>
-                        <Text size="xs" c="gray.5">
+                        <Text size="xs" c={primaryTextColor}>
                           Lease Duration: {prop.leaseDuration} months
                         </Text>
-                        <Text size="xs" c="gray.5">
+                        <Text size="xs" c={primaryTextColor}>
                           Monthly Payment: ₱
                           {prop.monthlyPayment.toLocaleString()}
                         </Text>
-                        <Text size="xs" c="gray.5">
+                        <Text size="xs" c={primaryTextColor}>
                           Remaining Balance: ₱
                           {prop.remainingBalance.toLocaleString()}
                         </Text>
-                        <Text size="xs" c="gray.5">
+                        <Text size="xs" c={primaryTextColor}>
                           Next Payment Date:{" "}
                           {new Date(prop.nextPaymentDate).toLocaleDateString()}
                         </Text>
@@ -531,26 +609,31 @@ const TenantDashboard = () => {
           </Grid.Col>
 
           <Grid.Col span={{ base: 12, md: 4, lg: 6 }}>
-            <Card padding="xl" radius="lg" withBorder shadow="sm">
+            <Card
+              padding="xl"
+              radius="lg"
+              withBorder
+              style={{ boxShadow: getDefaultShadow() }}
+            >
               <Stack gap="lg">
-                <Title order={3} size="h4" fw={600} c="gray.8">
+                <Title order={3} size="h4" fw={600} c={primaryTextColor}>
                   Service Requests History
                 </Title>
                 <Stack gap="xl">
                   {serviceRequests.length === 0 ? (
-                    <Text c="gray.6">No service requests.</Text>
+                    <Text c={primaryTextColor}>No service requests.</Text>
                   ) : (
                     serviceRequests.map((sr) => (
                       <Stack key={sr.id} gap="xs">
                         <Group justify="space-between" align="center">
-                          <Text size="sm" fw={500} c="gray.7">
+                          <Text size="sm" fw={500} c={primaryTextColor}>
                             {sr.category}
                           </Text>
-                          <Text size="xs" c="gray.5">
+                          <Text size="xs" c={primaryTextColor}>
                             {new Date(sr.created_at).toLocaleDateString()}
                           </Text>
                         </Group>
-                        <Text size="xs" c="gray.5">
+                        <Text size="xs" c={primaryTextColor}>
                           {sr.description}
                         </Text>
                         <Badge
@@ -570,22 +653,27 @@ const TenantDashboard = () => {
           </Grid.Col>
         </Grid>
 
-        <Card padding="xl" radius="lg" withBorder shadow="sm">
+        <Card
+          padding="xl"
+          radius="lg"
+          withBorder
+          style={{ boxShadow: getDefaultShadow() }}
+        >
           <Stack gap="lg">
-            <Title order={3} size="h4" fw={600} c="gray.8">
+            <Title order={3} size="h4" fw={600} c={primaryTextColor}>
               Payments
             </Title>
             <Stack gap="xl">
               {payments.length === 0 ? (
-                <Text c="gray.6">No payments.</Text>
+                <Text c={primaryTextColor}>No payments.</Text>
               ) : (
                 payments.map((p) => (
                   <Stack key={p._id.toString()} gap="xs">
                     <Group justify="space-between" align="center">
-                      <Text size="sm" fw={500} c="gray.7">
+                      <Text size="sm" fw={500} c={primaryTextColor}>
                         ₱{p.amount.toLocaleString()}
                       </Text>
-                      <Text size="xs" c="gray.5">
+                      <Text size="xs" c={primaryTextColor}>
                         Due: {new Date(p.dueDate).toLocaleDateString()}
                       </Text>
                     </Group>

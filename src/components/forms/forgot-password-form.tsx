@@ -1,12 +1,13 @@
 "use client";
 
 import type React from "react";
-import { Button, TextInput, Paper, Title, Text, Stack } from "@mantine/core";
+import { Button, TextInput, Paper, Title, Text, Stack, useMantineColorScheme } from "@mantine/core";
 import { useState } from "react";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 
 export function ForgotPasswordForm() {
+  const { colorScheme } = useMantineColorScheme();
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -70,13 +71,16 @@ export function ForgotPasswordForm() {
   if (isSubmitted) {
     return (
       <Paper
-        className="w-full max-w-sm bg-white/95 backdrop-blur-sm"
+        className="w-full max-w-sm backdrop-blur-sm"
         p="xl"
         radius="md"
         withBorder
+        style={{
+          backgroundColor: colorScheme === "dark" ? "rgba(255, 255, 255, 0.05)" : "rgba(255, 255, 255, 0.95)"
+        }}
       >
         <div className="text-center mb-6">
-          <Title order={2} className="text-xl text-gray-900 mb-2">
+          <Title order={2} className="text-xl mb-2" c={colorScheme === "dark" ? "white" : "dark"}>
             Check Your Email
           </Title>
           <Text size="sm" c="dimmed">
@@ -85,7 +89,13 @@ export function ForgotPasswordForm() {
         </div>
 
         <Stack gap="md">
-          <div className="text-center p-4 bg-green-50 rounded-md border border-green-200">
+          <div 
+            className="text-center p-4 rounded-md border"
+            style={{
+              backgroundColor: colorScheme === "dark" ? "rgba(34, 197, 94, 0.1)" : "#f0fdf4",
+              borderColor: colorScheme === "dark" ? "rgba(34, 197, 94, 0.2)" : "#bbf7d0"
+            }}
+          >
             <Text size="sm" c="green.7">
               If an account with that email exists, you&#39;ll receive a
               password reset link shortly. The link will expire in 24 hours.
@@ -127,13 +137,16 @@ export function ForgotPasswordForm() {
 
   return (
     <Paper
-      className="w-full max-w-sm bg-white/95 backdrop-blur-sm"
+      className="w-full max-w-sm backdrop-blur-sm"
       p="xl"
       radius="md"
       withBorder
+      style={{
+        backgroundColor: colorScheme === "dark" ? "rgba(255, 255, 255, 0.05)" : "rgba(255, 255, 255, 0.95)"
+      }}
     >
       <div className="text-center mb-6">
-        <Title order={2} className="text-xl text-gray-900 mb-2">
+        <Title order={2} className="text-xl mb-2" c={colorScheme === "dark" ? "white" : "dark"}>
           Forgot Password?
         </Title>
         <Text size="sm" c="dimmed">
@@ -149,7 +162,10 @@ export function ForgotPasswordForm() {
               size="sm"
               c="red"
               ta="center"
-              className="bg-red-50 p-2 rounded"
+              className="p-2 rounded"
+              style={{
+                backgroundColor: colorScheme === "dark" ? "rgba(239, 68, 68, 0.1)" : "#fef2f2"
+              }}
             >
               {error}
             </Text>
@@ -164,14 +180,17 @@ export function ForgotPasswordForm() {
             required
             disabled={isLoading}
             styles={{
-              label: { color: "#374151", fontWeight: 500 },
+              label: { 
+                color: colorScheme === "dark" ? "#ffffff" : "#374151", 
+                fontWeight: 500 
+              },
             }}
             error={error ? " " : null} // Show error state without duplicate message
           />
 
           <Button
             type="submit"
-            className="bg-blue-600 hover:bg-blue-700"
+            color="blue"
             size="md"
             fullWidth
             loading={isLoading}

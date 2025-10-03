@@ -5,7 +5,7 @@ import {
   Container,
   Title,
   Group,
-  Button,
+  Button as MantineButton,
   Text,
   Badge,
   SimpleGrid,
@@ -19,6 +19,10 @@ import {
   TextInput,
   Divider,
   Box,
+  Card,
+  useMantineTheme,
+  useMantineColorScheme,
+  rgba,
 } from "@mantine/core";
 import {
   IconUpload,
@@ -32,11 +36,16 @@ import {
   IconSearch,
   IconRefresh,
   IconEye,
+  IconLock,
+  IconBolt,
+  IconHome,
+  IconQuestionMark,
 } from "@tabler/icons-react";
 import { Dropzone } from "@mantine/dropzone";
 import { useDisclosure } from "@mantine/hooks";
 import axios from "axios";
 import Image from "next/image";
+import { Wrench } from "lucide-react";
 import ServiceRequestCarousel from "./_components/serveice-carousel";
 
 interface ServiceRequest {
@@ -64,11 +73,16 @@ interface ServiceRequest {
   payment_status: string;
 }
 
+interface NotificationType {
+  type: "success" | "error";
+  message: string;
+}
+
 const categories = [
   {
     id: "plumbing",
     title: "Plumbing Issues",
-    icon: "🔧",
+    icon: Wrench,
     description: "Leaks, clogs, and pipe repairs",
     defaultDescription:
       "I have a plumbing issue that needs attention. The problem involves...",
@@ -76,7 +90,7 @@ const categories = [
   {
     id: "security",
     title: "Security Concerns",
-    icon: "🔒",
+    icon: IconLock,
     description: "Locks, alarms, and safety issues",
     defaultDescription:
       "I have a security concern that needs to be addressed. The issue is...",
@@ -84,7 +98,7 @@ const categories = [
   {
     id: "electrical",
     title: "Electrical Problems",
-    icon: "⚡",
+    icon: IconBolt,
     description: "Wiring, outlets, and lighting",
     defaultDescription:
       "I'm experiencing electrical problems. The issue involves...",
@@ -92,14 +106,14 @@ const categories = [
   {
     id: "maintenance",
     title: "General Maintenance",
-    icon: "🏠",
+    icon: IconHome,
     description: "Repairs, cleaning, and upkeep",
     defaultDescription: "I need maintenance assistance. The issue requires...",
   },
   {
     id: "other",
     title: "Other Issues",
-    icon: "❓",
+    icon: IconQuestionMark,
     description: "Any other service requests",
     defaultDescription:
       "I have an issue that needs attention. Please find details below...",
@@ -113,13 +127,16 @@ const PRIORITY_OPTIONS = [
 ];
 
 const ServiceRequestsSection = () => {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [issueDescription, setIssueDescription] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [notification, setNotification] = useState<NotificationType | null>(
+    null
+  );
   const [opened, { open, close }] = useDisclosure(false);
   const [paymentRequest, setPaymentRequest] = useState<ServiceRequest | null>(
     null
@@ -134,6 +151,18 @@ const ServiceRequestsSection = () => {
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(
     null
   );
+
+  const primaryTextColor = colorScheme === "dark" ? "white" : "dark";
+  const getDefaultShadow = () => {
+    const baseShadow = "0 1px 3px";
+    const opacity = colorScheme === "dark" ? 0.2 : 0.12;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
+  const showNotification = (type: "success" | "error", message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
 
   useEffect(() => {
     fetchServiceRequests();
@@ -159,32 +188,21 @@ const ServiceRequestsSection = () => {
           })
         );
         setRequests(transformedRequests);
+        showNotification("success", "Service requests loaded successfully");
       } else {
         showNotification(
-          response.data.error || "Failed to fetch service requests",
-          true
+          "error",
+          response.data.error || "Failed to fetch service requests"
         );
       }
     } catch (err) {
       const errorMessage = axios.isAxiosError(err)
         ? err.message
         : "An error occurred";
-      showNotification(errorMessage, true);
+      showNotification("error", errorMessage);
     } finally {
       setLoading(false);
     }
-  };
-
-  const showNotification = (message: string, isError: boolean = false) => {
-    if (isError) {
-      setError(message);
-    } else {
-      setSuccessMessage(message);
-    }
-    setTimeout(() => {
-      setError(null);
-      setSuccessMessage(null);
-    }, 5000);
   };
 
   const getStatusColor = (status: string) => {
@@ -274,24 +292,24 @@ const ServiceRequestsSection = () => {
             request.id === id ? { ...request, status: "cancelled" } : request
           )
         );
-        showNotification("Service request cancelled successfully");
+        showNotification("success", "Service request cancelled successfully");
       } else {
         showNotification(
-          response.data.error || "Failed to cancel service request",
-          true
+          "error",
+          response.data.error || "Failed to cancel service request"
         );
       }
     } catch (err) {
       const errorMessage = axios.isAxiosError(err)
         ? err.message
         : "Failed to cancel service request";
-      showNotification(errorMessage, true);
+      showNotification("error", errorMessage);
     }
   };
 
   const handlePayment = async (request: ServiceRequest) => {
     if (!request.final_cost) {
-      showNotification("No final cost available for payment", true);
+      showNotification("error", "No final cost available for payment");
       return;
     }
     try {
@@ -307,13 +325,13 @@ const ServiceRequestsSection = () => {
         window.location.href = paymentResponse.data.checkout_url;
       } else {
         showNotification(
-          paymentResponse.data.error || "Failed to create payment",
-          true
+          "error",
+          paymentResponse.data.error || "Failed to create payment"
         );
       }
     } catch (error) {
       console.error("Payment error:", error);
-      showNotification("Payment failed. Please try again.", true);
+      showNotification("error", "Payment failed. Please try again.");
     } finally {
       setPaymentLoading(false);
     }
@@ -322,8 +340,8 @@ const ServiceRequestsSection = () => {
   const submitRequest = async () => {
     if (!selectedCategory || !issueDescription.trim()) {
       showNotification(
-        "Please select a category and describe your issue",
-        true
+        "error",
+        "Please select a category and describe your issue"
       );
       return;
     }
@@ -331,9 +349,12 @@ const ServiceRequestsSection = () => {
       setSubmitting(true);
       let imageUrls: string[] = [];
       if (files.length > 0) {
-        showNotification(`Uploading ${files.length} image(s)...`);
+        showNotification("success", `Uploading ${files.length} image(s)...`);
         imageUrls = await uploadImages(files);
-        showNotification(`${files.length} image(s) uploaded successfully`);
+        showNotification(
+          "success",
+          `${files.length} image(s) uploaded successfully`
+        );
       }
       const categoryTitle =
         categories.find((c) => c.id === selectedCategory)?.title || "Other";
@@ -364,18 +385,18 @@ const ServiceRequestsSection = () => {
         setFiles([]);
         setImagePreviewUrls([]);
         setPriority("medium");
-        showNotification("Service request submitted successfully!");
+        showNotification("success", "Service request submitted successfully!");
       } else {
         showNotification(
-          response.data.error || "Failed to submit service request",
-          true
+          "error",
+          response.data.error || "Failed to submit service request"
         );
       }
     } catch (err) {
       const errorMessage = axios.isAxiosError(err)
         ? err.message
         : "Failed to submit service request";
-      showNotification(errorMessage, true);
+      showNotification("error", errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -422,712 +443,1035 @@ const ServiceRequestsSection = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <Container size="xl" py="md">
-        <LoadingOverlay visible={loading} />
-        <Stack gap="xl">
-          {/* Notifications */}
-          {error && (
-            <Notification
-              icon={<IconExclamationMark size={18} />}
-              color="red"
-              title="Error"
-              onClose={() => setError(null)}
+    <Container size="100%" py="md">
+      <LoadingOverlay visible={loading} />
+      {notification && (
+        <Notification
+          icon={
+            notification.type === "success" ? (
+              <IconCheck size={18} />
+            ) : (
+              <IconX size={18} />
+            )
+          }
+          color={notification.type === "success" ? "green" : "red"}
+          title={notification.type === "success" ? "Success" : "Error"}
+          onClose={() => setNotification(null)}
+          style={{ position: "fixed", top: 20, right: 20, zIndex: 1000 }}
+        >
+          {notification.message}
+        </Notification>
+      )}
+      <Stack gap="xl">
+        {/* Header */}
+        <Card
+          padding="xl"
+          radius="lg"
+          withBorder
+          style={{
+            boxShadow: getDefaultShadow(),
+            backgroundColor:
+              colorScheme === "dark" ? "rgba(255, 255, 255, 0.05)" : "white",
+          }}
+        >
+          <Group justify="space-between" align="center">
+            <Group>
+              <IconSettings size={32} color="blue" />
+              <Stack gap={4}>
+                <Title order={1} size="h2" c={primaryTextColor}>
+                  Service Requests
+                </Title>
+                <Text size="sm" c={primaryTextColor}>
+                  Submit and track service requests
+                </Text>
+              </Stack>
+            </Group>
+            <MantineButton
+              variant="filled"
+              color="blue"
+              onClick={fetchServiceRequests}
+              leftSection={<IconRefresh size={16} />}
             >
-              {error}
-            </Notification>
-          )}
-          {successMessage && (
-            <Notification
-              icon={<IconCheck size={18} />}
-              color="green"
-              title="Success"
-              onClose={() => setSuccessMessage(null)}
-            >
-              {successMessage}
-            </Notification>
-          )}
+              Refresh
+            </MantineButton>
+          </Group>
+        </Card>
 
-          {/* Header */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <Group justify="space-between" align="center">
-              <Group>
-                <IconSettings size={32} color="var(--mantine-color-blue-6)" />
-                <Stack gap={4}>
-                  <Title order={1} size="h2">
-                    Service Requests
-                  </Title>
-                  <Text size="sm" c="dimmed">
-                    Submit and track service requests
+        {/* Stats Cards */}
+        <SimpleGrid cols={{ base: 1, sm: 4 }} spacing="md">
+          <Card
+            padding="xl"
+            radius="lg"
+            withBorder
+            style={{
+              boxShadow: getDefaultShadow(),
+              background: "linear-gradient(90deg, #fb8c00, #f57c00)",
+            }}
+          >
+            <Group justify="space-between">
+              <Stack gap={4}>
+                <Text size="sm" c={primaryTextColor}>
+                  Pending Requests
+                </Text>
+                <Text size="xl" fw={700} c={primaryTextColor}>
+                  {stats.pending}
+                </Text>
+              </Stack>
+              <Box
+                style={{
+                  width: 48,
+                  height: 48,
+                  background: "rgba(255, 255, 255, 0.2)",
+                  borderRadius: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <IconClock size={24} color="white" />
+              </Box>
+            </Group>
+          </Card>
+          <Card
+            padding="xl"
+            radius="lg"
+            withBorder
+            style={{
+              boxShadow: getDefaultShadow(),
+              background: "linear-gradient(90deg, #1976d2, #1565c0)",
+            }}
+          >
+            <Group justify="space-between">
+              <Stack gap={4}>
+                <Text size="sm" c={primaryTextColor}>
+                  In Progress
+                </Text>
+                <Text size="xl" fw={700} c={primaryTextColor}>
+                  {stats.inProgress}
+                </Text>
+              </Stack>
+              <Box
+                style={{
+                  width: 48,
+                  height: 48,
+                  background: "rgba(255, 255, 255, 0.2)",
+                  borderRadius: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <IconSettings size={24} color="white" />
+              </Box>
+            </Group>
+          </Card>
+          <Card
+            padding="xl"
+            radius="lg"
+            withBorder
+            style={{
+              boxShadow: getDefaultShadow(),
+              background: "linear-gradient(90deg, #2e7d32, #1b5e20)",
+            }}
+          >
+            <Group justify="space-between">
+              <Stack gap={4}>
+                <Text size="sm" c={primaryTextColor}>
+                  Completed
+                </Text>
+                <Text size="xl" fw={700} c={primaryTextColor}>
+                  {stats.completed}
+                </Text>
+              </Stack>
+              <Box
+                style={{
+                  width: 48,
+                  height: 48,
+                  background: "rgba(255, 255, 255, 0.2)",
+                  borderRadius: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <IconCheck size={24} color="white" />
+              </Box>
+            </Group>
+          </Card>
+          <Card
+            padding="xl"
+            radius="lg"
+            withBorder
+            style={{
+              boxShadow: getDefaultShadow(),
+              background: "linear-gradient(90deg, #d32f2f, #b71c1c)",
+            }}
+          >
+            <Group justify="space-between">
+              <Stack gap={4}>
+                <Text size="sm" c={primaryTextColor}>
+                  High Priority
+                </Text>
+                <Text size="xl" fw={700} c={primaryTextColor}>
+                  {stats.highPriority}
+                </Text>
+              </Stack>
+              <Box
+                style={{
+                  width: 48,
+                  height: 48,
+                  background: "rgba(255, 255, 255, 0.2)",
+                  borderRadius: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <IconExclamationMark size={24} color="white" />
+              </Box>
+            </Group>
+          </Card>
+        </SimpleGrid>
+
+        {/* Priority Alert */}
+        {stats.highPriority > 0 && (
+          <Card
+            padding="lg"
+            radius="lg"
+            withBorder
+            style={{
+              boxShadow: getDefaultShadow(),
+              backgroundColor:
+                colorScheme === "dark" ? "rgba(239, 68, 68, 0.1)" : "#fef2f2",
+            }}
+          >
+            <Group gap={8}>
+              <IconExclamationMark size={20} color="red" />
+              <Stack gap={0}>
+                <Text size="sm" fw={500} c="red.8">
+                  High Priority Alert
+                </Text>
+                <Text size="sm" c="red.7">
+                  You have {stats.highPriority} high-priority request
+                  {stats.highPriority > 1 ? "s" : ""} submitted.
+                </Text>
+              </Stack>
+            </Group>
+          </Card>
+        )}
+
+        {/* Request Categories */}
+        <Card
+          padding="xl"
+          radius="lg"
+          withBorder
+          style={{
+            boxShadow: getDefaultShadow(),
+            backgroundColor:
+              colorScheme === "dark" ? "rgba(255, 255, 255, 0.05)" : "white",
+          }}
+        >
+          <Title order={2} size="h3" mb="md" c={primaryTextColor}>
+            Submit a New Request
+          </Title>
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+            {categories.map((category) => (
+              <Card
+                key={category.id}
+                padding="xl"
+                radius="lg"
+                withBorder
+                style={{
+                  boxShadow: getDefaultShadow(),
+                  cursor: "pointer",
+                  backgroundColor:
+                    selectedCategory === category.id
+                      ? colorScheme === "dark"
+                        ? "rgba(59, 130, 246, 0.2)"
+                        : "#e3f2fd"
+                      : colorScheme === "dark"
+                      ? "rgba(255, 255, 255, 0.05)"
+                      : "white",
+                  border:
+                    selectedCategory === category.id
+                      ? "2px solid #3b82f6"
+                      : "1px solid #e5e7eb",
+                }}
+                onClick={() => handleCategorySelect(category.id)}
+              >
+                <Stack align="center" gap="sm">
+                  <category.icon
+                    size={32}
+                    color={selectedCategory === category.id ? "blue" : "gray"}
+                  />
+                  <Text
+                    fw={500}
+                    c={
+                      selectedCategory === category.id
+                        ? "blue"
+                        : primaryTextColor
+                    }
+                  >
+                    {category.title}
                   </Text>
+                  <Text size="sm" c={primaryTextColor} ta="center">
+                    {category.description}
+                  </Text>
+                  {selectedCategory === category.id && (
+                    <Text size="xs" c="blue" fw={500}>
+                      Selected
+                    </Text>
+                  )}
                 </Stack>
-              </Group>
-              <Button
+              </Card>
+            ))}
+          </SimpleGrid>
+        </Card>
+
+        {selectedCategory && (
+          <>
+            {/* Issue Description Input */}
+            <Card
+              padding="xl"
+              radius="lg"
+              withBorder
+              style={{
+                boxShadow: getDefaultShadow(),
+                backgroundColor:
+                  colorScheme === "dark"
+                    ? "rgba(255, 255, 255, 0.05)"
+                    : "white",
+              }}
+            >
+              <Title order={2} size="h3" mb="md" c={primaryTextColor}>
+                Describe Your Issue
+              </Title>
+              <Textarea
+                placeholder="Please describe the issue in detail..."
+                value={issueDescription}
+                onChange={(e) => setIssueDescription(e.currentTarget.value)}
+                autosize
+                minRows={3}
+                maxRows={6}
+              />
+            </Card>
+
+            {/* Priority Selection */}
+            <Card
+              padding="xl"
+              radius="lg"
+              withBorder
+              style={{
+                boxShadow: getDefaultShadow(),
+                backgroundColor:
+                  colorScheme === "dark"
+                    ? "rgba(255, 255, 255, 0.05)"
+                    : "white",
+              }}
+            >
+              <Title order={2} size="h3" mb="md" c={primaryTextColor}>
+                Select Priority
+              </Title>
+              <Select
+                label="Priority Level"
+                placeholder="Select priority"
+                data={PRIORITY_OPTIONS}
+                value={priority}
+                onChange={handlePriorityChange}
+                searchable={false}
+                clearable={false}
+              />
+            </Card>
+
+            {/* Image Upload */}
+            <Card
+              padding="xl"
+              radius="lg"
+              withBorder
+              style={{
+                boxShadow: getDefaultShadow(),
+                backgroundColor:
+                  colorScheme === "dark"
+                    ? "rgba(255, 255, 255, 0.05)"
+                    : "white",
+              }}
+            >
+              <Title order={2} size="h3" mb="md" c={primaryTextColor}>
+                Attach Photos (Optional)
+              </Title>
+              <Dropzone
+                onDrop={handleFilesChange}
+                onReject={() => showNotification("error", "Rejected files")}
+                maxSize={5 * 1024 ** 2}
+                accept={["image/*"]}
+                multiple
+              >
+                <Group
+                  justify="center"
+                  gap="xl"
+                  mih={120}
+                  style={{ pointerEvents: "none" }}
+                >
+                  <Dropzone.Accept>
+                    <IconUpload size={52} color="blue" stroke={1.5} />
+                  </Dropzone.Accept>
+                  <Dropzone.Reject>
+                    <IconX size={52} color="red" stroke={1.5} />
+                  </Dropzone.Reject>
+                  <Dropzone.Idle>
+                    <IconPhoto size={52} color="gray" stroke={1.5} />
+                  </Dropzone.Idle>
+                  <Stack gap={4} align="center">
+                    <Text size="sm" c={primaryTextColor}>
+                      Drag images here or click to select files
+                    </Text>
+                    <Text size="xs" c={primaryTextColor}>
+                      Attach photos of the issue to help our technicians
+                    </Text>
+                  </Stack>
+                </Group>
+              </Dropzone>
+              {files.length > 0 && (
+                <Stack mt="md" gap="md">
+                  <Text size="sm" fw={500} c={primaryTextColor}>
+                    Uploaded files ({files.length}):
+                  </Text>
+                  <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
+                    {files.map((file, index) => (
+                      <Box key={index} style={{ position: "relative" }}>
+                        <Card
+                          padding="xs"
+                          radius="lg"
+                          withBorder
+                          style={{ boxShadow: getDefaultShadow() }}
+                        >
+                          <Image
+                            src={imagePreviewUrls[index]}
+                            alt={file.name}
+                            width={300}
+                            height={200}
+                            style={{
+                              width: "100%",
+                              height: "96px",
+                              objectFit: "cover",
+                            }}
+                          />
+                          <Text
+                            size="xs"
+                            lineClamp={1}
+                            mt="xs"
+                            px="xs"
+                            c={primaryTextColor}
+                            title={file.name}
+                          >
+                            {file.name}
+                          </Text>
+                        </Card>
+                        <MantineButton
+                          style={{
+                            position: "absolute",
+                            top: 4,
+                            right: 4,
+                            backgroundColor: "#dc2626",
+                            padding: 4,
+                            borderRadius: "50%",
+                          }}
+                          size="xs"
+                          onClick={() => removeFile(index)}
+                        >
+                          <IconX size={12} />
+                        </MantineButton>
+                      </Box>
+                    ))}
+                  </SimpleGrid>
+                </Stack>
+              )}
+            </Card>
+
+            {/* Submit/Cancel Buttons */}
+            <Group justify="center" mt="md">
+              <MantineButton
                 variant="filled"
                 color="blue"
-                onClick={fetchServiceRequests}
-                leftSection={<IconRefresh size={16} />}
+                onClick={submitRequest}
+                loading={submitting}
+                disabled={submitting}
+                leftSection={<IconCheck size={16} />}
               >
-                Refresh
-              </Button>
+                {submitting
+                  ? "Submitting..."
+                  : files.length > 0
+                  ? `Submit Request (${files.length} images)`
+                  : "Submit Request"}
+              </MantineButton>
+              <MantineButton
+                variant="outline"
+                color="gray"
+                onClick={() => {
+                  setSelectedCategory(null);
+                  setFiles([]);
+                  setImagePreviewUrls([]);
+                  setIssueDescription("");
+                  setPriority("medium");
+                }}
+                disabled={submitting}
+              >
+                Cancel
+              </MantineButton>
             </Group>
-          </div>
+          </>
+        )}
 
-          {/* Stats Cards */}
-          <SimpleGrid cols={{ base: 1, sm: 4 }} spacing="md">
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg shadow-sm p-6 text-white">
-              <Group justify="space-between">
-                <Stack gap={4}>
-                  <Text size="sm" c="orange.1">
-                    Pending Requests
-                  </Text>
-                  <Text size="xl" fw={700}>
-                    {stats.pending}
-                  </Text>
-                </Stack>
-                <div className="h-12 w-12 bg-orange-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                  <IconClock size={24} />
-                </div>
-              </Group>
-            </div>
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-sm p-6 text-white">
-              <Group justify="space-between">
-                <Stack gap={4}>
-                  <Text size="sm" c="blue.1">
-                    In Progress
-                  </Text>
-                  <Text size="xl" fw={700}>
-                    {stats.inProgress}
-                  </Text>
-                </Stack>
-                <div className="h-12 w-12 bg-blue-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                  <IconSettings size={24} />
-                </div>
-              </Group>
-            </div>
-            <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-sm p-6 text-white">
-              <Group justify="space-between">
-                <Stack gap={4}>
-                  <Text size="sm" c="green.1">
-                    Completed
-                  </Text>
-                  <Text size="xl" fw={700}>
-                    {stats.completed}
-                  </Text>
-                </Stack>
-                <div className="h-12 w-12 bg-green-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                  <IconCheck size={24} />
-                </div>
-              </Group>
-            </div>
-            <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-sm p-6 text-white">
-              <Group justify="space-between">
-                <Stack gap={4}>
-                  <Text size="sm" c="red.1">
-                    High Priority
-                  </Text>
-                  <Text size="xl" fw={700}>
-                    {stats.highPriority}
-                  </Text>
-                </Stack>
-                <div className="h-12 w-12 bg-red-400 bg-opacity-30 rounded-lg flex items-center justify-center">
-                  <IconExclamationMark size={24} />
-                </div>
-              </Group>
-            </div>
-          </SimpleGrid>
+        {/* Search Bar */}
+        <Card
+          padding="xl"
+          radius="lg"
+          withBorder
+          style={{
+            boxShadow: getDefaultShadow(),
+            backgroundColor:
+              colorScheme === "dark" ? "rgba(255, 255, 255, 0.05)" : "white",
+          }}
+        >
+          <Group align="center" style={{ position: "relative" }}>
+            <IconSearch
+              size={16}
+              color="gray"
+              style={{
+                position: "absolute",
+                left: 12,
+                top: "50%",
+                transform: "translateY(-50%)",
+              }}
+            />
+            <TextInput
+              placeholder="Search requests by tenant, category, or description..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.currentTarget.value)}
+              style={{ paddingLeft: 36 }}
+            />
+          </Group>
+        </Card>
 
-          {/* Priority Alert */}
-          {stats.highPriority > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <Group gap={8}>
-                <IconExclamationMark
-                  size={20}
-                  color="var(--mantine-color-red-6)"
-                />
-                <Stack gap={0}>
-                  <Text size="sm" fw={500} c="red.8">
-                    High Priority Alert
-                  </Text>
-                  <Text size="sm" c="red.7">
-                    You have {stats.highPriority} high-priority request
-                    {stats.highPriority > 1 ? "s" : ""} submitted.
-                  </Text>
-                </Stack>
-              </Group>
-            </div>
-          )}
-
-          {/* Request Categories */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <Title order={2} size="h3" mb="md">
-              Submit a New Request
-            </Title>
-            <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-              {categories.map((category) => (
-                <div
-                  key={category.id}
-                  className={`rounded-lg shadow-sm p-6 cursor-pointer transition-all ${
-                    selectedCategory === category.id
-                      ? "border-2 border-blue-500 bg-blue-50"
-                      : "border border-gray-200 bg-white hover:bg-gray-50"
-                  }`}
-                  onClick={() => handleCategorySelect(category.id)}
-                >
-                  <Stack align="center" gap="sm">
-                    <Text className="text-2xl">{category.icon}</Text>
-                    <Text
-                      fw={500}
-                      c={selectedCategory === category.id ? "blue" : "gray.9"}
-                    >
-                      {category.title}
-                    </Text>
-                    <Text size="sm" c="dimmed" ta="center">
-                      {category.description}
-                    </Text>
-                    {selectedCategory === category.id && (
-                      <Text size="xs" c="blue" fw={500}>
-                        Selected
-                      </Text>
-                    )}
-                  </Stack>
-                </div>
-              ))}
-            </SimpleGrid>
-          </div>
-
-          {selectedCategory && (
-            <>
-              {/* Issue Description Input */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <Title order={2} size="h3" mb="md">
-                  Describe Your Issue
-                </Title>
-                <Textarea
-                  placeholder="Please describe the issue in detail..."
-                  value={issueDescription}
-                  onChange={(e) => setIssueDescription(e.currentTarget.value)}
-                  autosize
-                  minRows={3}
-                  maxRows={6}
-                />
-              </div>
-
-              {/* Priority Selection */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <Title order={2} size="h3" mb="md">
-                  Select Priority
-                </Title>
-                <Select
-                  label="Priority Level"
-                  placeholder="Select priority"
-                  data={PRIORITY_OPTIONS}
-                  value={priority}
-                  onChange={handlePriorityChange}
-                  searchable={false}
-                  clearable={false}
-                />
-              </div>
-
-              {/* Image Upload */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <Title order={2} size="h3" mb="md">
-                  Attach Photos (Optional)
-                </Title>
-                <Dropzone
-                  onDrop={handleFilesChange}
-                  onReject={() => console.log("rejected files")}
-                  maxSize={5 * 1024 ** 2}
-                  accept={["image/*"]}
-                  multiple
-                >
-                  <Group
-                    justify="center"
-                    gap="xl"
-                    mih={120}
-                    style={{ pointerEvents: "none" }}
-                  >
-                    <Dropzone.Accept>
-                      <IconUpload
-                        size={52}
-                        color="var(--mantine-color-blue-6)"
-                        stroke={1.5}
-                      />
-                    </Dropzone.Accept>
-                    <Dropzone.Reject>
-                      <IconX
-                        size={52}
-                        color="var(--mantine-color-red-6)"
-                        stroke={1.5}
-                      />
-                    </Dropzone.Reject>
-                    <Dropzone.Idle>
-                      <IconPhoto
-                        size={52}
-                        color="var(--mantine-color-dimmed)"
-                        stroke={1.5}
-                      />
-                    </Dropzone.Idle>
-                    <Stack gap={4} align="center">
-                      <Text size="sm" inline>
-                        Drag images here or click to select files
-                      </Text>
-                      <Text size="xs" c="dimmed" inline>
-                        Attach photos of the issue to help our technicians
-                      </Text>
-                    </Stack>
-                  </Group>
-                </Dropzone>
-                {files.length > 0 && (
-                  <Stack mt="md" gap="md">
-                    <Text size="sm" fw={500}>
-                      Uploaded files ({files.length}):
-                    </Text>
-                    <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
-                      {files.map((file, index) => (
-                        <div key={index} className="relative">
-                          <div className="rounded-lg border border-gray-200 overflow-hidden">
-                            <Image
-                              src={imagePreviewUrls[index]}
-                              alt={file.name}
-                              width={300}
-                              height={200}
-                              className="w-full h-24 object-cover"
-                            />
-                            <Text
-                              size="xs"
-                              lineClamp={1}
-                              mt="xs"
-                              px="xs"
-                              title={file.name}
-                            >
-                              {file.name}
-                            </Text>
-                          </div>
-                          <button
-                            className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 hover:bg-red-700"
-                            onClick={() => removeFile(index)}
-                          >
-                            <IconX size={12} />
-                          </button>
-                        </div>
-                      ))}
-                    </SimpleGrid>
-                  </Stack>
-                )}
-              </div>
-
-              {/* Submit/Cancel Buttons */}
-              <Group justify="center" mt="md">
-                <Button
-                  variant="filled"
-                  color="blue"
-                  onClick={submitRequest}
-                  loading={submitting}
-                  disabled={submitting}
-                  leftSection={<IconCheck size={16} />}
-                >
-                  {submitting
-                    ? "Submitting..."
-                    : files.length > 0
-                    ? `Submit Request (${files.length} images)`
-                    : "Submit Request"}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedCategory(null);
-                    setFiles([]);
-                    setImagePreviewUrls([]);
-                    setIssueDescription("");
-                    setPriority("medium");
+        {/* Request History Table */}
+        <Card
+          padding="xl"
+          radius="lg"
+          withBorder
+          style={{
+            boxShadow: getDefaultShadow(),
+            backgroundColor:
+              colorScheme === "dark" ? "rgba(255, 255, 255, 0.05)" : "white",
+          }}
+        >
+          <Title order={2} size="h3" mb="md" c={primaryTextColor}>
+            Request History
+          </Title>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead
+              style={{
+                backgroundColor:
+                  colorScheme === "dark"
+                    ? "rgba(255, 255, 255, 0.1)"
+                    : "#f9fafb",
+              }}
+            >
+              <tr>
+                <th
+                  style={{
+                    padding: "12px 24px",
+                    textAlign: "left",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    color: "#6b7280",
+                    textTransform: "uppercase",
                   }}
-                  disabled={submitting}
                 >
-                  Cancel
-                </Button>
-              </Group>
-            </>
-          )}
-
-          {/* Search Bar */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="relative">
-              <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <TextInput
-                placeholder="Search requests by tenant, category, or description..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-
-          {/* Request History Table */}
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <Title order={2} size="h3" p="md">
-              Request History
-            </Title>
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+                  Category
+                </th>
+                <th
+                  style={{
+                    padding: "12px 24px",
+                    textAlign: "left",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Description
+                </th>
+                <th
+                  style={{
+                    padding: "12px 24px",
+                    textAlign: "left",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Date
+                </th>
+                <th
+                  style={{
+                    padding: "12px 24px",
+                    textAlign: "left",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Priority
+                </th>
+                <th
+                  style={{
+                    padding: "12px 24px",
+                    textAlign: "left",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Status
+                </th>
+                <th
+                  style={{
+                    padding: "12px 24px",
+                    textAlign: "left",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody
+              style={{
+                backgroundColor:
+                  colorScheme === "dark"
+                    ? "rgba(255, 255, 255, 0.02)"
+                    : "white",
+              }}
+            >
+              {filteredRequests.length === 0 ? (
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Description
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Priority
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <td
+                    colSpan={6}
+                    style={{
+                      padding: "32px 24px",
+                      textAlign: "center",
+                      color: "#6b7280",
+                    }}
+                  >
+                    <Text c={primaryTextColor}>No service requests found</Text>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredRequests.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-6 py-8 text-center text-gray-500"
-                    >
-                      No service requests found
+              ) : (
+                filteredRequests.map((request) => (
+                  <tr
+                    key={request.id}
+                    style={{
+                      transition: "background-color 0.2s ease",
+                      cursor: "pointer",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        colorScheme === "dark"
+                          ? "rgba(255, 255, 255, 0.1)"
+                          : "#f9fafb";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        colorScheme === "dark"
+                          ? "rgba(255, 255, 255, 0.02)"
+                          : "white";
+                    }}
+                  >
+                    <td style={{ padding: "16px 24px" }}>
+                      <Text size="sm" c={primaryTextColor}>
+                        {request.category}
+                      </Text>
                     </td>
-                  </tr>
-                ) : (
-                  filteredRequests.map((request) => (
-                    <tr key={request.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Text size="sm">{request.category}</Text>
-                      </td>
-                      <td className="px-6 py-4">
-                        <Text size="sm" lineClamp={2}>
-                          {request.description}
-                        </Text>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Text size="sm">{request.date}</Text>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge
-                          color={getPriorityColor(request.priority)}
-                          variant="filled"
+                    <td style={{ padding: "16px 24px" }}>
+                      <Text size="sm" lineClamp={2} c={primaryTextColor}>
+                        {request.description}
+                      </Text>
+                    </td>
+                    <td style={{ padding: "16px 24px" }}>
+                      <Text size="sm" c={primaryTextColor}>
+                        {request.date}
+                      </Text>
+                    </td>
+                    <td style={{ padding: "16px 24px" }}>
+                      <Badge
+                        color={getPriorityColor(request.priority)}
+                        variant="light"
+                        size="sm"
+                        radius="md"
+                      >
+                        {request.priority.toUpperCase()}
+                      </Badge>
+                    </td>
+                    <td style={{ padding: "16px 24px" }}>
+                      <Badge
+                        color={getStatusColor(request.status)}
+                        variant="light"
+                        size="sm"
+                        radius="md"
+                      >
+                        {request.status.toUpperCase()}
+                      </Badge>
+                    </td>
+                    <td style={{ padding: "16px 24px" }}>
+                      <Group gap="xs">
+                        <MantineButton
+                          size="xs"
+                          variant="outline"
+                          color="gray"
+                          leftSection={<IconEye size={12} />}
+                          onClick={() => {
+                            setSelectedRequest(request);
+                            openView();
+                          }}
                         >
-                          {request.priority.toUpperCase()}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge
-                          color={getStatusColor(request.status)}
-                          variant="filled"
-                        >
-                          {request.status.toUpperCase()}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Group gap="xs">
-                          <Button
+                          View
+                        </MantineButton>
+                        {request.status === "completed" &&
+                          request.final_cost &&
+                          (request.payment_status !== "paid" ? (
+                            <MantineButton
+                              size="xs"
+                              variant="filled"
+                              color="blue"
+                              onClick={() => handlePayment(request)}
+                              loading={paymentLoading}
+                              disabled={paymentLoading}
+                              leftSection={<IconCash size={14} />}
+                            >
+                              Pay ({formatCurrency(request.final_cost)})
+                            </MantineButton>
+                          ) : (
+                            <Badge
+                              color="green"
+                              variant="light"
+                              size="sm"
+                              radius="md"
+                            >
+                              Paid
+                            </Badge>
+                          ))}
+                        {request.status === "pending" && (
+                          <MantineButton
                             size="xs"
                             variant="outline"
-                            color="gray"
-                            leftSection={<IconEye size={12} />}
-                            onClick={() => {
-                              setSelectedRequest(request);
-                              openView();
-                            }}
+                            color="red"
+                            onClick={() => handleCancelRequest(request.id)}
                           >
-                            View
-                          </Button>
-                          {request.status === "completed" &&
-                            request.final_cost &&
-                            (request.payment_status !== "paid" ? (
-                              <Button
-                                size="xs"
-                                variant="filled"
-                                color="blue"
-                                onClick={() => handlePayment(request)}
-                                loading={paymentLoading}
-                                disabled={paymentLoading}
-                                leftSection={<IconCash size={14} />}
-                              >
-                                Pay ({formatCurrency(request.final_cost)})
-                              </Button>
-                            ) : (
-                              <Badge color="green" variant="filled" size="sm">
-                                Paid
-                              </Badge>
-                            ))}
-                          {request.status === "pending" && (
-                            <Button
-                              size="xs"
-                              variant="outline"
-                              color="red"
-                              onClick={() => handleCancelRequest(request.id)}
-                            >
-                              Cancel
-                            </Button>
-                          )}
-                        </Group>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* View Details Modal */}
-          <Modal
-            opened={viewModalOpened}
-            onClose={closeView}
-            title="Service Request Details"
-            centered
-            size="lg"
-          >
-            <Stack gap="md">
-              <Box className="bg-gray-50 rounded-lg p-4">
-                <Text size="sm" fw={500} mb="sm">
-                  Request Overview
-                </Text>
-                <Grid>
-                  <Grid.Col span={6}>
-                    <Text size="xs" c="dimmed">
-                      Category
-                    </Text>
-                    <Text size="sm">{selectedRequest?.category}</Text>
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <Text size="xs" c="dimmed">
-                      Created Date
-                    </Text>
-                    <Text size="sm">
-                      {formatDate(selectedRequest?.created_at)}
-                    </Text>
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <Text size="xs" c="dimmed">
-                      Priority
-                    </Text>
-                    <Badge
-                      color={getPriorityColor(
-                        selectedRequest?.priority || "low"
-                      )}
-                      variant="filled"
-                    >
-                      {(selectedRequest?.priority || "low").toUpperCase()}
-                    </Badge>
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <Text size="xs" c="dimmed">
-                      Status
-                    </Text>
-                    <Badge
-                      color={getStatusColor(
-                        selectedRequest?.status || "pending"
-                      )}
-                      variant="filled"
-                    >
-                      {selectedRequest?.status?.toUpperCase()}
-                    </Badge>
-                  </Grid.Col>
-                  {selectedRequest?.scheduled_date && (
-                    <Grid.Col span={6}>
-                      <Text size="xs" c="dimmed">
-                        Scheduled Date
-                      </Text>
-                      <Text size="sm">
-                        {formatDate(selectedRequest.scheduled_date)}
-                      </Text>
-                    </Grid.Col>
-                  )}
-                  {selectedRequest?.assigned_technician && (
-                    <Grid.Col span={6}>
-                      <Text size="xs" c="dimmed">
-                        Assigned Technician
-                      </Text>
-                      <Text size="sm">
-                        {selectedRequest.assigned_technician}
-                      </Text>
-                    </Grid.Col>
-                  )}
-                </Grid>
-              </Box>
-
-              <Divider />
-
-              <Box>
-                <Text size="sm" fw={500} mb="sm">
-                  Issue Description
-                </Text>
-                <Text size="sm">{selectedRequest?.description}</Text>
-              </Box>
-
-              {selectedRequest?.images && selectedRequest.images.length > 0 && (
-                <Box>
-                  <Text size="sm" fw={500} mb="sm">
-                    Attached Images
-                  </Text>
-                  <ServiceRequestCarousel
-                    images={selectedRequest.images}
-                    alt={`${selectedRequest.category} issue`}
-                    showIndicators={true}
-                    autoPlay={true}
-                    autoPlayInterval={4000}
-                  />
-                </Box>
+                            Cancel
+                          </MantineButton>
+                        )}
+                      </Group>
+                    </td>
+                  </tr>
+                ))
               )}
+            </tbody>
+          </table>
+        </Card>
 
-              {selectedRequest?.assignment_message && (
-                <Box>
-                  <Text size="sm" fw={500} mb="sm">
-                    Assignment Message
+        {/* View Details Modal */}
+        <Modal
+          opened={viewModalOpened}
+          onClose={closeView}
+          title={
+            <Title order={2} c={primaryTextColor}>
+              Service Request Details
+            </Title>
+          }
+          centered
+          size="lg"
+        >
+          <Stack gap="md">
+            <Card
+              padding="lg"
+              radius="lg"
+              withBorder
+              style={{
+                boxShadow: getDefaultShadow(),
+                backgroundColor:
+                  colorScheme === "dark"
+                    ? "rgba(255, 255, 255, 0.05)"
+                    : "#f9fafb",
+              }}
+            >
+              <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
+                Request Overview
+              </Text>
+              <Grid>
+                <Grid.Col span={6}>
+                  <Text size="xs" c={primaryTextColor}>
+                    Category
                   </Text>
-                  <Text size="sm" c="dimmed">
-                    {selectedRequest.assignment_message}
+                  <Text size="sm" c={primaryTextColor}>
+                    {selectedRequest?.category}
                   </Text>
-                </Box>
-              )}
-
-              {selectedRequest?.technician_notes && (
-                <Box>
-                  <Text size="sm" fw={500} mb="sm">
-                    Technician Notes
+                </Grid.Col>
+                <Grid.Col span={6}>
+                  <Text size="xs" c={primaryTextColor}>
+                    Created Date
                   </Text>
-                  <Text size="sm" c="dimmed">
-                    {selectedRequest.technician_notes}
+                  <Text size="sm" c={primaryTextColor}>
+                    {formatDate(selectedRequest?.created_at)}
                   </Text>
-                </Box>
-              )}
-
-              {selectedRequest?.estimated_cost && (
-                <Box>
-                  <Text size="sm" fw={500} mb="sm">
-                    Estimated Cost
-                  </Text>
-                  <Text size="sm">
-                    {formatCurrency(selectedRequest.estimated_cost)}
-                  </Text>
-                </Box>
-              )}
-
-              {selectedRequest?.completion_notes && (
-                <Box>
-                  <Text size="sm" fw={500} mb="sm">
-                    Completion Notes
-                  </Text>
-                  <Text size="sm" c="dimmed">
-                    {selectedRequest.completion_notes}
-                  </Text>
-                </Box>
-              )}
-
-              {selectedRequest?.final_cost && (
-                <Box>
-                  <Text size="sm" fw={500} mb="sm">
-                    Final Cost
-                  </Text>
-                  <Text size="sm">
-                    {formatCurrency(selectedRequest.final_cost)}
-                  </Text>
-                </Box>
-              )}
-
-              {selectedRequest?.payment_status && (
-                <Box>
-                  <Text size="sm" fw={500} mb="sm">
-                    Payment Status
+                </Grid.Col>
+                <Grid.Col span={6}>
+                  <Text size="xs" c={primaryTextColor}>
+                    Priority
                   </Text>
                   <Badge
-                    color={
-                      selectedRequest.payment_status === "paid"
-                        ? "green"
-                        : selectedRequest.payment_status === "failed"
-                        ? "red"
-                        : "yellow"
-                    }
-                    variant="filled"
+                    color={getPriorityColor(selectedRequest?.priority || "low")}
+                    variant="light"
+                    size="sm"
+                    radius="md"
                   >
-                    {selectedRequest.payment_status.toUpperCase()}
+                    {(selectedRequest?.priority || "low").toUpperCase()}
                   </Badge>
-                </Box>
-              )}
+                </Grid.Col>
+                <Grid.Col span={6}>
+                  <Text size="xs" c={primaryTextColor}>
+                    Status
+                  </Text>
+                  <Badge
+                    color={getStatusColor(selectedRequest?.status || "pending")}
+                    variant="light"
+                    size="sm"
+                    radius="md"
+                  >
+                    {(selectedRequest?.status || "pending").toUpperCase()}
+                  </Badge>
+                </Grid.Col>
+                {selectedRequest?.scheduled_date && (
+                  <Grid.Col span={6}>
+                    <Text size="xs" c={primaryTextColor}>
+                      Scheduled Date
+                    </Text>
+                    <Text size="sm" c={primaryTextColor}>
+                      {formatDate(selectedRequest.scheduled_date)}
+                    </Text>
+                  </Grid.Col>
+                )}
+                {selectedRequest?.assigned_technician && (
+                  <Grid.Col span={6}>
+                    <Text size="xs" c={primaryTextColor}>
+                      Assigned Technician
+                    </Text>
+                    <Text size="sm" c={primaryTextColor}>
+                      {selectedRequest.assigned_technician}
+                    </Text>
+                  </Grid.Col>
+                )}
+              </Grid>
+            </Card>
 
-              <Group justify="right">
-                <Button variant="outline" onClick={closeView}>
-                  Close
-                </Button>
-              </Group>
-            </Stack>
-          </Modal>
+            <Divider />
 
-          {/* Payment Modal */}
-          <Modal
-            opened={opened}
-            onClose={close}
-            title="Processing Payment"
-            centered
-          >
-            <LoadingOverlay visible={paymentLoading} />
-            <Stack>
-              {paymentLoading ? (
-                <Text ta="center">Creating payment session...</Text>
-              ) : (
-                <>
-                  <Text>Payment will be processed through PayMongo.</Text>
-                  {paymentRequest && (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <Text size="sm" fw={500} mb="sm">
-                        Request Details
-                      </Text>
-                      <Grid>
-                        <Grid.Col span={6}>
-                          <Text size="xs" c="dimmed">
-                            Category
-                          </Text>
-                          <Text size="sm">{paymentRequest.category}</Text>
-                        </Grid.Col>
-                        <Grid.Col span={6}>
-                          <Text size="xs" c="dimmed">
-                            Amount
-                          </Text>
-                          <Text size="sm">
-                            {formatCurrency(paymentRequest.amount)}
-                          </Text>
-                        </Grid.Col>
-                        <Grid.Col span={12}>
-                          <Text size="xs" c="dimmed">
-                            Description
-                          </Text>
-                          <Text size="sm" lineClamp={2}>
-                            {paymentRequest.description}
-                          </Text>
-                        </Grid.Col>
-                      </Grid>
-                    </div>
-                  )}
-                </>
-              )}
-              <Group justify="right">
-                <Button
-                  variant="outline"
-                  onClick={close}
-                  disabled={paymentLoading}
+            <Box>
+              <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
+                Issue Description
+              </Text>
+              <Text size="sm" c={primaryTextColor}>
+                {selectedRequest?.description}
+              </Text>
+            </Box>
+
+            {selectedRequest?.images && selectedRequest.images.length > 0 && (
+              <Box>
+                <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
+                  Attached Images
+                </Text>
+                <ServiceRequestCarousel
+                  images={selectedRequest.images}
+                  alt={`${selectedRequest.category} issue`}
+                  showIndicators={true}
+                  autoPlay={true}
+                  autoPlayInterval={4000}
+                />
+              </Box>
+            )}
+
+            {selectedRequest?.assignment_message && (
+              <Box>
+                <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
+                  Assignment Message
+                </Text>
+                <Text size="sm" c={primaryTextColor}>
+                  {selectedRequest.assignment_message}
+                </Text>
+              </Box>
+            )}
+
+            {selectedRequest?.technician_notes && (
+              <Box>
+                <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
+                  Technician Notes
+                </Text>
+                <Text size="sm" c={primaryTextColor}>
+                  {selectedRequest.technician_notes}
+                </Text>
+              </Box>
+            )}
+
+            {selectedRequest?.estimated_cost && (
+              <Box>
+                <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
+                  Estimated Cost
+                </Text>
+                <Text size="sm" c="green.6">
+                  {formatCurrency(selectedRequest.estimated_cost)}
+                </Text>
+              </Box>
+            )}
+
+            {selectedRequest?.completion_notes && (
+              <Box>
+                <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
+                  Completion Notes
+                </Text>
+                <Text size="sm" c={primaryTextColor}>
+                  {selectedRequest.completion_notes}
+                </Text>
+              </Box>
+            )}
+
+            {selectedRequest?.final_cost && (
+              <Box>
+                <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
+                  Final Cost
+                </Text>
+                <Text size="sm" c="green.6">
+                  {formatCurrency(selectedRequest.final_cost)}
+                </Text>
+              </Box>
+            )}
+
+            {selectedRequest?.payment_status && (
+              <Box>
+                <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
+                  Payment Status
+                </Text>
+                <Badge
+                  color={
+                    selectedRequest.payment_status === "paid"
+                      ? "green"
+                      : selectedRequest.payment_status === "failed"
+                      ? "red"
+                      : "yellow"
+                  }
+                  variant="light"
+                  size="sm"
+                  radius="md"
                 >
-                  Cancel
-                </Button>
-              </Group>
-            </Stack>
-          </Modal>
-        </Stack>
-      </Container>
-    </div>
+                  {selectedRequest.payment_status.toUpperCase()}
+                </Badge>
+              </Box>
+            )}
+
+            <Group justify="right">
+              <MantineButton variant="outline" color="gray" onClick={closeView}>
+                Close
+              </MantineButton>
+            </Group>
+          </Stack>
+        </Modal>
+
+        {/* Payment Modal */}
+        <Modal
+          opened={opened}
+          onClose={close}
+          title={
+            <Title order={2} c={primaryTextColor}>
+              Processing Payment
+            </Title>
+          }
+          centered
+        >
+          <LoadingOverlay visible={paymentLoading} />
+          <Stack>
+            {paymentLoading ? (
+              <Text ta="center" c={primaryTextColor}>
+                Creating payment session...
+              </Text>
+            ) : (
+              <>
+                <Text c={primaryTextColor}>
+                  Payment will be processed through PayMongo.
+                </Text>
+                {paymentRequest && (
+                  <Card
+                    padding="lg"
+                    radius="lg"
+                    withBorder
+                    style={{
+                      boxShadow: getDefaultShadow(),
+                      backgroundColor:
+                        colorScheme === "dark"
+                          ? "rgba(255, 255, 255, 0.05)"
+                          : "#f9fafb",
+                    }}
+                  >
+                    <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
+                      Request Details
+                    </Text>
+                    <Grid>
+                      <Grid.Col span={6}>
+                        <Text size="xs" c={primaryTextColor}>
+                          Category
+                        </Text>
+                        <Text size="sm" c={primaryTextColor}>
+                          {paymentRequest.category}
+                        </Text>
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Text size="xs" c={primaryTextColor}>
+                          Amount
+                        </Text>
+                        <Text size="sm" c="green.6">
+                          {formatCurrency(paymentRequest.amount)}
+                        </Text>
+                      </Grid.Col>
+                      <Grid.Col span={12}>
+                        <Text size="xs" c={primaryTextColor}>
+                          Description
+                        </Text>
+                        <Text size="sm" lineClamp={2} c={primaryTextColor}>
+                          {paymentRequest.description}
+                        </Text>
+                      </Grid.Col>
+                    </Grid>
+                  </Card>
+                )}
+              </>
+            )}
+            <Group justify="right">
+              <MantineButton
+                variant="outline"
+                color="gray"
+                onClick={close}
+                disabled={paymentLoading}
+              >
+                Cancel
+              </MantineButton>
+            </Group>
+          </Stack>
+        </Modal>
+      </Stack>
+    </Container>
   );
 };
 

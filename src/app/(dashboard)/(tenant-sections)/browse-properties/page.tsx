@@ -10,7 +10,7 @@ import {
   Badge,
   Group,
   Stack,
-  Button,
+  Button as MantineButton,
   Modal,
   TextInput,
   Textarea,
@@ -18,6 +18,10 @@ import {
   Loader,
   Center,
   AspectRatio,
+  Notification,
+  useMantineTheme,
+  useMantineColorScheme,
+  rgba,
 } from "@mantine/core";
 import {
   IconBuilding,
@@ -31,6 +35,8 @@ import {
   IconShield,
   IconTrees,
   IconSearch,
+  IconCheck,
+  IconX,
 } from "@tabler/icons-react";
 import { toast } from "react-hot-toast";
 import { useSession } from "@/lib/auth-client";
@@ -72,7 +78,14 @@ interface InquiryRequest {
   reason: string;
 }
 
+interface NotificationType {
+  type: "success" | "error";
+  message: string;
+}
+
 const PropertyListingPage = () => {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const [properties, setProperties] = useState<Property[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +96,9 @@ const PropertyListingPage = () => {
   );
   const [submitting, setSubmitting] = useState(false);
   const [userEmail, setUserEmail] = useState<string>("");
+  const [notification, setNotification] = useState<NotificationType | null>(
+    null
+  );
   const [inquiryForm, setInquiryForm] = useState<InquiryRequest>({
     fullName: "",
     email: "",
@@ -91,6 +107,18 @@ const PropertyListingPage = () => {
   });
 
   const { data: session } = useSession();
+
+  const primaryTextColor = colorScheme === "dark" ? "white" : "dark";
+  const getDefaultShadow = () => {
+    const baseShadow = "0 1px 3px";
+    const opacity = colorScheme === "dark" ? 0.2 : 0.12;
+    return `${baseShadow} ${rgba(theme.black, opacity)}`;
+  };
+
+  const showNotification = (type: "success" | "error", message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
 
   useEffect(() => {
     if (session?.user?.email) {
@@ -132,10 +160,11 @@ const PropertyListingPage = () => {
 
         setProperties(data.properties || []);
         setFilteredProperties(data.properties || []);
-        toast.success("Properties loaded successfully");
+        showNotification("success", "Properties loaded successfully");
       } catch (err) {
         console.error("Error loading properties:", err);
-        toast.error(
+        showNotification(
+          "error",
           (err as Error).message ||
             "Failed to load properties. Please try again."
         );
@@ -204,7 +233,7 @@ const PropertyListingPage = () => {
   const handleSubmit = async (propertyId: string) => {
     const validationErrors = validateInquiryForm(inquiryForm);
     if (validationErrors.length > 0) {
-      toast.error(validationErrors[0]);
+      showNotification("error", validationErrors[0]);
       return;
     }
 
@@ -239,7 +268,10 @@ const PropertyListingPage = () => {
         throw new Error(data.error || "Failed to submit inquiry");
       }
 
-      toast.success("Your inquiry has been submitted successfully!");
+      showNotification(
+        "success",
+        "Your inquiry has been submitted successfully!"
+      );
       setSelectedProperty(null);
       setInquiryForm({
         fullName: "",
@@ -273,7 +305,8 @@ const PropertyListingPage = () => {
       }
     } catch (err) {
       console.error("Error submitting inquiry:", err);
-      toast.error(
+      showNotification(
+        "error",
         (err as Error).message || "Failed to submit inquiry. Please try again."
       );
     } finally {
@@ -334,7 +367,7 @@ const PropertyListingPage = () => {
 
   if (loading) {
     return (
-      <Container size="xl" py="xl">
+      <Container size="100%" py="xl">
         <Center style={{ height: 400 }}>
           <Loader size="lg" />
         </Center>
@@ -343,13 +376,30 @@ const PropertyListingPage = () => {
   }
 
   return (
-    <Container size="xl" px="md">
+    <Container size="100%" py="xl">
+      {notification && (
+        <Notification
+          icon={
+            notification.type === "success" ? (
+              <IconCheck size={18} />
+            ) : (
+              <IconX size={18} />
+            )
+          }
+          color={notification.type === "success" ? "green" : "red"}
+          title={notification.type === "success" ? "Success" : "Error"}
+          onClose={() => setNotification(null)}
+          style={{ position: "fixed", top: 20, right: 20, zIndex: 1000 }}
+        >
+          {notification.message}
+        </Notification>
+      )}
       <Stack gap="xl">
         <Stack gap="xs">
-          <Title order={1} size="h2" fw={600} c="gray.9">
+          <Title order={1} size="h2" fw={600} c={primaryTextColor}>
             Properties
           </Title>
-          <Text c="gray.6" size="md" lh={1.5}>
+          <Text c="dimmed" size="md" lh={1.5}>
             Browse available properties
           </Text>
         </Stack>
@@ -374,7 +424,7 @@ const PropertyListingPage = () => {
           />
         </SimpleGrid>
 
-        <Text c="gray.6" size="sm">
+        <Text c="dimmed" size="sm">
           Showing {filteredProperties.length} of {properties.length} properties
         </Text>
 
@@ -384,8 +434,9 @@ const PropertyListingPage = () => {
               key={property._id}
               shadow="sm"
               padding="lg"
-              radius="md"
+              radius="lg"
               withBorder
+              style={{ boxShadow: getDefaultShadow() }}
             >
               <AspectRatio ratio={16 / 9}>
                 {property.images && property.images.length > 0 ? (
@@ -404,17 +455,20 @@ const PropertyListingPage = () => {
 
               <Stack gap="md" mt="md">
                 <Group justify="space-between" align="flex-start">
-                  <Title order={3} size="h4" fw={600} c="gray.8">
+                  <Title order={3} size="h3" fw={600} c={primaryTextColor}>
                     {property.title}
                   </Title>
-                  <Badge color={getStatusColor(property.status)}>
+                  <Badge
+                    color={getStatusColor(property.status)}
+                    variant="light"
+                  >
                     {getStatusMessage(property.status)}
                   </Badge>
                 </Group>
 
                 <Group gap="xs">
                   <IconMapPin size={16} color="gray" />
-                  <Text size="sm" c="gray.7">
+                  <Text size="sm" c="dimmed">
                     {property.location}
                   </Text>
                 </Group>
@@ -426,7 +480,7 @@ const PropertyListingPage = () => {
                 <SimpleGrid cols={2}>
                   <Group gap="xs">
                     <IconBuilding size={16} color="gray" />
-                    <Text size="sm" c="gray.7">
+                    <Text size="sm" c="dimmed">
                       {property.type
                         .replace("-", " ")
                         .replace(/\b\w/g, (l) => l.toUpperCase())}
@@ -434,7 +488,7 @@ const PropertyListingPage = () => {
                   </Group>
                   <Group gap="xs">
                     <IconSquare size={16} color="gray" />
-                    <Text size="sm" c="gray.7">
+                    <Text size="sm" c="dimmed">
                       {property.size}
                     </Text>
                   </Group>
@@ -444,7 +498,7 @@ const PropertyListingPage = () => {
                       {(property.bedrooms ?? 0) > 0 && (
                         <Group gap="xs">
                           <IconBed size={16} color="gray" />
-                          <Text size="sm" c="gray.7">
+                          <Text size="sm" c="dimmed">
                             {property.bedrooms} Bedroom
                             {property.bedrooms !== 1 ? "s" : ""}
                           </Text>
@@ -453,7 +507,7 @@ const PropertyListingPage = () => {
                       {(property.bathrooms ?? 0) > 0 && (
                         <Group gap="xs">
                           <IconBath size={16} color="gray" />
-                          <Text size="sm" c="gray.7">
+                          <Text size="sm" c="dimmed">
                             {property.bathrooms} Bathroom
                             {property.bathrooms !== 1 ? "s" : ""}
                           </Text>
@@ -462,7 +516,7 @@ const PropertyListingPage = () => {
                       {(property.sqft ?? 0) > 0 && (
                         <Group gap="xs">
                           <IconSquare size={16} color="gray" />
-                          <Text size="sm" c="gray.7">
+                          <Text size="sm" c="dimmed">
                             {property.sqft} sq ft
                           </Text>
                         </Group>
@@ -472,18 +526,21 @@ const PropertyListingPage = () => {
                 </SimpleGrid>
 
                 {property.description && (
-                  <Text size="sm" c="gray.7" lineClamp={2}>
+                  <Text size="sm" c="dimmed" lineClamp={2}>
                     {property.description}
                   </Text>
                 )}
 
                 {property.amenities && property.amenities.length > 0 && (
-                  <Group gap="xs" grow wrap="nowrap">
+                  <Group gap="xs" grow wrap="wrap">
                     {property.amenities.slice(0, 3).map((amenity, index) => (
-                      <Badge key={index} variant="light" color="gray">
-                        <p className="flex items-center gap-2 text-sm">
-                          {amenity.replace("-", " ")}
-                        </p>
+                      <Badge
+                        key={index}
+                        variant="light"
+                        color="gray"
+                        leftSection={getAmenityIcon(amenity)}
+                      >
+                        {amenity.replace("-", " ")}
                       </Badge>
                     ))}
                     {property.amenities.length > 3 && (
@@ -494,15 +551,16 @@ const PropertyListingPage = () => {
                   </Group>
                 )}
 
-                <Button
+                <MantineButton
                   onClick={() => setSelectedProperty(property)}
                   disabled={property.status !== "CREATED"}
                   fullWidth
+                  color="blue"
                 >
                   {property.status === "CREATED"
                     ? "View Details & Inquire"
                     : "View Details"}
-                </Button>
+                </MantineButton>
               </Stack>
             </Card>
           ))}
@@ -512,7 +570,7 @@ const PropertyListingPage = () => {
           <Center py="xl">
             <Stack align="center">
               <IconBuilding size={48} color="gray" />
-              <Text c="gray.6" size="md">
+              <Text c="dimmed" size="md">
                 {searchQuery || selectedType !== "all"
                   ? "No properties match your search or type."
                   : "No properties found."}
@@ -526,7 +584,11 @@ const PropertyListingPage = () => {
         opened={!!selectedProperty}
         onClose={() => setSelectedProperty(null)}
         size="xl"
-        title={<Title order={2}>{selectedProperty?.title}</Title>}
+        title={
+          <Title order={2} c={primaryTextColor}>
+            {selectedProperty?.title}
+          </Title>
+        }
         centered
       >
         {selectedProperty && (
@@ -551,7 +613,7 @@ const PropertyListingPage = () => {
 
               <Group gap="xs">
                 <IconMapPin size={18} color="gray" />
-                <Text size="md" c="gray.7">
+                <Text size="md" c="dimmed">
                   {selectedProperty.location}
                 </Text>
               </Group>
@@ -563,7 +625,7 @@ const PropertyListingPage = () => {
               <SimpleGrid cols={2}>
                 <Group gap="xs">
                   <IconBuilding size={18} color="gray" />
-                  <Text size="md" c="gray.7">
+                  <Text size="md" c="dimmed">
                     {selectedProperty.type
                       .replace("-", " ")
                       .replace(/\b\w/g, (l) => l.toUpperCase())}
@@ -571,7 +633,7 @@ const PropertyListingPage = () => {
                 </Group>
                 <Group gap="xs">
                   <IconSquare size={18} color="gray" />
-                  <Text size="md" c="gray.7">
+                  <Text size="md" c="dimmed">
                     {selectedProperty.size}
                   </Text>
                 </Group>
@@ -581,7 +643,7 @@ const PropertyListingPage = () => {
                     {(selectedProperty.bedrooms ?? 0) > 0 && (
                       <Group gap="xs">
                         <IconBed size={18} color="gray" />
-                        <Text size="md" c="gray.7">
+                        <Text size="md" c="dimmed">
                           {selectedProperty.bedrooms} Bedroom
                           {selectedProperty.bedrooms !== 1 ? "s" : ""}
                         </Text>
@@ -590,7 +652,7 @@ const PropertyListingPage = () => {
                     {(selectedProperty.bathrooms ?? 0) > 0 && (
                       <Group gap="xs">
                         <IconBath size={18} color="gray" />
-                        <Text size="md" c="gray.7">
+                        <Text size="md" c="dimmed">
                           {selectedProperty.bathrooms} Bathroom
                           {selectedProperty.bathrooms !== 1 ? "s" : ""}
                         </Text>
@@ -599,7 +661,7 @@ const PropertyListingPage = () => {
                     {(selectedProperty.sqft ?? 0) > 0 && (
                       <Group gap="xs">
                         <IconSquare size={18} color="gray" />
-                        <Text size="md" c="gray.7">
+                        <Text size="md" c="dimmed">
                           {selectedProperty.sqft} sq ft
                         </Text>
                       </Group>
@@ -610,10 +672,10 @@ const PropertyListingPage = () => {
 
               {selectedProperty.description && (
                 <Stack gap="xs">
-                  <Title order={4} fw={600} c="gray.8">
+                  <Title order={4} fw={600} c={primaryTextColor}>
                     Description
                   </Title>
-                  <Text size="sm" c="gray.7">
+                  <Text size="sm" c="dimmed">
                     {selectedProperty.description}
                   </Text>
                 </Stack>
@@ -622,14 +684,14 @@ const PropertyListingPage = () => {
               {selectedProperty.amenities &&
                 selectedProperty.amenities.length > 0 && (
                   <Stack gap="xs">
-                    <Title order={4} fw={600} c="gray.8">
+                    <Title order={4} fw={600} c={primaryTextColor}>
                       Amenities
                     </Title>
                     <SimpleGrid cols={2}>
                       {selectedProperty.amenities.map((amenity, index) => (
                         <Group key={index} gap="xs">
                           {getAmenityIcon(amenity)}
-                          <Text size="sm" c="gray.7">
+                          <Text size="sm" c="dimmed">
                             {amenity.replace("-", " ")}
                           </Text>
                         </Group>
@@ -642,7 +704,7 @@ const PropertyListingPage = () => {
             <Stack>
               {selectedProperty.status === "CREATED" ? (
                 <Stack gap="md">
-                  <Title order={3} fw={600} c="gray.8">
+                  <Title order={3} fw={600} c={primaryTextColor}>
                     Submit Inquiry
                   </Title>
 
@@ -692,14 +754,15 @@ const PropertyListingPage = () => {
                     disabled={submitting}
                   />
 
-                  <Button
+                  <MantineButton
                     onClick={() => handleSubmit(selectedProperty._id)}
                     loading={submitting}
                     fullWidth
+                    color="blue"
                     disabled={submitting}
                   >
                     {submitting ? "Submitting..." : "Submit Inquiry"}
-                  </Button>
+                  </MantineButton>
                 </Stack>
               ) : (
                 <Center h={300}>
@@ -707,10 +770,11 @@ const PropertyListingPage = () => {
                     <Badge
                       color={getStatusColor(selectedProperty.status)}
                       size="lg"
+                      variant="light"
                     >
                       {getStatusMessage(selectedProperty.status)}
                     </Badge>
-                    <Text c="gray.6" size="md">
+                    <Text c="dimmed" size="md">
                       This property is not available for new inquiries.
                     </Text>
                   </Stack>
