@@ -10,8 +10,9 @@ import {
   Text,
   Stack,
   Checkbox,
+  useMantineTheme,
+  useMantineColorScheme,
 } from "@mantine/core";
-import { IconAlertCircle } from "@tabler/icons-react";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { getServerSession } from "@/better-auth/action";
@@ -26,6 +27,8 @@ interface FormData {
 
 export function LoginForm() {
   const router = useRouter();
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const [formData, setFormData] = useState<FormData>({
     email: "",
     password: "",
@@ -123,12 +126,29 @@ export function LoginForm() {
   };
 
   return (
-    <Paper className="w-full max-w-sm" p="xl">
+    <Paper 
+      className="w-full max-w-sm" 
+      p="xl"
+      style={{
+        backgroundColor: colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+      }}
+    >
       <div className="text-center mb-6">
-        <Title order={2} className="text-xl text-gray-900 mb-2">
+        <Title 
+          order={2} 
+          className="text-xl mb-2"
+          style={{
+            color: colorScheme === "dark" ? theme.white : theme.colors.gray[9],
+          }}
+        >
           Login
         </Title>
-        <Text size="sm" c="dimmed">
+        <Text 
+          size="sm" 
+          style={{
+            color: colorScheme === "dark" ? theme.colors.gray[4] : theme.colors.gray[6],
+          }}
+        >
           Sign in to your account to continue
         </Text>
       </div>
@@ -143,7 +163,10 @@ export function LoginForm() {
             value={formData.email}
             onChange={(e) => handleInputChange("email", e.target.value)}
             styles={{
-              label: { color: "#374151", fontWeight: 500 },
+              label: { 
+                color: colorScheme === "dark" ? theme.white : theme.colors.gray[9], 
+                fontWeight: 500 
+              },
             }}
             disabled={isLoading}
           />
@@ -156,7 +179,10 @@ export function LoginForm() {
             value={formData.password}
             onChange={(e) => handleInputChange("password", e.target.value)}
             styles={{
-              label: { color: "#374151", fontWeight: 500 },
+              label: { 
+                color: colorScheme === "dark" ? theme.white : theme.colors.gray[9], 
+                fontWeight: 500 
+              },
             }}
             disabled={isLoading}
           />
@@ -171,12 +197,18 @@ export function LoginForm() {
               }
               disabled={isLoading}
               styles={{
-                label: { color: "#6B7280", fontSize: "0.875rem" },
+                label: { 
+                  color: colorScheme === "dark" ? theme.colors.gray[4] : theme.colors.gray[6], 
+                  fontSize: "0.875rem" 
+                },
               }}
             />
             <Link
               href="/forgot-password"
-              className="text-sm text-cyan-600 hover:text-cyan-700 font-medium hover:underline"
+              className="text-sm font-medium hover:underline"
+              style={{
+                color: colorScheme === "dark" ? theme.colors.blue[4] : theme.colors.blue[6],
+              }}
             >
               Forgot password?
             </Link>

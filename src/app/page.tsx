@@ -137,15 +137,20 @@ const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
                       transform: "translateY(-50%)",
                       backgroundColor:
                         colorScheme === "dark"
-                          ? "rgba(255, 255, 255, 0.3)"
+                          ? "rgba(0, 0, 0, 0.5)"
                           : "rgba(255, 255, 255, 0.7)",
                       "&:hover": {
-                        backgroundColor: "rgba(255, 255, 255, 0.9)",
+                        backgroundColor: colorScheme === "dark"
+                          ? "rgba(0, 0, 0, 0.7)"
+                          : "rgba(255, 255, 255, 0.9)",
                       },
                     }}
                     onClick={prev}
                   >
-                    <ArrowLeft size={16} />
+                    <ArrowLeft 
+                      size={16} 
+                      color={colorScheme === "dark" ? theme.white : theme.colors.gray[8]}
+                    />
                   </MantineButton>
                   <MantineButton
                     variant="filled"
@@ -158,15 +163,20 @@ const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
                       transform: "translateY(-50%)",
                       backgroundColor:
                         colorScheme === "dark"
-                          ? "rgba(255, 255, 255, 0.3)"
+                          ? "rgba(0, 0, 0, 0.5)"
                           : "rgba(255, 255, 255, 0.7)",
                       "&:hover": {
-                        backgroundColor: "rgba(255, 255, 255, 0.9)",
+                        backgroundColor: colorScheme === "dark"
+                          ? "rgba(0, 0, 0, 0.7)"
+                          : "rgba(255, 255, 255, 0.9)",
                       },
                     }}
                     onClick={next}
                   >
-                    <ArrowRightIcon size={16} />
+                    <ArrowRightIcon 
+                      size={16} 
+                      color={colorScheme === "dark" ? theme.white : theme.colors.gray[8]}
+                    />
                   </MantineButton>
                 </>
               )}
