@@ -12,7 +12,6 @@ import {
   Center,
   Container,
   Notification,
-  Select,
   Modal,
   TextInput,
   Textarea,
@@ -289,6 +288,70 @@ const AnnouncementCard = ({
         </Stack>
       </Card.Section>
     </Card>
+  );
+};
+
+// Custom Select Component
+const CustomSelect = ({
+  label,
+  value,
+  onChange,
+  options,
+  required = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  required?: boolean;
+}) => {
+  const { colorScheme } = useMantineColorScheme();
+  const isDark = colorScheme === "dark";
+
+  return (
+    <div style={{ marginBottom: "1rem" }}>
+      <label
+        style={{
+          display: "block",
+          marginBottom: "0.5rem",
+          fontSize: "0.875rem",
+          fontWeight: 500,
+          color: isDark ? "#c1c2c5" : "#212529",
+        }}
+      >
+        {label} {required && <span style={{ color: "red" }}>*</span>}
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        style={{
+          width: "100%",
+          padding: "0.5rem 0.75rem",
+          fontSize: "0.875rem",
+          lineHeight: "1.5",
+          color: isDark ? "#c1c2c5" : "#212529",
+          backgroundColor: isDark ? "#25262b" : "#fff",
+          border: `1px solid ${isDark ? "#373a40" : "#ced4da"}`,
+          borderRadius: "0.25rem",
+          outline: "none",
+          cursor: "pointer",
+          transition: "border-color 0.15s ease-in-out",
+        }}
+        onFocus={(e) => {
+          e.target.style.borderColor = "#228be6";
+        }}
+        onBlur={(e) => {
+          e.target.style.borderColor = isDark ? "#373a40" : "#ced4da";
+        }}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 };
 
@@ -699,9 +762,8 @@ const ManageAnnouncementSection = () => {
               required
               placeholder="Enter category (e.g., Property Update)"
             />
-            <Select
+            <CustomSelect
               label="Priority"
-              name="priority"
               value={formData.priority}
               onChange={(value) =>
                 setFormData((prev) => ({
@@ -709,22 +771,12 @@ const ManageAnnouncementSection = () => {
                   priority: value as "low" | "medium" | "high",
                 }))
               }
-              data={[
+              options={[
                 { value: "low", label: "Low" },
                 { value: "medium", label: "Medium" },
                 { value: "high", label: "High" },
               ]}
               required
-              comboboxProps={{
-                position: "bottom",
-                middlewares: { flip: true, shift: true },
-                dropdownPadding: 4,
-              }}
-              styles={{
-                dropdown: {
-                  zIndex: 1000,
-                },
-              }}
             />
             <TextInput
               label="Scheduled Date"
