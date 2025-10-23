@@ -65,12 +65,6 @@ const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
     low: theme.colors.green[6],
   }[announcement.priority];
 
-  const getDefaultShadow = () => {
-    const baseShadow = "0 1px 3px";
-    const opacity = colorScheme === "dark" ? 0.2 : 0.12;
-    return `${baseShadow} ${rgba(theme.black, opacity)}`;
-  };
-
   return (
     <Card
       shadow="sm"
