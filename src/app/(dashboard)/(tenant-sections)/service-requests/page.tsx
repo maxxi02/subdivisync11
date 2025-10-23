@@ -168,6 +168,13 @@ const ServiceRequestsSection = () => {
     fetchServiceRequests();
   }, []);
 
+  useEffect(() => {
+    return () => {
+      // Cleanup image preview URLs on unmount
+      imagePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
+
   const fetchServiceRequests = async () => {
     try {
       setLoading(true);
@@ -348,14 +355,22 @@ const ServiceRequestsSection = () => {
     try {
       setSubmitting(true);
       let imageUrls: string[] = [];
+
       if (files.length > 0) {
-        showNotification("success", `Uploading ${files.length} image(s)...`);
-        imageUrls = await uploadImages(files);
-        showNotification(
-          "success",
-          `${files.length} image(s) uploaded successfully`
-        );
+        try {
+          imageUrls = await uploadImages(files);
+          console.log("Images uploaded successfully:", imageUrls);
+        } catch (uploadError) {
+          console.error("Failed to upload images:", uploadError);
+          showNotification(
+            "error",
+            "Failed to upload images. Please try again."
+          );
+          setSubmitting(false);
+          return;
+        }
       }
+
       const categoryTitle =
         categories.find((c) => c.id === selectedCategory)?.title || "Other";
       const response = await axios.post("/api/service-requests", {
@@ -364,6 +379,7 @@ const ServiceRequestsSection = () => {
         priority: priority,
         images: imageUrls,
       });
+
       if (response.data.success && response.data.serviceRequest) {
         const newRequest = {
           ...response.data.serviceRequest,
@@ -383,6 +399,7 @@ const ServiceRequestsSection = () => {
         setSelectedCategory(null);
         setIssueDescription("");
         setFiles([]);
+        imagePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
         setImagePreviewUrls([]);
         setPriority("medium");
         showNotification("success", "Service request submitted successfully!");
@@ -394,7 +411,7 @@ const ServiceRequestsSection = () => {
       }
     } catch (err) {
       const errorMessage = axios.isAxiosError(err)
-        ? err.message
+        ? err.response?.data?.error || err.message
         : "Failed to submit service request";
       showNotification("error", errorMessage);
     } finally {
@@ -690,8 +707,8 @@ const ServiceRequestsSection = () => {
                         ? "rgba(59, 130, 246, 0.2)"
                         : "#e3f2fd"
                       : colorScheme === "dark"
-                      ? "rgba(255, 255, 255, 0.05)"
-                      : "white",
+                        ? "rgba(255, 255, 255, 0.05)"
+                        : "white",
                   border:
                     selectedCategory === category.id
                       ? "2px solid #3b82f6"
@@ -901,8 +918,8 @@ const ServiceRequestsSection = () => {
                 {submitting
                   ? "Submitting..."
                   : files.length > 0
-                  ? `Submit Request (${files.length} images)`
-                  : "Submit Request"}
+                    ? `Submit Request (${files.length} images)`
+                    : "Submit Request"}
               </MantineButton>
               <MantineButton
                 variant="outline"
@@ -967,222 +984,118 @@ const ServiceRequestsSection = () => {
           <Title order={2} size="h3" mb="md" c={primaryTextColor}>
             Request History
           </Title>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead
-              style={{
-                backgroundColor:
-                  colorScheme === "dark"
-                    ? "rgba(255, 255, 255, 0.1)"
-                    : "#f9fafb",
-              }}
-            >
-              <tr>
-                <th
-                  style={{
-                    padding: "12px 24px",
-                    textAlign: "left",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                  }}
+
+          {/* Desktop View - Table */}
+          <Box display={{ base: "none", md: "block" }}>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                {/* Keep your existing table structure */}
+              </table>
+            </div>
+          </Box>
+
+          {/* Mobile View - Cards */}
+          <Stack display={{ base: "block", md: "none" }} gap="md">
+            {filteredRequests.length === 0 ? (
+              <Text ta="center" c={primaryTextColor} py="xl">
+                No service requests found
+              </Text>
+            ) : (
+              filteredRequests.map((request) => (
+                <Card
+                  key={request.id}
+                  padding="md"
+                  radius="lg"
+                  withBorder
+                  style={{ boxShadow: getDefaultShadow() }}
                 >
-                  Category
-                </th>
-                <th
-                  style={{
-                    padding: "12px 24px",
-                    textAlign: "left",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Description
-                </th>
-                <th
-                  style={{
-                    padding: "12px 24px",
-                    textAlign: "left",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Date
-                </th>
-                <th
-                  style={{
-                    padding: "12px 24px",
-                    textAlign: "left",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Priority
-                </th>
-                <th
-                  style={{
-                    padding: "12px 24px",
-                    textAlign: "left",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Status
-                </th>
-                <th
-                  style={{
-                    padding: "12px 24px",
-                    textAlign: "left",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody
-              style={{
-                backgroundColor:
-                  colorScheme === "dark"
-                    ? "rgba(255, 255, 255, 0.02)"
-                    : "white",
-              }}
-            >
-              {filteredRequests.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    style={{
-                      padding: "32px 24px",
-                      textAlign: "center",
-                      color: "#6b7280",
-                    }}
-                  >
-                    <Text c={primaryTextColor}>No service requests found</Text>
-                  </td>
-                </tr>
-              ) : (
-                filteredRequests.map((request) => (
-                  <tr
-                    key={request.id}
-                    style={{
-                      transition: "background-color 0.2s ease",
-                      cursor: "pointer",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor =
-                        colorScheme === "dark"
-                          ? "rgba(255, 255, 255, 0.1)"
-                          : "#f9fafb";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor =
-                        colorScheme === "dark"
-                          ? "rgba(255, 255, 255, 0.02)"
-                          : "white";
-                    }}
-                  >
-                    <td style={{ padding: "16px 24px" }}>
-                      <Text size="sm" c={primaryTextColor}>
+                  <Stack gap="sm">
+                    <Group justify="space-between">
+                      <Text fw={500} size="sm" c={primaryTextColor}>
                         {request.category}
                       </Text>
-                    </td>
-                    <td style={{ padding: "16px 24px" }}>
-                      <Text size="sm" lineClamp={2} c={primaryTextColor}>
-                        {request.description}
-                      </Text>
-                    </td>
-                    <td style={{ padding: "16px 24px" }}>
-                      <Text size="sm" c={primaryTextColor}>
-                        {request.date}
-                      </Text>
-                    </td>
-                    <td style={{ padding: "16px 24px" }}>
-                      <Badge
-                        color={getPriorityColor(request.priority)}
-                        variant="light"
-                        size="sm"
-                        radius="md"
-                      >
-                        {request.priority.toUpperCase()}
-                      </Badge>
-                    </td>
-                    <td style={{ padding: "16px 24px" }}>
                       <Badge
                         color={getStatusColor(request.status)}
                         variant="light"
                         size="sm"
-                        radius="md"
                       >
                         {request.status.toUpperCase()}
                       </Badge>
-                    </td>
-                    <td style={{ padding: "16px 24px" }}>
-                      <Group gap="xs">
+                    </Group>
+
+                    <Text size="sm" lineClamp={2} c={primaryTextColor}>
+                      {request.description}
+                    </Text>
+
+                    <Group gap="xs">
+                      <Badge
+                        color={getPriorityColor(request.priority)}
+                        variant="light"
+                        size="sm"
+                      >
+                        {request.priority.toUpperCase()}
+                      </Badge>
+                      <Text size="xs" c="dimmed">
+                        {request.date}
+                      </Text>
+                    </Group>
+
+                    <Group gap="xs" mt="xs">
+                      <MantineButton
+                        size="xs"
+                        variant="outline"
+                        color="gray"
+                        leftSection={<IconEye size={12} />}
+                        onClick={() => {
+                          setSelectedRequest(request);
+                          openView();
+                        }}
+                        fullWidth
+                      >
+                        View
+                      </MantineButton>
+                      {request.status === "completed" &&
+                        request.final_cost &&
+                        (request.payment_status !== "paid" ? (
+                          <MantineButton
+                            size="xs"
+                            variant="filled"
+                            color="blue"
+                            onClick={() => handlePayment(request)}
+                            loading={paymentLoading}
+                            disabled={paymentLoading}
+                            leftSection={<IconCash size={14} />}
+                            fullWidth
+                          >
+                            Pay ({formatCurrency(request.final_cost)})
+                          </MantineButton>
+                        ) : (
+                          <Badge
+                            color="green"
+                            variant="light"
+                            size="sm"
+                            style={{ width: "100%" }}
+                          >
+                            Paid
+                          </Badge>
+                        ))}
+                      {request.status === "pending" && (
                         <MantineButton
                           size="xs"
                           variant="outline"
-                          color="gray"
-                          leftSection={<IconEye size={12} />}
-                          onClick={() => {
-                            setSelectedRequest(request);
-                            openView();
-                          }}
+                          color="red"
+                          onClick={() => handleCancelRequest(request.id)}
+                          fullWidth
                         >
-                          View
+                          Cancel
                         </MantineButton>
-                        {request.status === "completed" &&
-                          request.final_cost &&
-                          (request.payment_status !== "paid" ? (
-                            <MantineButton
-                              size="xs"
-                              variant="filled"
-                              color="blue"
-                              onClick={() => handlePayment(request)}
-                              loading={paymentLoading}
-                              disabled={paymentLoading}
-                              leftSection={<IconCash size={14} />}
-                            >
-                              Pay ({formatCurrency(request.final_cost)})
-                            </MantineButton>
-                          ) : (
-                            <Badge
-                              color="green"
-                              variant="light"
-                              size="sm"
-                              radius="md"
-                            >
-                              Paid
-                            </Badge>
-                          ))}
-                        {request.status === "pending" && (
-                          <MantineButton
-                            size="xs"
-                            variant="outline"
-                            color="red"
-                            onClick={() => handleCancelRequest(request.id)}
-                          >
-                            Cancel
-                          </MantineButton>
-                        )}
-                      </Group>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                      )}
+                    </Group>
+                  </Stack>
+                </Card>
+              ))
+            )}
+          </Stack>
         </Card>
 
         {/* View Details Modal */}
@@ -1370,8 +1283,8 @@ const ServiceRequestsSection = () => {
                     selectedRequest.payment_status === "paid"
                       ? "green"
                       : selectedRequest.payment_status === "failed"
-                      ? "red"
-                      : "yellow"
+                        ? "red"
+                        : "yellow"
                   }
                   variant="light"
                   size="sm"
