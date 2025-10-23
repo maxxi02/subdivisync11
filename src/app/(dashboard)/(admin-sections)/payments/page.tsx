@@ -23,9 +23,9 @@ import {
   Box,
   Flex,
   Alert,
-  Divider,
   Table,
   rgba,
+  ScrollArea,
 } from "@mantine/core";
 import {
   IconCheck,
@@ -36,17 +36,12 @@ import {
   IconCreditCard,
   IconUser,
   IconMail,
-  IconPhone,
   IconHome,
-  IconCalendar,
-  IconBed,
-  IconBath,
   IconFileText,
   IconSend,
   IconClock,
   IconEye,
 } from "@tabler/icons-react";
-import { toast } from "react-hot-toast";
 
 interface PaymentPlan {
   _id: string;
@@ -449,123 +444,125 @@ const PaymentsTrackingPage = () => {
 
         {/* Payments Table */}
         <Card padding="xl" radius="lg" withBorder shadow="sm">
-          <Table striped highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Tenant & Property</Table.Th>
-                <Table.Th>Payment Details</Table.Th>
-                <Table.Th>Due Date</Table.Th>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Actions</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {filteredPayments.length === 0 ? (
+          <ScrollArea type="auto">
+            <Table striped highlightOnHover>
+              <Table.Thead>
                 <Table.Tr>
-                  <Table.Td colSpan={5} ta="center" py="xl">
-                    <ThemeIcon size={48} radius="xl" color="gray" mb="md">
-                      <IconFileText size={24} />
-                    </ThemeIcon>
-                    <Text size="lg" fw={500} c={primaryTextColor} mb="xs">
-                      {searchTerm
-                        ? "No payments match your search"
-                        : "No payments found"}
-                    </Text>
-                    <Text c="dimmed">No matching payments available</Text>
-                  </Table.Td>
+                  <Table.Th>Tenant & Property</Table.Th>
+                  <Table.Th>Payment Details</Table.Th>
+                  <Table.Th>Due Date</Table.Th>
+                  <Table.Th>Status</Table.Th>
+                  <Table.Th>Actions</Table.Th>
                 </Table.Tr>
-              ) : (
-                filteredPayments.map((payment) => (
-                  <Table.Tr key={payment._id}>
-                    <Table.Td>
-                      <Stack gap="xs">
-                        <Text fw={500} c={primaryTextColor}>
-                          {payment.paymentPlan?.tenant.fullName ||
-                            "Unknown Tenant"}
-                        </Text>
-                        <Group gap="xs">
-                          <IconHome size={14} />
-                          <Text size="sm" c="dimmed">
-                            {payment.paymentPlan?.propertyTitle ||
-                              "Property Not Found"}
-                          </Text>
-                        </Group>
-                        <Group gap="xs">
-                          <IconMail size={14} />
-                          <Text size="sm" c="dimmed">
-                            {payment.tenantEmail}
-                          </Text>
-                        </Group>
-                      </Stack>
-                    </Table.Td>
-                    <Table.Td>
-                      <Stack gap="xs">
-                        <Text fw={500} c={primaryTextColor}>
-                          {formatCurrency(payment.amount)}
-                        </Text>
-                        <Text size="sm" c="dimmed">
-                          Month {payment.monthNumber} of{" "}
-                          {payment.paymentPlan?.leaseDuration || "N/A"}
-                        </Text>
-                        {payment.paymentMethod && (
-                          <Group gap="xs">
-                            <IconCreditCard size={14} />
-                            <Text size="sm" c="dimmed">
-                              {payment.paymentMethod}
-                            </Text>
-                          </Group>
-                        )}
-                      </Stack>
-                    </Table.Td>
-                    <Table.Td>
-                      <Stack gap="xs">
-                        <Text c="dimmed">{formatDate(payment.dueDate)}</Text>
-                        {payment.paidDate && (
-                          <Text c="dimmed">
-                            Paid: {formatDate(payment.paidDate)}
-                          </Text>
-                        )}
-                      </Stack>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge
-                        color={getStatusColor(payment.status)}
-                        variant="light"
-                      >
-                        {payment.status.charAt(0).toUpperCase() +
-                          payment.status.slice(1)}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        <ActionIcon
-                          variant="light"
-                          color="blue"
-                          size="lg"
-                          onClick={() => {
-                            setSelectedPayment(payment);
-                            setShowDetailsModal(true);
-                          }}
-                        >
-                          <IconEye size={18} />
-                        </ActionIcon>
-                        {payment.status === "pending" && (
-                          <ActionIcon
-                            variant="light"
-                            color="yellow"
-                            size="lg"
-                            onClick={() => handleRemind(payment)}
-                          >
-                            <IconSend size={18} />
-                          </ActionIcon>
-                        )}
-                      </Group>
+              </Table.Thead>
+              <Table.Tbody>
+                {filteredPayments.length === 0 ? (
+                  <Table.Tr>
+                    <Table.Td colSpan={5} ta="center" py="xl">
+                      <ThemeIcon size={48} radius="xl" color="gray" mb="md">
+                        <IconFileText size={24} />
+                      </ThemeIcon>
+                      <Text size="lg" fw={500} c={primaryTextColor} mb="xs">
+                        {searchTerm
+                          ? "No payments match your search"
+                          : "No payments found"}
+                      </Text>
+                      <Text c="dimmed">No matching payments available</Text>
                     </Table.Td>
                   </Table.Tr>
-                ))
-              )}
-            </Table.Tbody>
-          </Table>
+                ) : (
+                  filteredPayments.map((payment) => (
+                    <Table.Tr key={payment._id}>
+                      <Table.Td>
+                        <Stack gap="xs">
+                          <Text fw={500} c={primaryTextColor}>
+                            {payment.paymentPlan?.tenant.fullName ||
+                              "Unknown Tenant"}
+                          </Text>
+                          <Group gap="xs">
+                            <IconHome size={14} />
+                            <Text size="sm" c="dimmed">
+                              {payment.paymentPlan?.propertyTitle ||
+                                "Property Not Found"}
+                            </Text>
+                          </Group>
+                          <Group gap="xs">
+                            <IconMail size={14} />
+                            <Text size="sm" c="dimmed">
+                              {payment.tenantEmail}
+                            </Text>
+                          </Group>
+                        </Stack>
+                      </Table.Td>
+                      <Table.Td>
+                        <Stack gap="xs">
+                          <Text fw={500} c={primaryTextColor}>
+                            {formatCurrency(payment.amount)}
+                          </Text>
+                          <Text size="sm" c="dimmed">
+                            Month {payment.monthNumber} of{" "}
+                            {payment.paymentPlan?.leaseDuration || "N/A"}
+                          </Text>
+                          {payment.paymentMethod && (
+                            <Group gap="xs">
+                              <IconCreditCard size={14} />
+                              <Text size="sm" c="dimmed">
+                                {payment.paymentMethod}
+                              </Text>
+                            </Group>
+                          )}
+                        </Stack>
+                      </Table.Td>
+                      <Table.Td>
+                        <Stack gap="xs">
+                          <Text c="dimmed">{formatDate(payment.dueDate)}</Text>
+                          {payment.paidDate && (
+                            <Text c="dimmed">
+                              Paid: {formatDate(payment.paidDate)}
+                            </Text>
+                          )}
+                        </Stack>
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge
+                          color={getStatusColor(payment.status)}
+                          variant="light"
+                        >
+                          {payment.status.charAt(0).toUpperCase() +
+                            payment.status.slice(1)}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap="xs">
+                          <ActionIcon
+                            variant="light"
+                            color="blue"
+                            size="lg"
+                            onClick={() => {
+                              setSelectedPayment(payment);
+                              setShowDetailsModal(true);
+                            }}
+                          >
+                            <IconEye size={18} />
+                          </ActionIcon>
+                          {payment.status === "pending" && (
+                            <ActionIcon
+                              variant="light"
+                              color="yellow"
+                              size="lg"
+                              onClick={() => handleRemind(payment)}
+                            >
+                              <IconSend size={18} />
+                            </ActionIcon>
+                          )}
+                        </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))
+                )}
+              </Table.Tbody>
+            </Table>
+          </ScrollArea>
         </Card>
 
         {/* Payment Details Modal */}

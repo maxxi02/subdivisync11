@@ -140,16 +140,21 @@ const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
                           ? "rgba(0, 0, 0, 0.5)"
                           : "rgba(255, 255, 255, 0.7)",
                       "&:hover": {
-                        backgroundColor: colorScheme === "dark"
-                          ? "rgba(0, 0, 0, 0.7)"
-                          : "rgba(255, 255, 255, 0.9)",
+                        backgroundColor:
+                          colorScheme === "dark"
+                            ? "rgba(0, 0, 0, 0.7)"
+                            : "rgba(255, 255, 255, 0.9)",
                       },
                     }}
                     onClick={prev}
                   >
-                    <ArrowLeft 
-                      size={16} 
-                      color={colorScheme === "dark" ? theme.white : theme.colors.gray[8]}
+                    <ArrowLeft
+                      size={16}
+                      color={
+                        colorScheme === "dark"
+                          ? theme.white
+                          : theme.colors.gray[8]
+                      }
                     />
                   </MantineButton>
                   <MantineButton
@@ -166,16 +171,21 @@ const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
                           ? "rgba(0, 0, 0, 0.5)"
                           : "rgba(255, 255, 255, 0.7)",
                       "&:hover": {
-                        backgroundColor: colorScheme === "dark"
-                          ? "rgba(0, 0, 0, 0.7)"
-                          : "rgba(255, 255, 255, 0.9)",
+                        backgroundColor:
+                          colorScheme === "dark"
+                            ? "rgba(0, 0, 0, 0.7)"
+                            : "rgba(255, 255, 255, 0.9)",
                       },
                     }}
                     onClick={next}
                   >
-                    <ArrowRightIcon 
-                      size={16} 
-                      color={colorScheme === "dark" ? theme.white : theme.colors.gray[8]}
+                    <ArrowRightIcon
+                      size={16}
+                      color={
+                        colorScheme === "dark"
+                          ? theme.white
+                          : theme.colors.gray[8]
+                      }
                     />
                   </MantineButton>
                 </>
@@ -239,13 +249,28 @@ export default function HomePage() {
   const { colorScheme } = useMantineColorScheme();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const router = useRouter();
+  const [isMobile, setIsMobile] = useState(false);
 
-  const primaryTextColor = colorScheme === "dark" ? "white" : "dark";
   const getDefaultShadow = () => {
     const baseShadow = "0 1px 3px";
     const opacity = colorScheme === "dark" ? 0.2 : 0.12;
     return `${baseShadow} ${rgba(theme.black, opacity)}`;
   };
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    // Set initial value
+    handleResize();
+
+    // Add event listener
+    window.addEventListener("resize", handleResize);
+
+    // Cleanup
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     const fetchAnnouncements = async () => {
@@ -306,6 +331,27 @@ export default function HomePage() {
           colorScheme === "dark" ? theme.colors.dark[7] : theme.white,
       }}
     >
+      <style jsx>{`
+        @keyframes bounce {
+          0%,
+          100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(10px);
+          }
+        }
+
+        @media (max-width: 768px) {
+          .hero-group {
+            flex-direction: column !important;
+          }
+
+          .stats-group {
+            flex-direction: column !important;
+          }
+        }
+      `}</style>
       {/* Header */}
       <header
         style={{
@@ -345,7 +391,7 @@ export default function HomePage() {
                 Subdivisync
               </Title>
             </Group>
-   
+
             <Group gap="sm">
               <MantineButton
                 variant="subtle"
@@ -374,8 +420,10 @@ export default function HomePage() {
           <Group
             align="center"
             gap="xl"
-            wrap="nowrap"
-            style={{ flexDirection: "row" }}
+            className="hero-group"
+            style={{
+              flexDirection: isMobile ? "column" : "row",
+            }}
           >
             <Stack gap="xl" style={{ flex: 1 }}>
               <Stack gap="md">
@@ -482,16 +530,33 @@ export default function HomePage() {
                   >
                     Scroll down to explore
                   </Text>
-                  <ChevronDown
-                    size={20}
-                    style={{
-                      color:
-                        colorScheme === "dark"
-                          ? theme.colors.gray[4]
-                          : theme.colors.gray[4],
-                      animation: "bounce 1s infinite",
+                  <MantineButton
+                    variant="subtle"
+                    onClick={() => {
+                      const announcementsSection = document.querySelector(
+                        'section[data-section="announcements"]'
+                      );
+                      announcementsSection?.scrollIntoView({
+                        behavior: "smooth",
+                      });
                     }}
-                  />
+                    style={{
+                      padding: 0,
+                      minWidth: "auto",
+                      height: "auto",
+                    }}
+                  >
+                    <ChevronDown
+                      size={20}
+                      style={{
+                        color:
+                          colorScheme === "dark"
+                            ? theme.colors.gray[4]
+                            : theme.colors.gray[4],
+                        animation: "bounce 1s infinite",
+                      }}
+                    />
+                  </MantineButton>
                 </Stack>
               </Center>
             </Stack>
@@ -515,6 +580,7 @@ export default function HomePage() {
 
       {/* Announcements Section */}
       <section
+        data-section="announcements"
         style={{
           padding: "4rem 0",
           backgroundColor:
@@ -571,8 +637,10 @@ export default function HomePage() {
           <Group
             align="center"
             gap="xl"
-            wrap="nowrap"
-            style={{ flexDirection: "row" }}
+            className="stats-group"
+            style={{
+              flexDirection: isMobile ? "column" : "row",
+            }}
           >
             <Stack gap="md" style={{ flex: 1 }}>
               <Title

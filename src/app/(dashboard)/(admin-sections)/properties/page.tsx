@@ -28,8 +28,7 @@ import {
   Button as MantineButton,
   NumberInput,
   Image,
-  Checkbox,
-  MultiSelect,
+  ScrollArea,
 } from "@mantine/core";
 import {
   IconBuilding,
@@ -294,6 +293,7 @@ export default function PropertyManagement() {
   });
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<NotificationType | null>(null);
+  const [dataFetched, setDataFetched] = useState(false);
 
   const [formData, setFormData] = useState<CreatePropertyRequest>({
     title: "",
@@ -336,11 +336,6 @@ export default function PropertyManagement() {
 
   // Theme-aware helpers (from dashboard)
   const primaryTextColor = colorScheme === "dark" ? "white" : "dark.9";
-  const getHoverShadow = () => {
-    const baseShadow = "0 4px 12px";
-    const opacity = colorScheme === "dark" ? 0.3 : 0.15;
-    return `${baseShadow} ${rgba(theme.black, opacity)}`;
-  };
 
   const getDefaultShadow = () => {
     const baseShadow = "0 1px 3px";
@@ -388,6 +383,25 @@ export default function PropertyManagement() {
     }
   };
 
+  // Fixed refresh bug - only fetch data once and when searchQuery changes
+  useEffect(() => {
+    if (!dataFetched) {
+      fetchProperties();
+      setDataFetched(true);
+    }
+  }, [dataFetched]);
+
+  // Fetch when search query changes (with debounce)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (dataFetched) {
+        fetchProperties(1); // Reset to page 1 when searching
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, dataFetched]);
+
   useEffect(() => {
     if (formData.type !== "house-and-lot" && formData.type !== "condo") {
       setFormData({
@@ -410,10 +424,6 @@ export default function PropertyManagement() {
       });
     }
   }, [editFormData.type]);
-
-  useEffect(() => {
-    fetchProperties();
-  }, [searchQuery]);
 
   const validateForm = (data: CreatePropertyRequest): string | null => {
     if (!data.title.trim()) return "Property title is required";
@@ -925,124 +935,137 @@ export default function PropertyManagement() {
             <Title order={3} size="h4" fw={600} c={primaryTextColor}>
                 Manage Properties
             </Title>
-            <TextInput
+            <Group>
+              <TextInput
                 placeholder="Search properties..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-              leftSection={<IconSearch size={16} />}
-              style={{ maxWidth: 300 }}
-            />
+                leftSection={<IconSearch size={16} />}
+                style={{ maxWidth: 300 }}
+              />
+              <MantineButton
+                onClick={() => setCreateModalOpen(true)}
+                leftSection={<IconPlus size={16} />}
+              >
+                Add Property
+              </MantineButton>
+            </Group>
           </Group>
-          <Table striped highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Property</Table.Th>
-                <Table.Th>Location</Table.Th>
-                <Table.Th>Type</Table.Th>
-                <Table.Th>Size</Table.Th>
-                <Table.Th>Price</Table.Th>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Actions</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-                {filteredProperties.length === 0 ? (
+          
+          {/* Added ScrollArea for horizontal overflow */}
+          <ScrollArea type="auto">
+            <Table striped highlightOnHover miw={800}>
+              <Table.Thead>
                 <Table.Tr>
-                  <Table.Td colSpan={7} ta="center" py="xl">
-                    <ThemeIcon size={48} radius="xl" color="gray" mb="md">
-                      <IconBuilding size={24} />
-                    </ThemeIcon>
-                    <Text size="lg" fw={500} c={primaryTextColor} mb="xs">
-                        No properties found
-                    </Text>
-                    <Text c="dimmed">
-                        Create a new property to get started
-                    </Text>
-                  </Table.Td>
+                  <Table.Th>Property</Table.Th>
+                  <Table.Th>Location</Table.Th>
+                  <Table.Th>Type</Table.Th>
+                  <Table.Th>Size</Table.Th>
+                  <Table.Th>Price</Table.Th>
+                  <Table.Th>Status</Table.Th>
+                  <Table.Th>Actions</Table.Th>
                 </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {filteredProperties.length === 0 ? (
+                  <Table.Tr>
+                    <Table.Td colSpan={7} ta="center" py="xl">
+                      <ThemeIcon size={48} radius="xl" color="gray" mb="md">
+                        <IconBuilding size={24} />
+                      </ThemeIcon>
+                      <Text size="lg" fw={500} c={primaryTextColor} mb="xs">
+                        No properties found
+                      </Text>
+                      <Text c="dimmed">
+                        Create a new property to get started
+                      </Text>
+                    </Table.Td>
+                  </Table.Tr>
                 ) : (
                   filteredProperties.map((property) => (
-                  <Table.Tr key={property._id}>
-                    <Table.Td>
-                      <Text fw={500} c={primaryTextColor}>
-                              {property.title}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        <IconMapPin size={16} />
-                        <Text c="dimmed">{property.location}</Text>
-                      </Group>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge variant="light" color="gray">
+                    <Table.Tr key={property._id}>
+                      <Table.Td>
+                        <Text fw={500} c={primaryTextColor}>
+                          {property.title}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap="xs">
+                          <IconMapPin size={16} />
+                          <Text c="dimmed">{property.location}</Text>
+                        </Group>
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge variant="light" color="gray">
                           {property.type.replace("-", " ").toUpperCase()}
                         </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text fw={500}>{property.size}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text fw={700} c="green.6">
-                        {formatCurrency(property.price)}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge color={getStatusColor(property.status)} variant="light">
+                      </Table.Td>
+                      <Table.Td>
+                        <Text fw={500}>{property.size}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text fw={700} c="green.6">
+                          {formatCurrency(property.price)}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge color={getStatusColor(property.status)} variant="light">
                           {property.status}
                         </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        <ActionIcon
-                          variant="light"
-                          color="blue"
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap="xs">
+                          <ActionIcon
+                            variant="light"
+                            color="blue"
                             onClick={() => {
                               setSelectedProperty(property);
                               setViewModalOpen(true);
                             }}
-                        >
-                          <IconEye size={16} />
-                        </ActionIcon>
-                        <ActionIcon
-                          variant="light"
-                          color="yellow"
+                          >
+                            <IconEye size={16} />
+                          </ActionIcon>
+                          <ActionIcon
+                            variant="light"
+                            color="yellow"
                             onClick={() => openEditModal(property)}
-                        >
-                          <IconEdit size={16} />
-                        </ActionIcon>
-                        <ActionIcon
-                          variant="light"
-                          color="red"
+                          >
+                            <IconEdit size={16} />
+                          </ActionIcon>
+                          <ActionIcon
+                            variant="light"
+                            color="red"
                             onClick={() => handleDeleteProperty(property._id)}
-                        >
-                          <IconX size={16} />
-                        </ActionIcon>
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))
-              )}
-            </Table.Tbody>
+                          >
+                            <IconX size={16} />
+                          </ActionIcon>
+                        </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))
+                )}
+              </Table.Tbody>
             </Table>
-            {pagination.pages > 1 && (
+          </ScrollArea>
+          
+          {pagination.pages > 1 && (
             <Group justify="apart" mt="md">
               <MantineButton
-                  disabled={pagination.page === 1}
-                  onClick={() => fetchProperties(pagination.page - 1)}
+                disabled={pagination.page === 1}
+                onClick={() => fetchProperties(pagination.page - 1)}
                 variant="default"
-                >
-                  Previous
+              >
+                Previous
               </MantineButton>
               <Text c="dimmed">
-                  Page {pagination.page} of {pagination.pages}
+                Page {pagination.page} of {pagination.pages}
               </Text>
               <MantineButton
-                  disabled={pagination.page === pagination.pages}
-                  onClick={() => fetchProperties(pagination.page + 1)}
+                disabled={pagination.page === pagination.pages}
+                onClick={() => fetchProperties(pagination.page + 1)}
                 variant="default"
-                >
-                  Next
+              >
+                Next
               </MantineButton>
             </Group>
           )}
@@ -1060,44 +1083,44 @@ export default function PropertyManagement() {
             <TextInput
               label="Property Title *"
               placeholder="Enter property title"
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
-                required
+              value={formData.title}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
+              required
             />
             <TextInput
               label="Location/Address *"
               placeholder="Enter property location"
-                value={formData.location}
-                onChange={(e) =>
-                  setFormData({ ...formData, location: e.target.value })
-                }
-                required
+              value={formData.location}
+              onChange={(e) =>
+                setFormData({ ...formData, location: e.target.value })
+              }
+              required
               leftSection={<IconMapPin size={16} />}
             />
             <TextInput
               label="Size *"
               placeholder="e.g., 300 sqm"
-                value={formData.size}
-                onChange={(e) =>
-                  setFormData({ ...formData, size: e.target.value })
-                }
-                required
+              value={formData.size}
+              onChange={(e) =>
+                setFormData({ ...formData, size: e.target.value })
+              }
+              required
             />
             <TextInput
               label="Price *"
               placeholder="e.g., 2500000"
-                value={formData.price}
-                onChange={(e) =>
-                  setFormData({ ...formData, price: e.target.value })
-                }
-                required
-              />
-              <Select
+              value={formData.price}
+              onChange={(e) =>
+                setFormData({ ...formData, price: e.target.value })
+              }
+              required
+            />
+            <Select
               label="Property Type *"
               placeholder="Select type"
-                value={formData.type}
+              value={formData.type}
               onChange={(value) =>
                 setFormData({ ...formData, type: value || "" })
               }
@@ -1109,21 +1132,21 @@ export default function PropertyManagement() {
               ]}
               required
             />
-              <Select
+            <Select
               label="Status"
               placeholder="Select status"
-                value={formData.status}
+              value={formData.status}
               onChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    status: value as
-                      | "CREATED"
-                      | "UNDER_INQUIRY"
-                      | "APPROVED"
-                      | "REJECTED"
-                      | "LEASED",
-                  })
-                }
+                setFormData({
+                  ...formData,
+                  status: value as
+                    | "CREATED"
+                    | "UNDER_INQUIRY"
+                    | "APPROVED"
+                    | "REJECTED"
+                    | "LEASED",
+                })
+              }
               data={[
                 { value: "CREATED", label: "Available" },
                 { value: "UNDER_INQUIRY", label: "Under Inquiry" },
@@ -1138,13 +1161,13 @@ export default function PropertyManagement() {
               onImageChange={handleImageChange}
               onRemoveImage={handleRemoveImage}
             />
-              <Textarea
+            <Textarea
               label="Description"
               placeholder="Enter property description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
             />
             <Select
               label="Amenities"
@@ -1159,11 +1182,11 @@ export default function PropertyManagement() {
               ]}
             />
             <Group gap="md">
-                {formData.amenities?.map((amenity) => (
+              {formData.amenities?.map((amenity) => (
                 <Badge key={amenity} variant="light">
                   {amenity.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-                  </Badge>
-                ))}
+                </Badge>
+              ))}
             </Group>
             {(formData.type === "house-and-lot" || formData.type === "condo") && (
               <>
@@ -1172,8 +1195,8 @@ export default function PropertyManagement() {
                   placeholder="e.g., 3"
                   value={formData.bedrooms || 0}
                   onChange={(value) =>
-                      setFormData({
-                        ...formData,
+                    setFormData({
+                      ...formData,
                       bedrooms: value ? Math.floor(Number(value)) : undefined,
                     })
                   }
@@ -1184,13 +1207,13 @@ export default function PropertyManagement() {
                   placeholder="e.g., 2"
                   value={formData.bathrooms || 0}
                   onChange={(value) =>
-                      setFormData({
-                        ...formData,
+                    setFormData({
+                      ...formData,
                       bathrooms: value ? Math.floor(Number(value)) : undefined,
-                      })
-                    }
+                    })
+                  }
                   leftSection={<IconDroplet size={16} />}
-                  />
+                />
               </>
             )}
             <MantineButton
@@ -1199,7 +1222,7 @@ export default function PropertyManagement() {
               leftSection={<IconPlus size={16} />}
               fullWidth
             >
-                  Create Property
+              Create Property
             </MantineButton>
           </Stack>
         </Modal>
@@ -1215,11 +1238,11 @@ export default function PropertyManagement() {
           {selectedProperty && (
             <Stack gap="lg">
               {selectedProperty.images && selectedProperty.images.length > 0 ? (
-                  <CustomCarousel
-                    images={selectedProperty.images}
-                    height={400}
-                    alt={selectedProperty.title}
-                  />
+                <CustomCarousel
+                  images={selectedProperty.images}
+                  height={400}
+                  alt={selectedProperty.title}
+                />
               ) : (
                 <Card withBorder radius="md" p="xl" bg="gray">
                   <Center>
@@ -1288,9 +1311,9 @@ export default function PropertyManagement() {
                         <Text fw={500}>Amenities & Features</Text>
                       </Group>
                       <SimpleGrid cols={2} spacing="xs">
-                          {selectedProperty.amenities.map((amenity, index) => (
+                        {selectedProperty.amenities.map((amenity, index) => (
                           <Group key={index} gap="xs">
-                              {getAmenityIcon(amenity)}
+                            {getAmenityIcon(amenity)}
                             <Text c="dimmed" size="sm">
                               {amenity.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
                             </Text>
@@ -1298,7 +1321,7 @@ export default function PropertyManagement() {
                         ))}
                       </SimpleGrid>
                     </Card>
-                    )}
+                  )}
                   {selectedProperty.inquiry && (
                     <Card withBorder radius="md" p="md" bg="blue.0" c="blue.8">
                       <Group gap="xs" mb="md">
@@ -1361,44 +1384,44 @@ export default function PropertyManagement() {
             <TextInput
               label="Property Title *"
               placeholder="Enter property title"
-                value={editFormData.title}
-                onChange={(e) =>
-                  setEditFormData({ ...editFormData, title: e.target.value })
-                }
-                required
+              value={editFormData.title}
+              onChange={(e) =>
+                setEditFormData({ ...editFormData, title: e.target.value })
+              }
+              required
             />
             <TextInput
               label="Location/Address *"
               placeholder="Enter property location"
-                value={editFormData.location}
-                onChange={(e) =>
-                  setEditFormData({ ...editFormData, location: e.target.value })
-                }
-                required
+              value={editFormData.location}
+              onChange={(e) =>
+                setEditFormData({ ...editFormData, location: e.target.value })
+              }
+              required
               leftSection={<IconMapPin size={16} />}
             />
             <TextInput
               label="Size *"
               placeholder="e.g., 300 sqm"
-                value={editFormData.size}
-                onChange={(e) =>
-                  setEditFormData({ ...editFormData, size: e.target.value })
-                }
-                required
+              value={editFormData.size}
+              onChange={(e) =>
+                setEditFormData({ ...editFormData, size: e.target.value })
+              }
+              required
             />
             <TextInput
               label="Price *"
               placeholder="e.g., 2500000"
-                value={editFormData.price}
-                onChange={(e) =>
-                  setEditFormData({ ...editFormData, price: e.target.value })
-                }
-                required
-              />
-              <Select
+              value={editFormData.price}
+              onChange={(e) =>
+                setEditFormData({ ...editFormData, price: e.target.value })
+              }
+              required
+            />
+            <Select
               label="Property Type *"
               placeholder="Select type"
-                value={editFormData.type}
+              value={editFormData.type}
               onChange={(value) =>
                 setEditFormData({ ...editFormData, type: value || "" })
               }
@@ -1410,21 +1433,21 @@ export default function PropertyManagement() {
               ]}
               required
             />
-              <Select
+            <Select
               label="Status"
               placeholder="Select status"
-                value={editFormData.status}
+              value={editFormData.status}
               onChange={(value) =>
-                  setEditFormData({
-                    ...editFormData,
-                    status: value as
-                      | "CREATED"
-                      | "UNDER_INQUIRY"
-                      | "APPROVED"
-                      | "REJECTED"
-                      | "LEASED",
-                  })
-                }
+                setEditFormData({
+                  ...editFormData,
+                  status: value as
+                    | "CREATED"
+                    | "UNDER_INQUIRY"
+                    | "APPROVED"
+                    | "REJECTED"
+                    | "LEASED",
+                })
+              }
               data={[
                 { value: "CREATED", label: "Available" },
                 { value: "UNDER_INQUIRY", label: "Under Inquiry" },
@@ -1439,41 +1462,41 @@ export default function PropertyManagement() {
                 <TextInput
                   label="Full Name *"
                   placeholder="Enter owner's full name"
-                    value={ownerDetails.fullName}
-                    onChange={(e) =>
-                      setOwnerDetails({
-                        ...ownerDetails,
-                        fullName: e.target.value,
-                      })
-                    }
-                    required
+                  value={ownerDetails.fullName}
+                  onChange={(e) =>
+                    setOwnerDetails({
+                      ...ownerDetails,
+                      fullName: e.target.value,
+                    })
+                  }
+                  required
                 />
                 <TextInput
                   label="Email *"
-                    type="email"
+                  type="email"
                   placeholder="Enter owner's email"
-                    value={ownerDetails.email}
-                    onChange={(e) =>
-                      setOwnerDetails({
-                        ...ownerDetails,
-                        email: e.target.value,
-                      })
-                    }
-                    required
+                  value={ownerDetails.email}
+                  onChange={(e) =>
+                    setOwnerDetails({
+                      ...ownerDetails,
+                      email: e.target.value,
+                    })
+                  }
+                  required
                   leftSection={<IconMail size={16} />}
                 />
                 <TextInput
                   label="Phone"
                   placeholder="Enter owner's phone"
-                    value={ownerDetails.phone}
-                    onChange={(e) =>
-                      setOwnerDetails({
-                        ...ownerDetails,
-                        phone: e.target.value,
-                      })
-                    }
+                  value={ownerDetails.phone}
+                  onChange={(e) =>
+                    setOwnerDetails({
+                      ...ownerDetails,
+                      phone: e.target.value,
+                    })
+                  }
                   leftSection={<IconPhone size={16} />}
-                  />
+                />
               </Stack>
             )}
             <ImageUploadPreview
@@ -1483,18 +1506,18 @@ export default function PropertyManagement() {
               onRemoveImage={handleRemoveImage}
               isEdit
             />
-              <Textarea
+            <Textarea
               label="Description"
               placeholder="Enter property description"
-                value={editFormData.description}
-                onChange={(e) =>
-                  setEditFormData({
-                    ...editFormData,
-                    description: e.target.value,
-                  })
-                }
-              />
-              <Select
+              value={editFormData.description}
+              onChange={(e) =>
+                setEditFormData({
+                  ...editFormData,
+                  description: e.target.value,
+                })
+              }
+            />
+            <Select
               label="Amenities"
               placeholder="Select amenities"
               onChange={(value) => value && handleAmenitiesChange(value, true)}
@@ -1507,11 +1530,11 @@ export default function PropertyManagement() {
               ]}
             />
             <Group gap="md">
-                {editFormData.amenities?.map((amenity) => (
+              {editFormData.amenities?.map((amenity) => (
                 <Badge key={amenity} variant="light">
                   {amenity.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-                  </Badge>
-                ))}
+                </Badge>
+              ))}
             </Group>
             {(editFormData.type === "house-and-lot" || editFormData.type === "condo") && (
               <>
@@ -1520,8 +1543,8 @@ export default function PropertyManagement() {
                   placeholder="e.g., 3"
                   value={editFormData.bedrooms || 0}
                   onChange={(value) =>
-                      setEditFormData({
-                        ...editFormData,
+                    setEditFormData({
+                      ...editFormData,
                       bedrooms: value ? Math.floor(Number(value)) : undefined,
                     })
                   }
@@ -1532,13 +1555,13 @@ export default function PropertyManagement() {
                   placeholder="e.g., 2"
                   value={editFormData.bathrooms || 0}
                   onChange={(value) =>
-                      setEditFormData({
-                        ...editFormData,
+                    setEditFormData({
+                      ...editFormData,
                       bathrooms: value ? Math.floor(Number(value)) : undefined,
-                      })
-                    }
+                    })
+                  }
                   leftSection={<IconDroplet size={16} />}
-                  />
+                />
               </>
             )}
             <MantineButton
@@ -1550,16 +1573,6 @@ export default function PropertyManagement() {
             </MantineButton>
           </Stack>
         </Modal>
-
-        {/* Add Property Button in Header */}
-        <Group justify="flex-end">
-          <MantineButton
-            onClick={() => setCreateModalOpen(true)}
-            leftSection={<IconPlus size={16} />}
-          >
-            Add Property
-          </MantineButton>
-        </Group>
       </Stack>
     </Container>
   );

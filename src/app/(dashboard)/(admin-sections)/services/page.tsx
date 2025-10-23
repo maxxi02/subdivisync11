@@ -23,6 +23,7 @@ import {
   rem,
   rgba,
   darken,
+  ScrollArea,
 } from "@mantine/core";
 import {
   IconSettings,
@@ -102,6 +103,7 @@ const ServicesSection = () => {
   const [finalCost, setFinalCost] = useState<number | string>("");
   const [completionNotes, setCompletionNotes] = useState("");
   const [assignmentMessage, setAssignmentMessage] = useState("");
+  const [dataFetched, setDataFetched] = useState(false);
   const router = useRouter();
 
   // Theme-aware helpers
@@ -111,13 +113,28 @@ const ServicesSection = () => {
     colorScheme === "dark" ? theme.colors.gray[4] : theme.colors.gray[6];
   const cardBackground =
     colorScheme === "dark" ? theme.colors.dark[7] : theme.colors.white[0];
-  const mutedBackground =
-    colorScheme === "dark" ? theme.colors.dark[8] : theme.colors.gray[1];
   const hoverBackground =
     colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[0];
   const getDefaultShadow = () => {
     return theme.shadows.sm;
   };
+
+  useEffect(() => {
+    if (!dataFetched) {
+      fetchServiceRequests();
+      setDataFetched(true);
+    }
+  }, [dataFetched]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (dataFetched) {
+        fetchServiceRequests();
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, dataFetched]);
 
   useEffect(() => {
     const getSession = async () => {
@@ -592,194 +609,160 @@ const ServicesSection = () => {
           overflow: "hidden",
         }}
       >
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead
-            style={{
-              backgroundColor:
-                colorScheme === "dark"
-                  ? theme.colors.dark[8]
-                  : theme.colors.gray[0],
-            }}
-          >
-            <tr>
-              {[
-                "Tenant",
-                "Category",
-                "Date",
-                "Priority",
-                "Status",
-                "Actions",
-              ].map((header) => (
-                <th
-                  key={header}
-                  style={{
-                    padding: theme.spacing.sm,
-                    textAlign: "left",
-                    fontSize: theme.fontSizes.xs,
-                    fontWeight: 600,
-                    color: secondaryTextColor,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody style={{ color: primaryTextColor }}>
-            {filteredRequests.length === 0 ? (
+        <ScrollArea type="auto">
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead
+              style={{
+                backgroundColor:
+                  colorScheme === "dark"
+                    ? theme.colors.dark[8]
+                    : theme.colors.gray[0],
+              }}
+            >
               <tr>
-                <td
-                  colSpan={6}
-                  style={{
-                    padding: theme.spacing.lg,
-                    textAlign: "center",
-                    color: secondaryTextColor,
-                    fontSize: theme.fontSizes.sm,
-                  }}
-                >
-                  No service requests found
-                </td>
+                {[
+                  "Tenant",
+                  "Category",
+                  "Date",
+                  "Priority",
+                  "Status",
+                  "Actions",
+                ].map((header) => (
+                  <th
+                    key={header}
+                    style={{
+                      padding: theme.spacing.sm,
+                      textAlign: "left",
+                      fontSize: theme.fontSizes.xs,
+                      fontWeight: 600,
+                      color: secondaryTextColor,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {header}
+                  </th>
+                ))}
               </tr>
-            ) : (
-              filteredRequests.map((request) => (
-                <tr
-                  key={request.id}
-                  style={{
-                    backgroundColor:
-                      colorScheme === "dark"
-                        ? theme.colors.dark[7]
-                        : theme.white,
-                    transition: "background-color 0.2s",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.backgroundColor = hoverBackground)
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.backgroundColor =
-                      colorScheme === "dark"
-                        ? theme.colors.dark[7]
-                        : theme.white)
-                  }
-                >
-                  <td style={{ padding: theme.spacing.sm }}>
-                    <Stack gap={2}>
-                      <Text size="sm" fw={500} c={primaryTextColor}>
-                        {request.user_name}
+            </thead>
+            <tbody style={{ color: primaryTextColor }}>
+              {filteredRequests.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    style={{
+                      padding: theme.spacing.lg,
+                      textAlign: "center",
+                      color: secondaryTextColor,
+                      fontSize: theme.fontSizes.sm,
+                    }}
+                  >
+                    No service requests found
+                  </td>
+                </tr>
+              ) : (
+                filteredRequests.map((request) => (
+                  <tr
+                    key={request.id}
+                    style={{
+                      backgroundColor:
+                        colorScheme === "dark"
+                          ? theme.colors.dark[7]
+                          : theme.white,
+                      transition: "background-color 0.2s",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.backgroundColor = hoverBackground)
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.backgroundColor =
+                        colorScheme === "dark"
+                          ? theme.colors.dark[7]
+                          : theme.white)
+                    }
+                  >
+                    <td style={{ padding: theme.spacing.sm }}>
+                      <Stack gap={2}>
+                        <Text size="sm" fw={500} c={primaryTextColor}>
+                          {request.user_name}
+                        </Text>
+                        <Text size="xs" c={secondaryTextColor}>
+                          {request.user_email}
+                        </Text>
+                      </Stack>
+                    </td>
+                    <td style={{ padding: theme.spacing.sm }}>
+                      <Text size="sm" c={primaryTextColor}>
+                        {request.category}
                       </Text>
-                      <Text size="xs" c={secondaryTextColor}>
-                        {request.user_email}
+                    </td>
+                    <td style={{ padding: theme.spacing.sm }}>
+                      <Text size="sm" c={primaryTextColor}>
+                        {request.date}
                       </Text>
-                    </Stack>
-                  </td>
-                  <td style={{ padding: theme.spacing.sm }}>
-                    <Text size="sm" c={primaryTextColor}>
-                      {request.category}
-                    </Text>
-                  </td>
-                  <td style={{ padding: theme.spacing.sm }}>
-                    <Text size="sm" c={primaryTextColor}>
-                      {request.date}
-                    </Text>
-                  </td>
-                  <td style={{ padding: theme.spacing.sm }}>
-                    <Badge
-                      color={getPriorityColor(request.priority)}
-                      variant="filled"
-                      radius="sm"
-                      size="sm"
-                    >
-                      {request.priority.toUpperCase()}
-                    </Badge>
-                  </td>
-                  <td style={{ padding: theme.spacing.sm }}>
-                    <Badge
-                      color={
-                        request.status === "pending"
-                          ? theme.colors.yellow[6]
-                          : request.status === "in-progress"
-                          ? theme.colors.blue[6]
-                          : request.status === "completed"
-                          ? theme.colors.green[6]
-                          : theme.colors.red[6]
-                      }
-                      variant="filled"
-                      radius="sm"
-                      size="sm"
-                    >
-                      {request.status.toUpperCase()}
-                    </Badge>
-                  </td>
-                  <td style={{ padding: theme.spacing.sm }}>
-                    <Group gap="xs">
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        color={colorScheme === "dark" ? "gray.4" : "gray.6"}
+                    </td>
+                    <td style={{ padding: theme.spacing.sm }}>
+                      <Badge
+                        color={getPriorityColor(request.priority)}
+                        variant="filled"
                         radius="sm"
-                        leftSection={<IconEye size={12} stroke={1.5} />}
-                        onClick={() => {
-                          setSelectedRequest(request);
-                          openView();
-                        }}
-                        disabled={submitting}
+                        size="sm"
                       >
-                        View
-                      </Button>
-                      {request.status === "pending" && (
-                        <>
-                          <Button
-                            size="xs"
-                            variant="gradient"
-                            gradient={{
-                              from: theme.colors.blue[5],
-                              to: theme.colors.blue[7],
-                              deg: 45,
-                            }}
-                            radius="sm"
-                            onClick={() => {
-                              setSelectedRequest(request);
-                              openAssign();
-                            }}
-                            disabled={submitting}
-                          >
-                            Assign
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="outline"
-                            color={colorScheme === "dark" ? "blue.4" : "blue.6"}
-                            radius="sm"
-                            onClick={() => {
-                              setSelectedRequest(request);
-                              openEstimate();
-                            }}
-                            disabled={submitting}
-                          >
-                            Estimate
-                          </Button>
-                        </>
-                      )}
-                      {request.status === "in-progress" && (
-                        <>
-                          <Button
-                            size="xs"
-                            variant="gradient"
-                            gradient={{
-                              from: theme.colors.green[5],
-                              to: theme.colors.green[7],
-                              deg: 45,
-                            }}
-                            radius="sm"
-                            onClick={() => {
-                              setSelectedRequest(request);
-                              openComplete();
-                            }}
-                            disabled={submitting}
-                          >
-                            Complete
-                          </Button>
-                          {!request.estimated_cost && (
+                        {request.priority.toUpperCase()}
+                      </Badge>
+                    </td>
+                    <td style={{ padding: theme.spacing.sm }}>
+                      <Badge
+                        color={
+                          request.status === "pending"
+                            ? theme.colors.yellow[6]
+                            : request.status === "in-progress"
+                              ? theme.colors.blue[6]
+                              : request.status === "completed"
+                                ? theme.colors.green[6]
+                                : theme.colors.red[6]
+                        }
+                        variant="filled"
+                        radius="sm"
+                        size="sm"
+                      >
+                        {request.status.toUpperCase()}
+                      </Badge>
+                    </td>
+                    <td style={{ padding: theme.spacing.sm }}>
+                      <Group gap="xs">
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          color={colorScheme === "dark" ? "gray.4" : "gray.6"}
+                          radius="sm"
+                          leftSection={<IconEye size={12} stroke={1.5} />}
+                          onClick={() => {
+                            setSelectedRequest(request);
+                            openView();
+                          }}
+                          disabled={submitting}
+                        >
+                          View
+                        </Button>
+                        {request.status === "pending" && (
+                          <>
+                            <Button
+                              size="xs"
+                              variant="gradient"
+                              gradient={{
+                                from: theme.colors.blue[5],
+                                to: theme.colors.blue[7],
+                                deg: 45,
+                              }}
+                              radius="sm"
+                              onClick={() => {
+                                setSelectedRequest(request);
+                                openAssign();
+                              }}
+                              disabled={submitting}
+                            >
+                              Assign
+                            </Button>
                             <Button
                               size="xs"
                               variant="outline"
@@ -795,16 +778,54 @@ const ServicesSection = () => {
                             >
                               Estimate
                             </Button>
-                          )}
-                        </>
-                      )}
-                    </Group>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                          </>
+                        )}
+                        {request.status === "in-progress" && (
+                          <>
+                            <Button
+                              size="xs"
+                              variant="gradient"
+                              gradient={{
+                                from: theme.colors.green[5],
+                                to: theme.colors.green[7],
+                                deg: 45,
+                              }}
+                              radius="sm"
+                              onClick={() => {
+                                setSelectedRequest(request);
+                                openComplete();
+                              }}
+                              disabled={submitting}
+                            >
+                              Complete
+                            </Button>
+                            {!request.estimated_cost && (
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                color={
+                                  colorScheme === "dark" ? "blue.4" : "blue.6"
+                                }
+                                radius="sm"
+                                onClick={() => {
+                                  setSelectedRequest(request);
+                                  openEstimate();
+                                }}
+                                disabled={submitting}
+                              >
+                                Estimate
+                              </Button>
+                            )}
+                          </>
+                        )}
+                      </Group>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </ScrollArea>
       </Box>
 
       {/* View Details Modal */}
@@ -899,10 +920,10 @@ const ServicesSection = () => {
                     selectedRequest?.status === "pending"
                       ? theme.colors.yellow[6]
                       : selectedRequest?.status === "in-progress"
-                      ? theme.colors.blue[6]
-                      : selectedRequest?.status === "completed"
-                      ? theme.colors.green[6]
-                      : theme.colors.red[6]
+                        ? theme.colors.blue[6]
+                        : selectedRequest?.status === "completed"
+                          ? theme.colors.green[6]
+                          : theme.colors.red[6]
                   }
                   variant="filled"
                   radius="sm"
@@ -1125,8 +1146,8 @@ const ServicesSection = () => {
                   selectedRequest.payment_status === "paid"
                     ? theme.colors.green[6]
                     : selectedRequest.payment_status === "failed"
-                    ? theme.colors.red[6]
-                    : theme.colors.yellow[6]
+                      ? theme.colors.red[6]
+                      : theme.colors.yellow[6]
                 }
                 variant="filled"
                 radius="sm"

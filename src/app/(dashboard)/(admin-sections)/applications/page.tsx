@@ -31,6 +31,7 @@ import {
   Divider,
   useMantineColorScheme as useMantineColorSchemeHook,
   rgba,
+  ScrollArea,
 } from "@mantine/core";
 import {
   IconUser,
@@ -132,7 +133,8 @@ const ApplicationsPage = () => {
   const [inquiries, setInquiries] = useState<InquiryWithProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [selectedInquiry, setSelectedInquiry] = useState<InquiryWithProperty | null>(null);
+  const [selectedInquiry, setSelectedInquiry] =
+    useState<InquiryWithProperty | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -143,10 +145,15 @@ const ApplicationsPage = () => {
   const [downPayment, setDownPayment] = useState("");
   const [leaseDuration, setLeaseDuration] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
-  const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
+  const [filter, setFilter] = useState<
+    "all" | "pending" | "approved" | "rejected"
+  >("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [confirmReject, setConfirmReject] = useState(false);
-  const [notification, setNotification] = useState<NotificationType | null>(null);
+  const [notification, setNotification] = useState<NotificationType | null>(
+    null
+  );
+  const [dataFetched, setDataFetched] = useState(false);
 
   const [session, setSession] = useState<Session | null>(null);
   useEffect(() => {
@@ -157,15 +164,29 @@ const ApplicationsPage = () => {
     getSession();
   }, []);
 
-  const [paymentPlanData, setPaymentPlanData] = useState<PaymentPlan | null>(null);
+  const [paymentPlanData, setPaymentPlanData] = useState<PaymentPlan | null>(
+    null
+  );
 
   // Theme-aware helpers
   const primaryTextColor = colorScheme === "dark" ? "white" : "dark.9";
-  const getHoverShadow = () => {
-    const baseShadow = "0 4px 12px";
-    const opacity = colorScheme === "dark" ? 0.3 : 0.15;
-    return `${baseShadow} ${rgba(theme.black, opacity)}`;
-  };
+
+  useEffect(() => {
+    if (!dataFetched) {
+      fetchInquiries();
+      setDataFetched(true);
+    }
+  }, [dataFetched]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (dataFetched) {
+        fetchInquiries();
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, dataFetched]);
 
   const getDefaultShadow = () => {
     const baseShadow = "0 1px 3px";
@@ -180,7 +201,9 @@ const ApplicationsPage = () => {
 
   const fetchPaymentPlan = async (propertyId: string, tenantEmail: string) => {
     try {
-      const response = await fetch(`/api/payments/create?propertyId=${propertyId}&tenantEmail=${tenantEmail}`);
+      const response = await fetch(
+        `/api/payments/create?propertyId=${propertyId}&tenantEmail=${tenantEmail}`
+      );
       const data = await response.json();
 
       if (data.success) {
@@ -190,7 +213,10 @@ const ApplicationsPage = () => {
       }
     } catch (error) {
       console.error("Error fetching payment plan:", error);
-      showNotification("error", error instanceof Error ? error.message : "Failed to fetch payment plan");
+      showNotification(
+        "error",
+        error instanceof Error ? error.message : "Failed to fetch payment plan"
+      );
     }
   };
 
@@ -227,7 +253,10 @@ const ApplicationsPage = () => {
       }
     } catch (error) {
       console.error("Error fetching inquiries:", error);
-      showNotification("error", error instanceof Error ? error.message : "Failed to fetch inquiries");
+      showNotification(
+        "error",
+        error instanceof Error ? error.message : "Failed to fetch inquiries"
+      );
     } finally {
       setLoading(false);
     }
@@ -320,7 +349,9 @@ const ApplicationsPage = () => {
     try {
       setProcessingId(`${inquiry.propertyId}-${inquiry.email}`);
 
-      const propertyResponse = await fetch(`/api/properties/${inquiry.propertyId}`);
+      const propertyResponse = await fetch(
+        `/api/properties/${inquiry.propertyId}`
+      );
       const propertyData = await propertyResponse.json();
 
       if (!propertyData.success) {
@@ -368,57 +399,66 @@ const ApplicationsPage = () => {
         return inq;
       });
 
-      const updateResponse = await fetch(`/api/properties/${inquiry.propertyId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title: currentProperty.title,
-          location: currentProperty.location,
-          size: currentProperty.size,
-          price: currentProperty.price,
-          type: currentProperty.type,
-          status: "LEASED",
-          description: currentProperty.description,
-          amenities: currentProperty.amenities,
-          images: currentProperty.images,
-          sqft: currentProperty.sqft,
-          bedrooms: currentProperty.bedrooms,
-          bathrooms: currentProperty.bathrooms,
-          inquiries: updatedInquiries,
-          owner_details: {
-            fullName: inquiry.fullName,
-            email: inquiry.email,
-            phone: inquiry.phone,
-            paymentStatus: "pending",
-            paymentMethod: "installment",
-            paymentPlan: {
-              propertyPrice: inquiry.propertyPrice,
-              downPayment: parseFloat(downPayment) || 0,
-              monthlyPayment: parseFloat(monthlyPayment),
-              interestRate: parseFloat(interestRate),
-              leaseDuration: leaseDuration,
-              totalAmount: totalAmount,
-              startDate: new Date().toISOString(),
-              paymentPlanId: paymentData.paymentPlanId,
-            },
+      const updateResponse = await fetch(
+        `/api/properties/${inquiry.propertyId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
           },
-        }),
-      });
+          body: JSON.stringify({
+            title: currentProperty.title,
+            location: currentProperty.location,
+            size: currentProperty.size,
+            price: currentProperty.price,
+            type: currentProperty.type,
+            status: "LEASED",
+            description: currentProperty.description,
+            amenities: currentProperty.amenities,
+            images: currentProperty.images,
+            sqft: currentProperty.sqft,
+            bedrooms: currentProperty.bedrooms,
+            bathrooms: currentProperty.bathrooms,
+            inquiries: updatedInquiries,
+            owner_details: {
+              fullName: inquiry.fullName,
+              email: inquiry.email,
+              phone: inquiry.phone,
+              paymentStatus: "pending",
+              paymentMethod: "installment",
+              paymentPlan: {
+                propertyPrice: inquiry.propertyPrice,
+                downPayment: parseFloat(downPayment) || 0,
+                monthlyPayment: parseFloat(monthlyPayment),
+                interestRate: parseFloat(interestRate),
+                leaseDuration: leaseDuration,
+                totalAmount: totalAmount,
+                startDate: new Date().toISOString(),
+                paymentPlanId: paymentData.paymentPlanId,
+              },
+            },
+          }),
+        }
+      );
 
       const updateData = await updateResponse.json();
 
       if (updateData.success) {
         await fetchInquiries();
         resetPaymentModal();
-        showNotification("success", "Inquiry approved and payment plan created successfully");
+        showNotification(
+          "success",
+          "Inquiry approved and payment plan created successfully"
+        );
       } else {
         throw new Error(updateData.error || "Failed to update property");
       }
     } catch (error) {
       console.error("Error approving inquiry:", error);
-      showNotification("error", error instanceof Error ? error.message : "Failed to approve inquiry");
+      showNotification(
+        "error",
+        error instanceof Error ? error.message : "Failed to approve inquiry"
+      );
     } finally {
       setProcessingId(null);
     }
@@ -449,18 +489,21 @@ const ApplicationsPage = () => {
     try {
       setProcessingId(`${selectedInquiry.propertyId}-${selectedInquiry.email}`);
 
-      const response = await fetch(`/api/properties/${selectedInquiry.propertyId}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: "reject",
-          email: selectedInquiry.email,
-          phone: selectedInquiry.phone,
-          reason: rejectionReason.trim(),
-        }),
-      });
+      const response = await fetch(
+        `/api/properties/${selectedInquiry.propertyId}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "reject",
+            email: selectedInquiry.email,
+            phone: selectedInquiry.phone,
+            reason: rejectionReason.trim(),
+          }),
+        }
+      );
 
       const data = await response.json();
 
@@ -477,21 +520,32 @@ const ApplicationsPage = () => {
       }
     } catch (error) {
       console.error("Error rejecting inquiry:", error);
-      setRejectionError(error instanceof Error ? error.message : "Failed to reject inquiry");
-      showNotification("error", error instanceof Error ? error.message : "Failed to reject inquiry");
+      setRejectionError(
+        error instanceof Error ? error.message : "Failed to reject inquiry"
+      );
+      showNotification(
+        "error",
+        error instanceof Error ? error.message : "Failed to reject inquiry"
+      );
     } finally {
       setProcessingId(null);
     }
   };
 
   const clearRejectedInquiries = async () => {
-    if (!window.confirm("Are you sure you want to clear all rejected inquiries? This action cannot be undone.")) {
+    if (
+      !window.confirm(
+        "Are you sure you want to clear all rejected inquiries? This action cannot be undone."
+      )
+    ) {
       return;
     }
 
     try {
       setLoading(true);
-      const rejectedInquiries = inquiries.filter((inq) => inq.status === "rejected");
+      const rejectedInquiries = inquiries.filter(
+        (inq) => inq.status === "rejected"
+      );
 
       if (rejectedInquiries.length === 0) {
         showNotification("error", "No rejected inquiries to clear");
@@ -520,10 +574,18 @@ const ApplicationsPage = () => {
       }
 
       await fetchInquiries();
-      showNotification("success", "All rejected inquiries cleared successfully");
+      showNotification(
+        "success",
+        "All rejected inquiries cleared successfully"
+      );
     } catch (error) {
       console.error("Error clearing rejected inquiries:", error);
-      showNotification("error", error instanceof Error ? error.message : "Failed to clear rejected inquiries");
+      showNotification(
+        "error",
+        error instanceof Error
+          ? error.message
+          : "Failed to clear rejected inquiries"
+      );
     } finally {
       setLoading(false);
     }
@@ -578,7 +640,8 @@ const ApplicationsPage = () => {
     approvedApplications: inquiries.filter(
       (inq) => inq.status === "approved" || inq.propertyStatus === "LEASED"
     ).length,
-    rejectedApplications: inquiries.filter((inq) => inq.status === "rejected").length,
+    rejectedApplications: inquiries.filter((inq) => inq.status === "rejected")
+      .length,
   };
 
   return (
@@ -623,7 +686,8 @@ const ApplicationsPage = () => {
             withBorder
             shadow="sm"
             style={{
-              background: "linear-gradient(135deg, var(--mantine-color-blue-6) 0%, var(--mantine-color-blue-7) 100%)",
+              background:
+                "linear-gradient(135deg, var(--mantine-color-blue-6) 0%, var(--mantine-color-blue-7) 100%)",
               color: "white",
               boxShadow: getDefaultShadow(),
             }}
@@ -649,7 +713,8 @@ const ApplicationsPage = () => {
             withBorder
             shadow="sm"
             style={{
-              background: "linear-gradient(135deg, var(--mantine-color-yellow-6) 0%, var(--mantine-color-yellow-7) 100%)",
+              background:
+                "linear-gradient(135deg, var(--mantine-color-yellow-6) 0%, var(--mantine-color-yellow-7) 100%)",
               color: "white",
               boxShadow: getDefaultShadow(),
             }}
@@ -675,7 +740,8 @@ const ApplicationsPage = () => {
             withBorder
             shadow="sm"
             style={{
-              background: "linear-gradient(135deg, var(--mantine-color-green-6) 0%, var(--mantine-color-green-7) 100%)",
+              background:
+                "linear-gradient(135deg, var(--mantine-color-green-6) 0%, var(--mantine-color-green-7) 100%)",
               color: "white",
               boxShadow: getDefaultShadow(),
             }}
@@ -701,7 +767,8 @@ const ApplicationsPage = () => {
             withBorder
             shadow="sm"
             style={{
-              background: "linear-gradient(135deg, var(--mantine-color-red-6) 0%, var(--mantine-color-red-7) 100%)",
+              background:
+                "linear-gradient(135deg, var(--mantine-color-red-6) 0%, var(--mantine-color-red-7) 100%)",
               color: "white",
               boxShadow: getDefaultShadow(),
             }}
@@ -724,8 +791,13 @@ const ApplicationsPage = () => {
 
         {/* Pending Alert */}
         {stats.pendingApplications > 0 && (
-          <Alert icon={<IconAlertCircle size={16} />} color="yellow" title="Pending Applications Alert">
-            You have {stats.pendingApplications} pending application{stats.pendingApplications > 1 ? "s" : ""} requiring review.
+          <Alert
+            icon={<IconAlertCircle size={16} />}
+            color="yellow"
+            title="Pending Applications Alert"
+          >
+            You have {stats.pendingApplications} pending application
+            {stats.pendingApplications > 1 ? "s" : ""} requiring review.
           </Alert>
         )}
 
@@ -735,7 +807,11 @@ const ApplicationsPage = () => {
             <Group>
               <Select
                 value={filter}
-                onChange={(value) => setFilter(value as "all" | "pending" | "approved" | "rejected")}
+                onChange={(value) =>
+                  setFilter(
+                    value as "all" | "pending" | "approved" | "rejected"
+                  )
+                }
                 data={[
                   { value: "all", label: "All Applications" },
                   { value: "pending", label: "Pending" },
@@ -764,145 +840,193 @@ const ApplicationsPage = () => {
 
         {/* Applications Table */}
         <Card padding="xl" radius="lg" withBorder shadow="sm">
-          <Table striped highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Applicant</Table.Th>
-                <Table.Th>Property</Table.Th>
-                <Table.Th>Application Date</Table.Th>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Actions</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {filteredInquiries.length === 0 ? (
+          <ScrollArea type="auto">
+            <Table striped highlightOnHover miw={800}>
+              <Table.Thead>
                 <Table.Tr>
-                  <Table.Td colSpan={5} ta="center" py="xl">
-                    <ThemeIcon size={48} radius="xl" color="gray" mb="md">
-                      <IconUser size={24} />
-                    </ThemeIcon>
-                    <Text size="lg" fw={500} c={primaryTextColor} mb="xs">
-                      No applications found
-                    </Text>
-                    <Text c="dimmed">No matching inquiries available</Text>
-                  </Table.Td>
+                  <Table.Th>Applicant</Table.Th>
+                  <Table.Th>Property</Table.Th>
+                  <Table.Th>Application Date</Table.Th>
+                  <Table.Th>Status</Table.Th>
+                  <Table.Th>Actions</Table.Th>
                 </Table.Tr>
-              ) : (
-                filteredInquiries.map((inquiry, index) => (
-                  <Table.Tr key={`${inquiry.propertyId}-${inquiry.email}-${index}`}>
-                    <Table.Td>
-                      <Stack gap="xs">
-                        <Text fw={500} c={primaryTextColor}>
-                          {inquiry.fullName}
+              </Table.Thead>
+              <Table.Tbody>
+                {filteredInquiries.length === 0 ? (
+                  <Table.Tr>
+                    <Table.Td colSpan={5} ta="center" py="xl">
+                      <ThemeIcon size={48} radius="xl" color="gray" mb="md">
+                        <IconUser size={24} />
+                      </ThemeIcon>
+                      <Text size="lg" fw={500} c={primaryTextColor} mb="xs">
+                        No applications found
+                      </Text>
+                      <Text c="dimmed">No matching inquiries available</Text>
+                    </Table.Td>
+                  </Table.Tr>
+                ) : (
+                  filteredInquiries.map((inquiry, index) => (
+                    <Table.Tr
+                      key={`${inquiry.propertyId}-${inquiry.email}-${index}`}
+                    >
+                      <Table.Td>
+                        <Stack gap="xs">
+                          <Text fw={500} c={primaryTextColor}>
+                            {inquiry.fullName}
+                          </Text>
+                          <Group gap="xs">
+                            <IconMail size={14} />
+                            <Text size="sm" c="dimmed">
+                              {inquiry.email}
+                            </Text>
+                          </Group>
+                          <Group gap="xs">
+                            <IconPhone size={14} />
+                            <Text size="sm" c="dimmed">
+                              {inquiry.phone}
+                            </Text>
+                          </Group>
+                        </Stack>
+                      </Table.Td>
+                      <Table.Td>
+                        <Stack gap="xs">
+                          <Text fw={500}>{inquiry.propertyTitle}</Text>
+                          <Group gap="xs">
+                            <IconMapPin size={14} />
+                            <Text size="sm" c="dimmed">
+                              {inquiry.propertyLocation}
+                            </Text>
+                          </Group>
+                          <Group gap="xs">
+                            <DollarSign size={14} />
+                            <Text size="sm" fw={500} c="green.6">
+                              {formatCurrency(inquiry.propertyPrice)}
+                            </Text>
+                          </Group>
+                        </Stack>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text c="dimmed">
+                          {formatDate(inquiry.submittedAt)}
                         </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Stack gap="xs">
+                          <Badge
+                            color={getStatusColor(
+                              inquiry.status,
+                              inquiry.propertyStatus
+                            )}
+                            variant="light"
+                          >
+                            {inquiry.propertyStatus === "LEASED"
+                              ? "Leased"
+                              : inquiry.status.charAt(0).toUpperCase() +
+                                inquiry.status.slice(1)}
+                          </Badge>
+                          {inquiry.status === "rejected" &&
+                            inquiry.rejectionReason && (
+                              <Text size="xs" c="red" lh={1.2}>
+                                <IconAlertCircle
+                                  size={12}
+                                  style={{
+                                    display: "inline",
+                                    verticalAlign: "middle",
+                                    marginRight: 4,
+                                  }}
+                                />
+                                {inquiry.rejectionReason}
+                              </Text>
+                            )}
+                        </Stack>
+                      </Table.Td>
+                      <Table.Td>
                         <Group gap="xs">
-                          <IconMail size={14} />
-                          <Text size="sm" c="dimmed">
-                            {inquiry.email}
-                          </Text>
-                        </Group>
-                        <Group gap="xs">
-                          <IconPhone size={14} />
-                          <Text size="sm" c="dimmed">
-                            {inquiry.phone}
-                          </Text>
-                        </Group>
-                      </Stack>
-                    </Table.Td>
-                    <Table.Td>
-                      <Stack gap="xs">
-                        <Text fw={500}>{inquiry.propertyTitle}</Text>
-                        <Group gap="xs">
-                          <IconMapPin size={14} />
-                          <Text size="sm" c="dimmed">
-                            {inquiry.propertyLocation}
-                          </Text>
-                        </Group>
-                        <Group gap="xs">
-                          <DollarSign size={14} />
-                          <Text size="sm" fw={500} c="green.6">
-                            {formatCurrency(inquiry.propertyPrice)}
-                          </Text>
-                        </Group>
-                      </Stack>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text c="dimmed">{formatDate(inquiry.submittedAt)}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Stack gap="xs">
-                        <Badge color={getStatusColor(inquiry.status, inquiry.propertyStatus)} variant="light">
-                          {inquiry.propertyStatus === "LEASED" ? "Leased" : inquiry.status.charAt(0).toUpperCase() + inquiry.status.slice(1)}
-                        </Badge>
-                        {inquiry.status === "rejected" && inquiry.rejectionReason && (
-                          <Text size="xs" c="red" lh={1.2}>
-                            <IconAlertCircle size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
-                            {inquiry.rejectionReason}
-                          </Text>
-                        )}
-                      </Stack>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        {inquiry.status === "pending" && inquiry.propertyStatus !== "LEASED" && (
-                          <>
+                          {inquiry.status === "pending" &&
+                            inquiry.propertyStatus !== "LEASED" && (
+                              <>
+                                <MantineButton
+                                  size="xs"
+                                  color="green"
+                                  leftSection={<IconCheck size={14} />}
+                                  onClick={() => {
+                                    setSelectedInquiry(inquiry);
+                                    setShowPaymentModal(true);
+                                  }}
+                                  loading={
+                                    processingId ===
+                                    `${inquiry.propertyId}-${inquiry.email}`
+                                  }
+                                  disabled={
+                                    processingId ===
+                                    `${inquiry.propertyId}-${inquiry.email}`
+                                  }
+                                >
+                                  Approve
+                                </MantineButton>
+                                <MantineButton
+                                  size="xs"
+                                  color="red"
+                                  leftSection={<IconX size={14} />}
+                                  onClick={() => {
+                                    setSelectedInquiry(inquiry);
+                                    setShowRejectModal(true);
+                                    setRejectionReason("");
+                                    setRejectionError("");
+                                    setConfirmReject(false);
+                                  }}
+                                  loading={
+                                    processingId ===
+                                    `${inquiry.propertyId}-${inquiry.email}`
+                                  }
+                                  disabled={
+                                    processingId ===
+                                    `${inquiry.propertyId}-${inquiry.email}`
+                                  }
+                                >
+                                  Reject
+                                </MantineButton>
+                              </>
+                            )}
+                          {(inquiry.status === "approved" ||
+                            inquiry.propertyStatus === "LEASED") && (
                             <MantineButton
                               size="xs"
-                              color="green"
-                              leftSection={<IconCheck size={14} />}
-                              onClick={() => {
-                                setSelectedInquiry(inquiry);
-                                setShowPaymentModal(true);
-                              }}
-                              loading={processingId === `${inquiry.propertyId}-${inquiry.email}`}
-                              disabled={processingId === `${inquiry.propertyId}-${inquiry.email}`}
-                            >
-                              Approve
-                            </MantineButton>
-                            <MantineButton
-                              size="xs"
-                              color="red"
+                              color="gray"
+                              disabled
                               leftSection={<IconX size={14} />}
-                              onClick={() => {
-                                setSelectedInquiry(inquiry);
-                                setShowRejectModal(true);
-                                setRejectionReason("");
-                                setRejectionError("");
-                                setConfirmReject(false);
-                              }}
-                              loading={processingId === `${inquiry.propertyId}-${inquiry.email}`}
-                              disabled={processingId === `${inquiry.propertyId}-${inquiry.email}`}
                             >
                               Reject
                             </MantineButton>
-                          </>
-                        )}
-                        {(inquiry.status === "approved" || inquiry.propertyStatus === "LEASED") && (
-                          <MantineButton size="xs" color="gray" disabled leftSection={<IconX size={14} />}>
-                            Reject
-                          </MantineButton>
-                        )}
-                        <ActionIcon
-                          variant="light"
-                          color="blue"
-                          size="lg"
-                          onClick={async () => {
-                            setSelectedInquiry(inquiry);
-                            setShowViewModal(true);
-                            if (inquiry.propertyStatus === "LEASED" || inquiry.status === "approved") {
-                              await fetchPaymentPlan(inquiry.propertyId, inquiry.email);
-                            }
-                          }}
-                        >
-                          <IconEye size={18} />
-                        </ActionIcon>
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))
-              )}
-            </Table.Tbody>
-          </Table>
+                          )}
+                          <ActionIcon
+                            variant="light"
+                            color="blue"
+                            size="lg"
+                            onClick={async () => {
+                              setSelectedInquiry(inquiry);
+                              setShowViewModal(true);
+                              if (
+                                inquiry.propertyStatus === "LEASED" ||
+                                inquiry.status === "approved"
+                              ) {
+                                await fetchPaymentPlan(
+                                  inquiry.propertyId,
+                                  inquiry.email
+                                );
+                              }
+                            }}
+                          >
+                            <IconEye size={18} />
+                          </ActionIcon>
+                        </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))
+                )}
+              </Table.Tbody>
+            </Table>
+          </ScrollArea>
         </Card>
 
         {/* View Details Modal */}
@@ -919,31 +1043,52 @@ const ApplicationsPage = () => {
         >
           {selectedInquiry && (
             <Stack gap="lg">
-              <Badge color={getStatusColor(selectedInquiry.status, selectedInquiry.propertyStatus)} size="lg">
-                {selectedInquiry.propertyStatus === "LEASED" ? "Leased" : selectedInquiry.status.charAt(0).toUpperCase() + selectedInquiry.status.slice(1)}
+              <Badge
+                color={getStatusColor(
+                  selectedInquiry.status,
+                  selectedInquiry.propertyStatus
+                )}
+                size="lg"
+              >
+                {selectedInquiry.propertyStatus === "LEASED"
+                  ? "Leased"
+                  : selectedInquiry.status.charAt(0).toUpperCase() +
+                    selectedInquiry.status.slice(1)}
               </Badge>
 
               <Card withBorder radius="md" p="md">
                 <Group gap="xs" mb="xs">
                   <IconUser size={16} />
-                  <Text fw={500} c={primaryTextColor}>Applicant Information</Text>
+                  <Text fw={500} c={primaryTextColor}>
+                    Applicant Information
+                  </Text>
                 </Group>
                 <Grid gutter="md">
                   <Grid.Col span={6}>
-                    <Text size="sm" c="dimmed">Full Name</Text>
+                    <Text size="sm" c="dimmed">
+                      Full Name
+                    </Text>
                     <Text fw={500}>{selectedInquiry.fullName}</Text>
                   </Grid.Col>
                   <Grid.Col span={6}>
-                    <Text size="sm" c="dimmed">Email</Text>
+                    <Text size="sm" c="dimmed">
+                      Email
+                    </Text>
                     <Text fw={500}>{selectedInquiry.email}</Text>
                   </Grid.Col>
                   <Grid.Col span={6}>
-                    <Text size="sm" c="dimmed">Phone</Text>
+                    <Text size="sm" c="dimmed">
+                      Phone
+                    </Text>
                     <Text fw={500}>{selectedInquiry.phone}</Text>
                   </Grid.Col>
                   <Grid.Col span={6}>
-                    <Text size="sm" c="dimmed">Application Date</Text>
-                    <Text fw={500}>{formatDate(selectedInquiry.submittedAt)}</Text>
+                    <Text size="sm" c="dimmed">
+                      Application Date
+                    </Text>
+                    <Text fw={500}>
+                      {formatDate(selectedInquiry.submittedAt)}
+                    </Text>
                   </Grid.Col>
                 </Grid>
               </Card>
@@ -951,38 +1096,63 @@ const ApplicationsPage = () => {
               <Card withBorder radius="md" p="md">
                 <Group gap="xs" mb="xs">
                   <IconMapPin size={16} />
-                  <Text fw={500} c={primaryTextColor}>Property Information</Text>
+                  <Text fw={500} c={primaryTextColor}>
+                    Property Information
+                  </Text>
                 </Group>
                 <Grid gutter="md">
                   <Grid.Col span={6}>
-                    <Text size="sm" c="dimmed">Property Title</Text>
+                    <Text size="sm" c="dimmed">
+                      Property Title
+                    </Text>
                     <Text fw={500}>{selectedInquiry.propertyTitle}</Text>
                   </Grid.Col>
                   <Grid.Col span={6}>
-                    <Text size="sm" c="dimmed">Location</Text>
+                    <Text size="sm" c="dimmed">
+                      Location
+                    </Text>
                     <Text fw={500}>{selectedInquiry.propertyLocation}</Text>
                   </Grid.Col>
                   <Grid.Col span={6}>
-                    <Text size="sm" c="dimmed">Price</Text>
-                    <Text fw={500} c="green.6">{formatCurrency(selectedInquiry.propertyPrice)}</Text>
+                    <Text size="sm" c="dimmed">
+                      Price
+                    </Text>
+                    <Text fw={500} c="green.6">
+                      {formatCurrency(selectedInquiry.propertyPrice)}
+                    </Text>
                   </Grid.Col>
-                  {(selectedInquiry.propertyType === "house-and-lot" || selectedInquiry.propertyType === "condo") && (
+                  {(selectedInquiry.propertyType === "house-and-lot" ||
+                    selectedInquiry.propertyType === "condo") && (
                     <>
-                      {selectedInquiry.bedrooms && selectedInquiry.bedrooms > 0 && (
-                        <Grid.Col span={6}>
-                          <Text size="sm" c="dimmed">Bedrooms</Text>
-                          <Text fw={500}>{selectedInquiry.bedrooms} Bedroom{selectedInquiry.bedrooms > 1 ? "s" : ""}</Text>
-                        </Grid.Col>
-                      )}
-                      {selectedInquiry.bathrooms && selectedInquiry.bathrooms > 0 && (
-                        <Grid.Col span={6}>
-                          <Text size="sm" c="dimmed">Bathrooms</Text>
-                          <Text fw={500}>{selectedInquiry.bathrooms} Bathroom{selectedInquiry.bathrooms > 1 ? "s" : ""}</Text>
-                        </Grid.Col>
-                      )}
+                      {selectedInquiry.bedrooms &&
+                        selectedInquiry.bedrooms > 0 && (
+                          <Grid.Col span={6}>
+                            <Text size="sm" c="dimmed">
+                              Bedrooms
+                            </Text>
+                            <Text fw={500}>
+                              {selectedInquiry.bedrooms} Bedroom
+                              {selectedInquiry.bedrooms > 1 ? "s" : ""}
+                            </Text>
+                          </Grid.Col>
+                        )}
+                      {selectedInquiry.bathrooms &&
+                        selectedInquiry.bathrooms > 0 && (
+                          <Grid.Col span={6}>
+                            <Text size="sm" c="dimmed">
+                              Bathrooms
+                            </Text>
+                            <Text fw={500}>
+                              {selectedInquiry.bathrooms} Bathroom
+                              {selectedInquiry.bathrooms > 1 ? "s" : ""}
+                            </Text>
+                          </Grid.Col>
+                        )}
                       {selectedInquiry.sqft && selectedInquiry.sqft > 0 && (
                         <Grid.Col span={6}>
-                          <Text size="sm" c="dimmed">Square Footage</Text>
+                          <Text size="sm" c="dimmed">
+                            Square Footage
+                          </Text>
                           <Text fw={500}>{selectedInquiry.sqft} sq ft</Text>
                         </Grid.Col>
                       )}
@@ -992,78 +1162,147 @@ const ApplicationsPage = () => {
               </Card>
 
               <Card withBorder radius="md" p="md">
-                <Text fw={500} c={primaryTextColor} mb="xs">Reason for Application</Text>
+                <Text fw={500} c={primaryTextColor} mb="xs">
+                  Reason for Application
+                </Text>
                 <Text c="dimmed">{selectedInquiry.reason}</Text>
               </Card>
 
-              {selectedInquiry.status === "rejected" && selectedInquiry.rejectionReason && (
-                <Alert icon={<IconAlertCircle size={16} />} color="red" title="Rejection Reason">
-                  {selectedInquiry.rejectionReason}
-                </Alert>
-              )}
+              {selectedInquiry.status === "rejected" &&
+                selectedInquiry.rejectionReason && (
+                  <Alert
+                    icon={<IconAlertCircle size={16} />}
+                    color="red"
+                    title="Rejection Reason"
+                  >
+                    {selectedInquiry.rejectionReason}
+                  </Alert>
+                )}
 
-              {(selectedInquiry.status === "approved" || selectedInquiry.propertyStatus === "LEASED") && paymentPlanData && (
-                <Card withBorder radius="md" p="md" bg="blue.0">
-                  <Group gap="xs" mb="md">
-                    <IconCreditCard size={16} />
-                    <Text fw={500} c="blue.9">Payment Plan Summary</Text>
-                  </Group>
-                  <Grid gutter="md">
-                    <Grid.Col span={6}>
-                      <Text size="sm" c="blue.7">Property Price</Text>
-                      <Text fw={500} c="blue.9">{formatCurrency(paymentPlanData.propertyPrice)}</Text>
-                    </Grid.Col>
-                    <Grid.Col span={6}>
-                      <Text size="sm" c="blue.7">Down Payment</Text>
-                      <Text fw={500} c="blue.9">{formatCurrency(paymentPlanData.downPayment)}</Text>
-                    </Grid.Col>
-                    <Grid.Col span={6}>
-                      <Text size="sm" c="blue.7">Monthly Payment</Text>
-                      <Text fw={500} c="blue.9">{formatCurrency(paymentPlanData.monthlyPayment)}</Text>
-                    </Grid.Col>
-                    <Grid.Col span={6}>
-                      <Text size="sm" c="blue.7">Interest Rate</Text>
-                      <Text fw={500} c="blue.9">{paymentPlanData.interestRate}% per annum</Text>
-                    </Grid.Col>
-                    <Grid.Col span={6}>
-                      <Text size="sm" c="blue.7">Lease Duration</Text>
+              {(selectedInquiry.status === "approved" ||
+                selectedInquiry.propertyStatus === "LEASED") &&
+                paymentPlanData && (
+                  <Card withBorder radius="md" p="md" bg="blue.0">
+                    <Group gap="xs" mb="md">
+                      <IconCreditCard size={16} />
                       <Text fw={500} c="blue.9">
-                        {paymentPlanData.leaseDuration} months ({Math.floor(paymentPlanData.leaseDuration / 12)} years {paymentPlanData.leaseDuration % 12} months)
+                        Payment Plan Summary
                       </Text>
-                    </Grid.Col>
-                    <Grid.Col span={6}>
-                      <Text size="sm" c="blue.7">Total Amount</Text>
-                      <Text fw={500} c="blue.9">{formatCurrency(paymentPlanData.totalAmount)}</Text>
-                    </Grid.Col>
-                    <Grid.Col span={6}>
-                      <Text size="sm" c="blue.7">Start Date</Text>
-                      <Text fw={500} c="blue.9">{formatDate(paymentPlanData.startDate)}</Text>
-                    </Grid.Col>
-                    <Grid.Col span={6}>
-                      <Text size="sm" c="blue.7">Plan Status</Text>
-                      <Badge color={paymentPlanData.status === "active" ? "green" : "gray"} variant="light">
-                        {paymentPlanData.status.charAt(0).toUpperCase() + paymentPlanData.status.slice(1)}
-                      </Badge>
-                    </Grid.Col>
-                    <Grid.Col span={6}>
-                      <Text size="sm" c="blue.7">Current Month</Text>
-                      <Text fw={500} c="blue.9">{paymentPlanData.currentMonth} of {paymentPlanData.leaseDuration}</Text>
-                    </Grid.Col>
-                    <Grid.Col span={6}>
-                      <Text size="sm" c="blue.7">Remaining Balance</Text>
-                      <Text fw={500} c="blue.9">{formatCurrency(paymentPlanData.remainingBalance)}</Text>
-                    </Grid.Col>
-                    <Grid.Col span={6}>
-                      <Text size="sm" c="blue.7">Next Payment Date</Text>
-                      <Text fw={500} c="blue.9">{formatDate(paymentPlanData.nextPaymentDate)}</Text>
-                    </Grid.Col>
-                    <Grid.Col span={12}>
-                      <Text size="sm" c="blue.7">Total Interest</Text>
-                      <Text fw={500} c="orange.6">{formatCurrency(paymentPlanData.totalAmount - paymentPlanData.propertyPrice)}</Text>
-                    </Grid.Col>
-                  </Grid>
-                </Card>
-              )}
+                    </Group>
+                    <Grid gutter="md">
+                      <Grid.Col span={6}>
+                        <Text size="sm" c="blue.7">
+                          Property Price
+                        </Text>
+                        <Text fw={500} c="blue.9">
+                          {formatCurrency(paymentPlanData.propertyPrice)}
+                        </Text>
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Text size="sm" c="blue.7">
+                          Down Payment
+                        </Text>
+                        <Text fw={500} c="blue.9">
+                          {formatCurrency(paymentPlanData.downPayment)}
+                        </Text>
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Text size="sm" c="blue.7">
+                          Monthly Payment
+                        </Text>
+                        <Text fw={500} c="blue.9">
+                          {formatCurrency(paymentPlanData.monthlyPayment)}
+                        </Text>
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Text size="sm" c="blue.7">
+                          Interest Rate
+                        </Text>
+                        <Text fw={500} c="blue.9">
+                          {paymentPlanData.interestRate}% per annum
+                        </Text>
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Text size="sm" c="blue.7">
+                          Lease Duration
+                        </Text>
+                        <Text fw={500} c="blue.9">
+                          {paymentPlanData.leaseDuration} months (
+                          {Math.floor(paymentPlanData.leaseDuration / 12)} years{" "}
+                          {paymentPlanData.leaseDuration % 12} months)
+                        </Text>
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Text size="sm" c="blue.7">
+                          Total Amount
+                        </Text>
+                        <Text fw={500} c="blue.9">
+                          {formatCurrency(paymentPlanData.totalAmount)}
+                        </Text>
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Text size="sm" c="blue.7">
+                          Start Date
+                        </Text>
+                        <Text fw={500} c="blue.9">
+                          {formatDate(paymentPlanData.startDate)}
+                        </Text>
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Text size="sm" c="blue.7">
+                          Plan Status
+                        </Text>
+                        <Badge
+                          color={
+                            paymentPlanData.status === "active"
+                              ? "green"
+                              : "gray"
+                          }
+                          variant="light"
+                        >
+                          {paymentPlanData.status.charAt(0).toUpperCase() +
+                            paymentPlanData.status.slice(1)}
+                        </Badge>
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Text size="sm" c="blue.7">
+                          Current Month
+                        </Text>
+                        <Text fw={500} c="blue.9">
+                          {paymentPlanData.currentMonth} of{" "}
+                          {paymentPlanData.leaseDuration}
+                        </Text>
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Text size="sm" c="blue.7">
+                          Remaining Balance
+                        </Text>
+                        <Text fw={500} c="blue.9">
+                          {formatCurrency(paymentPlanData.remainingBalance)}
+                        </Text>
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Text size="sm" c="blue.7">
+                          Next Payment Date
+                        </Text>
+                        <Text fw={500} c="blue.9">
+                          {formatDate(paymentPlanData.nextPaymentDate)}
+                        </Text>
+                      </Grid.Col>
+                      <Grid.Col span={12}>
+                        <Text size="sm" c="blue.7">
+                          Total Interest
+                        </Text>
+                        <Text fw={500} c="orange.6">
+                          {formatCurrency(
+                            paymentPlanData.totalAmount -
+                              paymentPlanData.propertyPrice
+                          )}
+                        </Text>
+                      </Grid.Col>
+                    </Grid>
+                  </Card>
+                )}
             </Stack>
           )}
         </Modal>
@@ -1081,33 +1320,58 @@ const ApplicationsPage = () => {
               <Card withBorder radius="md" p="md">
                 <Group gap="xs" mb="xs">
                   <IconMapPin size={16} />
-                  <Text fw={500} c={primaryTextColor}>Property & Applicant Info</Text>
+                  <Text fw={500} c={primaryTextColor}>
+                    Property & Applicant Info
+                  </Text>
                 </Group>
                 <Grid gutter="md">
                   <Grid.Col span={6}>
-                    <Text size="sm" c="dimmed">Property Title</Text>
+                    <Text size="sm" c="dimmed">
+                      Property Title
+                    </Text>
                     <Text fw={500}>{selectedInquiry.propertyTitle}</Text>
-                    <Text size="sm" c="dimmed">Location</Text>
+                    <Text size="sm" c="dimmed">
+                      Location
+                    </Text>
                     <Text fw={500}>{selectedInquiry.propertyLocation}</Text>
-                    <Text size="sm" c="dimmed">Price</Text>
-                    <Text fw={500} c="green.6">{formatCurrency(selectedInquiry.propertyPrice)}</Text>
-                    {(selectedInquiry.propertyType === "house-and-lot" || selectedInquiry.propertyType === "condo") && (
+                    <Text size="sm" c="dimmed">
+                      Price
+                    </Text>
+                    <Text fw={500} c="green.6">
+                      {formatCurrency(selectedInquiry.propertyPrice)}
+                    </Text>
+                    {(selectedInquiry.propertyType === "house-and-lot" ||
+                      selectedInquiry.propertyType === "condo") && (
                       <>
-                        {selectedInquiry.bedrooms && selectedInquiry.bedrooms > 0 && (
-                          <>
-                            <Text size="sm" c="dimmed">Bedrooms</Text>
-                            <Text fw={500}>{selectedInquiry.bedrooms} Bedroom{selectedInquiry.bedrooms > 1 ? "s" : ""}</Text>
-                          </>
-                        )}
-                        {selectedInquiry.bathrooms && selectedInquiry.bathrooms > 0 && (
-                          <>
-                            <Text size="sm" c="dimmed">Bathrooms</Text>
-                            <Text fw={500}>{selectedInquiry.bathrooms} Bathroom{selectedInquiry.bathrooms > 1 ? "s" : ""}</Text>
-                          </>
-                        )}
+                        {selectedInquiry.bedrooms &&
+                          selectedInquiry.bedrooms > 0 && (
+                            <>
+                              <Text size="sm" c="dimmed">
+                                Bedrooms
+                              </Text>
+                              <Text fw={500}>
+                                {selectedInquiry.bedrooms} Bedroom
+                                {selectedInquiry.bedrooms > 1 ? "s" : ""}
+                              </Text>
+                            </>
+                          )}
+                        {selectedInquiry.bathrooms &&
+                          selectedInquiry.bathrooms > 0 && (
+                            <>
+                              <Text size="sm" c="dimmed">
+                                Bathrooms
+                              </Text>
+                              <Text fw={500}>
+                                {selectedInquiry.bathrooms} Bathroom
+                                {selectedInquiry.bathrooms > 1 ? "s" : ""}
+                              </Text>
+                            </>
+                          )}
                         {selectedInquiry.sqft && selectedInquiry.sqft > 0 && (
                           <>
-                            <Text size="sm" c="dimmed">Square Footage</Text>
+                            <Text size="sm" c="dimmed">
+                              Square Footage
+                            </Text>
                             <Text fw={500}>{selectedInquiry.sqft} sq ft</Text>
                           </>
                         )}
@@ -1115,11 +1379,17 @@ const ApplicationsPage = () => {
                     )}
                   </Grid.Col>
                   <Grid.Col span={6}>
-                    <Text size="sm" c="dimmed">Applicant Name</Text>
+                    <Text size="sm" c="dimmed">
+                      Applicant Name
+                    </Text>
                     <Text fw={500}>{selectedInquiry.fullName}</Text>
-                    <Text size="sm" c="dimmed">Email</Text>
+                    <Text size="sm" c="dimmed">
+                      Email
+                    </Text>
                     <Text fw={500}>{selectedInquiry.email}</Text>
-                    <Text size="sm" c="dimmed">Phone</Text>
+                    <Text size="sm" c="dimmed">
+                      Phone
+                    </Text>
                     <Text fw={500}>{selectedInquiry.phone}</Text>
                   </Grid.Col>
                 </Grid>
@@ -1128,12 +1398,16 @@ const ApplicationsPage = () => {
               <Grid gutter="lg">
                 <Grid.Col span={6}>
                   <Stack gap="md">
-                    <Text fw={500} c={primaryTextColor}>Payment Configuration</Text>
+                    <Text fw={500} c={primaryTextColor}>
+                      Payment Configuration
+                    </Text>
                     <NumberInput
                       label="Down Payment (₱)"
                       placeholder="0"
                       value={parseFloat(downPayment) || 0}
-                      onChange={(value) => setDownPayment((value || 0).toString())}
+                      onChange={(value) =>
+                        setDownPayment((value || 0).toString())
+                      }
                       min={0}
                       max={selectedInquiry.propertyPrice}
                       step={0.01}
@@ -1143,7 +1417,9 @@ const ApplicationsPage = () => {
                       label="Monthly Payment (₱)"
                       placeholder="Enter monthly payment"
                       value={parseFloat(monthlyPayment) || 0}
-                      onChange={(value) => setMonthlyPayment((value || 0).toString())}
+                      onChange={(value) =>
+                        setMonthlyPayment((value || 0).toString())
+                      }
                       min={1}
                       step={0.01}
                       required
@@ -1152,7 +1428,9 @@ const ApplicationsPage = () => {
                       label="Annual Interest Rate (%)"
                       placeholder="12"
                       value={parseFloat(interestRate) || 12}
-                      onChange={(value) => setInterestRate((value || 12).toString())}
+                      onChange={(value) =>
+                        setInterestRate((value || 12).toString())
+                      }
                       min={0}
                       max={50}
                       step={0.1}
@@ -1163,50 +1441,96 @@ const ApplicationsPage = () => {
                 </Grid.Col>
                 <Grid.Col span={6}>
                   <Stack gap="md">
-                    <Text fw={500} c={primaryTextColor}>Calculated Terms</Text>
+                    <Text fw={500} c={primaryTextColor}>
+                      Calculated Terms
+                    </Text>
                     <Card withBorder radius="md" p="md" bg="blue.0">
                       <Stack gap="xs">
                         <Group justify="apart">
-                          <Text size="sm" c="blue.7">Property Price:</Text>
-                          <Text size="sm" fw={500}>{formatCurrency(selectedInquiry.propertyPrice)}</Text>
-                        </Group>
-                        <Group justify="apart">
-                          <Text size="sm" c="blue.7">Down Payment:</Text>
-                          <Text size="sm" fw={500}>{formatCurrency(parseFloat(downPayment) || 0)}</Text>
-                        </Group>
-                        <Group justify="apart">
-                          <Text size="sm" c="blue.7">Principal Amount:</Text>
-                          <Text size="sm" fw={500}>{formatCurrency(selectedInquiry.propertyPrice - (parseFloat(downPayment) || 0))}</Text>
-                        </Group>
-                        <Divider c="blue.3" />
-                        <Group justify="apart">
-                          <Text size="sm" c="blue.7">Lease Duration:</Text>
-                          <Text size="sm" fw={500} c="blue.6">
-                            {leaseDuration > 0 ? `${leaseDuration} months (${Math.floor(leaseDuration / 12)} years ${leaseDuration % 12} months)` : "Invalid payment"}
+                          <Text size="sm" c="blue.7">
+                            Property Price:
+                          </Text>
+                          <Text size="sm" fw={500}>
+                            {formatCurrency(selectedInquiry.propertyPrice)}
                           </Text>
                         </Group>
                         <Group justify="apart">
-                          <Text size="sm" c="blue.7">Monthly Payment:</Text>
-                          <Text size="sm" fw={500} c="blue.6">{formatCurrency(parseFloat(monthlyPayment) || 0)}</Text>
+                          <Text size="sm" c="blue.7">
+                            Down Payment:
+                          </Text>
+                          <Text size="sm" fw={500}>
+                            {formatCurrency(parseFloat(downPayment) || 0)}
+                          </Text>
                         </Group>
                         <Group justify="apart">
-                          <Text size="sm" c="blue.7">Total Amount:</Text>
-                          <Text size="sm" fw={500} c="blue.6">{formatCurrency(totalAmount)}</Text>
+                          <Text size="sm" c="blue.7">
+                            Principal Amount:
+                          </Text>
+                          <Text size="sm" fw={500}>
+                            {formatCurrency(
+                              selectedInquiry.propertyPrice -
+                                (parseFloat(downPayment) || 0)
+                            )}
+                          </Text>
+                        </Group>
+                        <Divider c="blue.3" />
+                        <Group justify="apart">
+                          <Text size="sm" c="blue.7">
+                            Lease Duration:
+                          </Text>
+                          <Text size="sm" fw={500} c="blue.6">
+                            {leaseDuration > 0
+                              ? `${leaseDuration} months (${Math.floor(leaseDuration / 12)} years ${leaseDuration % 12} months)`
+                              : "Invalid payment"}
+                          </Text>
                         </Group>
                         <Group justify="apart">
-                          <Text size="sm" c="blue.7">Total Interest:</Text>
-                          <Text size="sm" fw={500} c="orange.6">{formatCurrency(totalAmount - selectedInquiry.propertyPrice)}</Text>
+                          <Text size="sm" c="blue.7">
+                            Monthly Payment:
+                          </Text>
+                          <Text size="sm" fw={500} c="blue.6">
+                            {formatCurrency(parseFloat(monthlyPayment) || 0)}
+                          </Text>
+                        </Group>
+                        <Group justify="apart">
+                          <Text size="sm" c="blue.7">
+                            Total Amount:
+                          </Text>
+                          <Text size="sm" fw={500} c="blue.6">
+                            {formatCurrency(totalAmount)}
+                          </Text>
+                        </Group>
+                        <Group justify="apart">
+                          <Text size="sm" c="blue.7">
+                            Total Interest:
+                          </Text>
+                          <Text size="sm" fw={500} c="orange.6">
+                            {formatCurrency(
+                              totalAmount - selectedInquiry.propertyPrice
+                            )}
+                          </Text>
                         </Group>
                       </Stack>
                     </Card>
                     {leaseDuration === 0 && monthlyPayment && (
-                      <Alert icon={<IconAlertCircle size={16} />} color="red" title="Payment Warning">
-                        Monthly payment is too low to cover interest. Please increase the payment amount.
+                      <Alert
+                        icon={<IconAlertCircle size={16} />}
+                        color="red"
+                        title="Payment Warning"
+                      >
+                        Monthly payment is too low to cover interest. Please
+                        increase the payment amount.
                       </Alert>
                     )}
                     {leaseDuration > 600 && (
-                      <Alert icon={<IconAlertCircle size={16} />} color="yellow" title="Long Duration Warning">
-                        Lease duration is very long ({Math.floor(leaseDuration / 12)} years). Consider increasing monthly payment.
+                      <Alert
+                        icon={<IconAlertCircle size={16} />}
+                        color="yellow"
+                        title="Long Duration Warning"
+                      >
+                        Lease duration is very long (
+                        {Math.floor(leaseDuration / 12)} years). Consider
+                        increasing monthly payment.
                       </Alert>
                     )}
                   </Stack>
@@ -1214,7 +1538,9 @@ const ApplicationsPage = () => {
               </Grid>
 
               <Group>
-                <Text fw={500} c={primaryTextColor}>Quick Payment Options</Text>
+                <Text fw={500} c={primaryTextColor}>
+                  Quick Payment Options
+                </Text>
               </Group>
               <SimpleGrid cols={3} spacing="md">
                 {[
@@ -1222,7 +1548,9 @@ const ApplicationsPage = () => {
                   { years: 10, label: "10 Years" },
                   { years: 15, label: "15 Years" },
                 ].map((option) => {
-                  const principal = selectedInquiry.propertyPrice - (parseFloat(downPayment) || 0);
+                  const principal =
+                    selectedInquiry.propertyPrice -
+                    (parseFloat(downPayment) || 0);
                   const monthlyRate = parseFloat(interestRate) / 100 / 12;
                   const months = option.years * 12;
                   let suggestedPayment = 0;
@@ -1231,7 +1559,8 @@ const ApplicationsPage = () => {
                     suggestedPayment = principal / months;
                   } else {
                     suggestedPayment =
-                      (principal * (monthlyRate * Math.pow(1 + monthlyRate, months))) /
+                      (principal *
+                        (monthlyRate * Math.pow(1 + monthlyRate, months))) /
                       (Math.pow(1 + monthlyRate, months) - 1);
                   }
 
@@ -1239,7 +1568,9 @@ const ApplicationsPage = () => {
                     <MantineButton
                       key={option.years}
                       variant="light"
-                      onClick={() => setMonthlyPayment(suggestedPayment.toFixed(2))}
+                      onClick={() =>
+                        setMonthlyPayment(suggestedPayment.toFixed(2))
+                      }
                     >
                       <Text size="sm" fw={500}>
                         {option.label}
@@ -1257,10 +1588,21 @@ const ApplicationsPage = () => {
                   onClick={() => handleApprove(selectedInquiry)}
                   color="green"
                   leftSection={<IconCreditCard size={16} />}
-                  loading={processingId === `${selectedInquiry.propertyId}-${selectedInquiry.email}`}
-                  disabled={!monthlyPayment || leaseDuration === 0 || processingId === `${selectedInquiry.propertyId}-${selectedInquiry.email}`}
+                  loading={
+                    processingId ===
+                    `${selectedInquiry.propertyId}-${selectedInquiry.email}`
+                  }
+                  disabled={
+                    !monthlyPayment ||
+                    leaseDuration === 0 ||
+                    processingId ===
+                      `${selectedInquiry.propertyId}-${selectedInquiry.email}`
+                  }
                 >
-                  {processingId === `${selectedInquiry.propertyId}-${selectedInquiry.email}` ? "Processing..." : "Approve & Create Payment Plan"}
+                  {processingId ===
+                  `${selectedInquiry.propertyId}-${selectedInquiry.email}`
+                    ? "Processing..."
+                    : "Approve & Create Payment Plan"}
                 </MantineButton>
                 <MantineButton variant="outline" onClick={resetPaymentModal}>
                   Cancel
@@ -1287,7 +1629,15 @@ const ApplicationsPage = () => {
           {selectedInquiry && (
             <>
               <Text c="dimmed" mb="md">
-                Rejecting application from <Text span fw={500} c={primaryTextColor}>,{selectedInquiry.fullName}</Text> for property <Text span fw={500} c={primaryTextColor}>,{selectedInquiry.propertyTitle}</Text>.
+                Rejecting application from{" "}
+                <Text span fw={500} c={primaryTextColor}>
+                  ,{selectedInquiry.fullName}
+                </Text>{" "}
+                for property{" "}
+                <Text span fw={500} c={primaryTextColor}>
+                  ,{selectedInquiry.propertyTitle}
+                </Text>
+                .
               </Text>
               <Textarea
                 label="Rejection Reason"
@@ -1302,8 +1652,13 @@ const ApplicationsPage = () => {
                 required
               />
               {confirmReject && (
-                <Alert icon={<IconAlertCircle size={16} />} color="yellow" title="Confirmation">
-                  Are you sure you want to reject this application? This action cannot be undone.
+                <Alert
+                  icon={<IconAlertCircle size={16} />}
+                  color="yellow"
+                  title="Confirmation"
+                >
+                  Are you sure you want to reject this application? This action
+                  cannot be undone.
                 </Alert>
               )}
               <Group justify="apart" mt="md">
@@ -1311,10 +1666,21 @@ const ApplicationsPage = () => {
                   color="red"
                   leftSection={<IconX size={16} />}
                   onClick={handleReject}
-                  loading={processingId === `${selectedInquiry.propertyId}-${selectedInquiry.email}`}
-                  disabled={processingId === `${selectedInquiry.propertyId}-${selectedInquiry.email}`}
+                  loading={
+                    processingId ===
+                    `${selectedInquiry.propertyId}-${selectedInquiry.email}`
+                  }
+                  disabled={
+                    processingId ===
+                    `${selectedInquiry.propertyId}-${selectedInquiry.email}`
+                  }
                 >
-                  {processingId === `${selectedInquiry.propertyId}-${selectedInquiry.email}` ? "Processing..." : confirmReject ? "Confirm Rejection" : "Reject Application"}
+                  {processingId ===
+                  `${selectedInquiry.propertyId}-${selectedInquiry.email}`
+                    ? "Processing..."
+                    : confirmReject
+                      ? "Confirm Rejection"
+                      : "Reject Application"}
                 </MantineButton>
                 <MantineButton
                   variant="outline"
@@ -1335,7 +1701,10 @@ const ApplicationsPage = () => {
 
         {/* Refresh Button */}
         <Group justify="flex-end">
-          <MantineButton leftSection={<IconRefresh size={16} />} onClick={fetchInquiries}>
+          <MantineButton
+            leftSection={<IconRefresh size={16} />}
+            onClick={fetchInquiries}
+          >
             Refresh
           </MantineButton>
         </Group>

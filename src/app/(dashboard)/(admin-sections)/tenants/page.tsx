@@ -20,6 +20,7 @@ import {
   Flex,
   Box,
   PasswordInput,
+  ScrollArea,
 } from "@mantine/core";
 import {
   IconTrash,
@@ -87,6 +88,24 @@ const TenantsSection = () => {
     password?: string;
     confirmPassword?: string;
   }>({});
+  const [dataFetched, setDataFetched] = useState(false);
+
+  useEffect(() => {
+    if (!dataFetched) {
+      fetchTenants();
+      setDataFetched(true);
+    }
+  }, [dataFetched]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (dataFetched) {
+        fetchTenants();
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, dataFetched]);
 
   useEffect(() => {
     fetchTenants();
@@ -239,9 +258,8 @@ const TenantsSection = () => {
           },
         };
 
-        const { data: newUser, error } = await authClient.admin.createUser(
-          createData
-        );
+        const { data: newUser, error } =
+          await authClient.admin.createUser(createData);
 
         if (error) {
           throw new Error(error.message || "Failed to create tenant");
@@ -358,53 +376,55 @@ const TenantsSection = () => {
 
       {/* Table */}
       <Paper shadow="sm">
-        <Table striped highlightOnHover>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Tenant</Table.Th>
-              <Table.Th>Email</Table.Th>
-              <Table.Th>Status</Table.Th>
-              <Table.Th>Created At</Table.Th>
-              <Table.Th>Actions</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {filteredTenants.map((tenant) => (
-              <Table.Tr key={tenant._id}>
-                <Table.Td>
-                  <Text fw={500}>{tenant.user_name || "Unknown"}</Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm">{tenant.user_email}</Text>
-                </Table.Td>
-                <Table.Td>{getStatusBadge(tenant.status)}</Table.Td>
-                <Table.Td>
-                  <Text size="sm">
-                    {new Date(tenant.created_at).toLocaleDateString()}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Group gap="xs">
-                    <ActionIcon
-                      variant="light"
-                      color="green"
-                      onClick={() => handleEditTenant(tenant)}
-                    >
-                      <IconEdit size={16} />
-                    </ActionIcon>
-                    <ActionIcon
-                      variant="light"
-                      color="red"
-                      onClick={() => handleDeleteTenant(tenant._id)}
-                    >
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  </Group>
-                </Table.Td>
+        <ScrollArea type="auto">
+          <Table striped highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Tenant</Table.Th>
+                <Table.Th>Email</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th>Created At</Table.Th>
+                <Table.Th>Actions</Table.Th>
               </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+            </Table.Thead>
+            <Table.Tbody>
+              {filteredTenants.map((tenant) => (
+                <Table.Tr key={tenant._id}>
+                  <Table.Td>
+                    <Text fw={500}>{tenant.user_name || "Unknown"}</Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm">{tenant.user_email}</Text>
+                  </Table.Td>
+                  <Table.Td>{getStatusBadge(tenant.status)}</Table.Td>
+                  <Table.Td>
+                    <Text size="sm">
+                      {new Date(tenant.created_at).toLocaleDateString()}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap="xs">
+                      <ActionIcon
+                        variant="light"
+                        color="green"
+                        onClick={() => handleEditTenant(tenant)}
+                      >
+                        <IconEdit size={16} />
+                      </ActionIcon>
+                      <ActionIcon
+                        variant="light"
+                        color="red"
+                        onClick={() => handleDeleteTenant(tenant._id)}
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Group>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
 
         {filteredTenants.length === 0 && (
           <Center py="xl">

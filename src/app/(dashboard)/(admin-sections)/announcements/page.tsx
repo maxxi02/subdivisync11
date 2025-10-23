@@ -309,6 +309,8 @@ const ManageAnnouncementSection = () => {
     imagesToDelete: [] as string[],
   });
 
+  const [dataFetched, setDataFetched] = useState(false);
+
   const primaryTextColor = colorScheme === "dark" ? "white" : "dark.9";
   const getDefaultShadow = () => {
     const baseShadow = "0 1px 3px";
@@ -357,10 +359,12 @@ const ManageAnnouncementSection = () => {
         setLoading(false);
       }
     };
-    if (isAdmin) {
+
+    if (isAdmin && !dataFetched) {
       fetchAnnouncements();
+      setDataFetched(true);
     }
-  }, [isAdmin]);
+  }, [isAdmin, dataFetched]);
 
   // Handle form input changes
   const handleInputChange = (

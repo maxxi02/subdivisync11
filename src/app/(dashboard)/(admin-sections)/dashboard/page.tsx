@@ -21,6 +21,7 @@ import {
   useMantineTheme,
   useMantineColorScheme,
   rgba,
+  ScrollArea,
 } from "@mantine/core";
 import {
   IconHome,
@@ -172,20 +173,33 @@ export default function Dashboard() {
   const [recentActivity, setRecentActivity] = useState<
     { text: string; time: string; status: string; color: string }[]
   >([]);
+  const [dataFetched, setDataFetched] = useState(false);
 
   useEffect(() => {
     const fetchSession = async () => {
-      const session = await getServerSession();
-      if (session?.user?.role !== "admin") {
-        router.push("/tenant-dashboard");
-      } else {
-        fetchAllData();
-        const interval = setInterval(fetchAllData, 30000);
-        return () => clearInterval(interval);
+      try {
+        const session = await getServerSession();
+        if (session?.user?.role !== "admin") {
+          router.push("/tenant-dashboard");
+        } else if (!dataFetched) {
+          await fetchAllData();
+          setDataFetched(true);
+        }
+      } catch (error) {
+        console.error("Error fetching session:", error);
+        showNotification("error", "Failed to verify session.");
       }
     };
     fetchSession();
-  }, []);
+  }, [dataFetched, router]);
+
+  // Set up interval only after initial data fetch
+  useEffect(() => {
+    if (dataFetched) {
+      const interval = setInterval(fetchAllData, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [dataFetched]);
 
   const showNotification = (type: "success" | "error", message: string) => {
     setNotification({ type, message });
@@ -409,8 +423,8 @@ export default function Dashboard() {
             p.status === "paid"
               ? "blue"
               : p.status === "overdue"
-              ? "red"
-              : "yellow",
+                ? "red"
+                : "yellow",
         })),
       ...announcements
         .sort(
@@ -426,8 +440,8 @@ export default function Dashboard() {
             a.priority === "high"
               ? "red"
               : a.priority === "medium"
-              ? "yellow"
-              : "blue",
+                ? "yellow"
+                : "blue",
         })),
     ]
       .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
@@ -736,56 +750,58 @@ export default function Dashboard() {
           <Title order={3} size="h4" fw={600} c={primaryTextColor} mb="md">
             Recent Payments
           </Title>
-          <Table striped highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Tenant Email</Table.Th>
-                <Table.Th>Amount</Table.Th>
-                <Table.Th>Due Date</Table.Th>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Paid Date</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {payments
-                .sort(
-                  (a, b) =>
-                    new Date(b.dueDate).getTime() -
-                    new Date(a.dueDate).getTime()
-                )
-                .slice(0, 10)
-                .map((payment) => (
-                  <Table.Tr key={payment._id}>
-                    <Table.Td>{payment.tenantEmail}</Table.Td>
-                    <Table.Td>
-                      ₱{payment.amount.toLocaleString("en-PH")}{" "}
-                      {/* Changed to PHP */}
-                    </Table.Td>
-                    <Table.Td>
-                      {new Date(payment.dueDate).toLocaleDateString()}
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge
-                        color={
-                          payment.status === "paid"
-                            ? "green"
-                            : payment.status === "overdue"
-                            ? "red"
-                            : "yellow"
-                        }
-                      >
-                        {payment.status}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      {payment.paidDate
-                        ? new Date(payment.paidDate).toLocaleDateString()
-                        : "-"}
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-            </Table.Tbody>
-          </Table>
+          <ScrollArea type="auto">
+            <Table striped highlightOnHover miw={800}>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Tenant Email</Table.Th>
+                  <Table.Th>Amount</Table.Th>
+                  <Table.Th>Due Date</Table.Th>
+                  <Table.Th>Status</Table.Th>
+                  <Table.Th>Paid Date</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {payments
+                  .sort(
+                    (a, b) =>
+                      new Date(b.dueDate).getTime() -
+                      new Date(a.dueDate).getTime()
+                  )
+                  .slice(0, 10)
+                  .map((payment) => (
+                    <Table.Tr key={payment._id}>
+                      <Table.Td>{payment.tenantEmail}</Table.Td>
+                      <Table.Td>
+                        ₱{payment.amount.toLocaleString("en-PH")}{" "}
+                        {/* Changed to PHP */}
+                      </Table.Td>
+                      <Table.Td>
+                        {new Date(payment.dueDate).toLocaleDateString()}
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge
+                          color={
+                            payment.status === "paid"
+                              ? "green"
+                              : payment.status === "overdue"
+                                ? "red"
+                                : "yellow"
+                          }
+                        >
+                          {payment.status}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        {payment.paidDate
+                          ? new Date(payment.paidDate).toLocaleDateString()
+                          : "-"}
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+              </Table.Tbody>
+            </Table>
+          </ScrollArea>
           {payments.length === 0 && (
             <Text c="dimmed" ta="center" mt="md">
               No recent payments
@@ -797,47 +813,49 @@ export default function Dashboard() {
           <Title order={3} size="h4" fw={600} c={primaryTextColor} mb="md">
             Recent Tenants
           </Title>
-          <Table striped highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Name</Table.Th>
-                <Table.Th>Email</Table.Th>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Created At</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {tenants
-                .sort(
-                  (a, b) =>
-                    new Date(b.created_at).getTime() -
-                    new Date(a.created_at).getTime()
-                )
-                .slice(0, 10)
-                .map((tenant) => (
-                  <Table.Tr key={tenant._id}>
-                    <Table.Td>{tenant.user_name}</Table.Td>
-                    <Table.Td>{tenant.user_email}</Table.Td>
-                    <Table.Td>
-                      <Badge
-                        color={
-                          tenant.status === "Active"
-                            ? "green"
-                            : tenant.status === "Inactive"
-                            ? "red"
-                            : "yellow"
-                        }
-                      >
-                        {tenant.status}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      {new Date(tenant.created_at).toLocaleDateString()}
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-            </Table.Tbody>
-          </Table>
+          <ScrollArea type="auto">
+            <Table striped highlightOnHover miw={800}>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Name</Table.Th>
+                  <Table.Th>Email</Table.Th>
+                  <Table.Th>Status</Table.Th>
+                  <Table.Th>Created At</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {tenants
+                  .sort(
+                    (a, b) =>
+                      new Date(b.created_at).getTime() -
+                      new Date(a.created_at).getTime()
+                  )
+                  .slice(0, 10)
+                  .map((tenant) => (
+                    <Table.Tr key={tenant._id}>
+                      <Table.Td>{tenant.user_name}</Table.Td>
+                      <Table.Td>{tenant.user_email}</Table.Td>
+                      <Table.Td>
+                        <Badge
+                          color={
+                            tenant.status === "Active"
+                              ? "green"
+                              : tenant.status === "Inactive"
+                                ? "red"
+                                : "yellow"
+                          }
+                        >
+                          {tenant.status}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        {new Date(tenant.created_at).toLocaleDateString()}
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+              </Table.Tbody>
+            </Table>
+          </ScrollArea>
           {tenants.length === 0 && (
             <Text c="dimmed" ta="center" mt="md">
               No tenants
