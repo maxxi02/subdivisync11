@@ -26,7 +26,6 @@ import {
   Flex,
   FileInput,
   Image as MantineImage,
-  ScrollArea,
   rgba,
 } from "@mantine/core";
 import {
@@ -121,27 +120,34 @@ const AnnouncementCard = ({
         <Box h={150} bg="violet.1" />
       ) : (
         <Box pos="relative">
-          <ScrollArea w="100%" h={300}>
+          <Box h={300} style={{ overflow: "hidden" }}>
             <Box
               style={{
                 display: "flex",
                 transform: `translateX(-${currentIndex * 100}%)`,
                 transition: "transform 0.3s ease-in-out",
+                width: `${images.length * 100}%`,
               }}
             >
-              {images.map((image) => (
-                <MantineImage
+              {images.map((image, idx) => (
+                <Box
                   key={image.publicId}
-                  src={image.url}
-                  alt={announcement.title}
-                  w="100%"
-                  h={300}
-                  fit="cover"
-                  style={{ flexShrink: 0 }}
-                />
+                  style={{
+                    width: `${100 / images.length}%`,
+                    flexShrink: 0,
+                  }}
+                >
+                  <MantineImage
+                    src={image.url}
+                    alt={announcement.title}
+                    h={300}
+                    fit="cover"
+                    loading={idx === 0 ? "eager" : "lazy"}
+                  />
+                </Box>
               ))}
             </Box>
-          </ScrollArea>
+          </Box>
           {images.length > 1 && (
             <>
               <ActionIcon
@@ -310,6 +316,7 @@ const ManageAnnouncementSection = () => {
   });
 
   const [dataFetched, setDataFetched] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const primaryTextColor = colorScheme === "dark" ? "white" : "dark.9";
   const getDefaultShadow = () => {
@@ -366,6 +373,14 @@ const ManageAnnouncementSection = () => {
     }
   }, [isAdmin, dataFetched]);
 
+  useEffect(() => {
+    return () => {
+      formData.images.forEach((file) => {
+        URL.revokeObjectURL(URL.createObjectURL(file));
+      });
+    };
+  }, [formData.images]);
+
   // Handle form input changes
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -376,12 +391,24 @@ const ManageAnnouncementSection = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle file input for images
-  const handleFileChange = (files: File[]) => {
-    setFormData((prev) => ({
-      ...prev,
-      images: [...prev.images, ...files],
-    }));
+  const handleFileChange = (files: File[] | null) => {
+    if (!files) return;
+
+    // Validate file sizes (max 5MB per file)
+    const validFiles = files.filter((file) => {
+      if (file.size > 5 * 1024 * 1024) {
+        showNotification("error", `${file.name} is too large (max 5MB)`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length > 0) {
+      setFormData((prev) => ({
+        ...prev,
+        images: [...prev.images, ...validFiles],
+      }));
+    }
   };
 
   // Handle image deletion
@@ -427,6 +454,8 @@ const ManageAnnouncementSection = () => {
       return;
     }
 
+    setSubmitting(true);
+
     const form = new FormData();
     form.append("title", formData.title);
     form.append("content", formData.content);
@@ -440,7 +469,7 @@ const ManageAnnouncementSection = () => {
     formData.images.forEach((image) => form.append("images", image));
 
     try {
-      const url = isEditing ? "/api/announcements" : "/api/announcements";
+      const url = "/api/announcements";
       const method = isEditing ? "PUT" : "POST";
       const response = await fetch(url, {
         method,
@@ -469,6 +498,8 @@ const ManageAnnouncementSection = () => {
         "error",
         "An error occurred while saving the announcement"
       );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -630,6 +661,17 @@ const ManageAnnouncementSection = () => {
           title={isEditing ? "Edit Announcement" : "Create Announcement"}
           size="xl"
           centered
+          overlayProps={{
+            backgroundOpacity: 0.55,
+            blur: 3,
+          }}
+          styles={{
+            body: {
+              maxHeight: "calc(100vh - 120px)",
+              overflowY: "auto",
+            },
+          }}
+          zIndex={999}
         >
           <Stack gap="lg">
             <TextInput
@@ -673,6 +715,16 @@ const ManageAnnouncementSection = () => {
                 { value: "high", label: "High" },
               ]}
               required
+              comboboxProps={{
+                position: "bottom",
+                middlewares: { flip: true, shift: true },
+                dropdownPadding: 4,
+              }}
+              styles={{
+                dropdown: {
+                  zIndex: 1000,
+                },
+              }}
             />
             <TextInput
               label="Scheduled Date"
@@ -688,32 +740,38 @@ const ManageAnnouncementSection = () => {
               accept="image/jpeg,image/png,image/webp,image/jpg"
               multiple
               onChange={handleFileChange}
+              clearable
+              description="Max 5MB per image"
             />
             <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
-              {formData.images.map((file, index) => (
-                <Box key={index} pos="relative">
-                  <MantineImage
-                    src={URL.createObjectURL(file)}
-                    alt={`Preview ${index}`}
-                    w={100}
-                    h={100}
-                    fit="cover"
-                    radius="md"
-                  />
-                  <ActionIcon
-                    pos="absolute"
-                    top={-8}
-                    right={-8}
-                    color="red"
-                    variant="filled"
-                    radius="xl"
-                    size="sm"
-                    onClick={() => handleRemoveImage(index)}
-                  >
-                    <IconX size={14} />
-                  </ActionIcon>
-                </Box>
-              ))}
+              {formData.images.map((file, index) => {
+                const previewUrl = URL.createObjectURL(file);
+                return (
+                  <Box key={index} pos="relative">
+                    <MantineImage
+                      src={previewUrl}
+                      alt={`Preview ${index}`}
+                      w={100}
+                      h={100}
+                      fit="cover"
+                      radius="md"
+                      loading="lazy"
+                    />
+                    <ActionIcon
+                      pos="absolute"
+                      top={-8}
+                      right={-8}
+                      color="red"
+                      variant="filled"
+                      radius="xl"
+                      size="sm"
+                      onClick={() => handleRemoveImage(index)}
+                    >
+                      <IconX size={14} />
+                    </ActionIcon>
+                  </Box>
+                );
+              })}
               {isEditing &&
                 announcements
                   .find((ann) => ann._id === formData.id)
@@ -729,6 +787,7 @@ const ManageAnnouncementSection = () => {
                         h={100}
                         fit="cover"
                         radius="md"
+                        loading="lazy"
                       />
                       <ActionIcon
                         pos="absolute"
@@ -750,6 +809,8 @@ const ManageAnnouncementSection = () => {
                 color="blue"
                 leftSection={<IconCheck size={16} />}
                 onClick={handleSubmit}
+                loading={submitting}
+                disabled={submitting}
               >
                 {isEditing ? "Update Announcement" : "Create Announcement"}
               </MantineButton>
