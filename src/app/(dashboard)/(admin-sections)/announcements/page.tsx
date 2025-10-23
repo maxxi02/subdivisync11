@@ -125,14 +125,14 @@ const AnnouncementCard = ({
                 display: "flex",
                 transform: `translateX(-${currentIndex * 100}%)`,
                 transition: "transform 0.3s ease-in-out",
-                width: `${images.length * 100}%`,
               }}
             >
               {images.map((image, idx) => (
                 <Box
                   key={image.publicId}
                   style={{
-                    width: `${100 / images.length}%`,
+                    minWidth: "100%",
+                    width: "100%",
                     flexShrink: 0,
                   }}
                 >
@@ -140,6 +140,7 @@ const AnnouncementCard = ({
                     src={image.url}
                     alt={announcement.title}
                     h={300}
+                    w="100%"
                     fit="cover"
                     loading={idx === 0 ? "eager" : "lazy"}
                   />
@@ -150,11 +151,14 @@ const AnnouncementCard = ({
           {images.length > 1 && (
             <>
               <ActionIcon
-                onClick={prev}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  prev();
+                }}
                 pos="absolute"
                 left={8}
                 top="50%"
-                style={{ transform: "translateY(-50%)" }}
+                style={{ transform: "translateY(-50%)", zIndex: 10 }}
                 variant="filled"
                 color="white"
                 bg="rgba(255, 255, 255, 0.7)"
@@ -164,11 +168,14 @@ const AnnouncementCard = ({
                 <IconChevronLeft size={18} color="black" />
               </ActionIcon>
               <ActionIcon
-                onClick={next}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  next();
+                }}
                 pos="absolute"
                 right={8}
                 top="50%"
-                style={{ transform: "translateY(-50%)" }}
+                style={{ transform: "translateY(-50%)", zIndex: 10 }}
                 variant="filled"
                 color="white"
                 bg="rgba(255, 255, 255, 0.7)"
@@ -177,6 +184,38 @@ const AnnouncementCard = ({
               >
                 <IconChevronRight size={18} color="black" />
               </ActionIcon>
+
+              {/* Optional: Add indicators */}
+              <Group
+                gap={4}
+                justify="center"
+                pos="absolute"
+                bottom={8}
+                left={0}
+                right={0}
+                style={{ zIndex: 10 }}
+              >
+                {images.map((_, idx) => (
+                  <Box
+                    key={idx}
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      backgroundColor:
+                        currentIndex === idx
+                          ? "white"
+                          : "rgba(255, 255, 255, 0.5)",
+                      cursor: "pointer",
+                      transition: "all 0.3s ease",
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentIndex(idx);
+                    }}
+                  />
+                ))}
+              </Group>
             </>
           )}
         </Box>
