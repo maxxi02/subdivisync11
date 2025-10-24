@@ -19,6 +19,7 @@ import {
   useMantineTheme,
   useMantineColorScheme,
   rgba,
+  ScrollArea,
 } from "@mantine/core";
 import {
   IconCalendar,
@@ -28,9 +29,6 @@ import {
   IconClock,
   IconCreditCard,
   IconUser,
-  IconSquare,
-  IconBed,
-  IconBath,
   IconAlertCircle,
   IconCheck,
   IconX,
@@ -176,7 +174,12 @@ const MyApplication = () => {
         setSession(session);
         showNotification("success", "Session loaded successfully");
       } catch (error) {
-        showNotification("error", "Failed to load session. Please try again.");
+        showNotification(
+          "error",
+          "Failed to load session. Please try again." +
+            "," +
+            (error as Error).message
+        );
       }
     };
     getSession();
@@ -439,119 +442,121 @@ const MyApplication = () => {
           withBorder
           style={{ boxShadow: getDefaultShadow() }}
         >
-          <Table>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Property</Table.Th>
-                <Table.Th>Application Date</Table.Th>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Actions</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {inquiries.length === 0 ? (
+          <ScrollArea type="auto">
+            <Table>
+              <Table.Thead>
                 <Table.Tr>
-                  <Table.Td colSpan={4} ta="center" py="xl">
-                    <Text c={primaryTextColor}>No applications found.</Text>
-                  </Table.Td>
+                  <Table.Th>Property</Table.Th>
+                  <Table.Th>Application Date</Table.Th>
+                  <Table.Th>Status</Table.Th>
+                  <Table.Th>Actions</Table.Th>
                 </Table.Tr>
-              ) : (
-                inquiries.map((inquiry, index) => (
-                  <Table.Tr
-                    key={`${inquiry.propertyId}-${inquiry.email}-${index}`}
-                  >
-                    <Table.Td>
-                      <Stack gap="xs">
-                        <Text fw={500} c={primaryTextColor}>
-                          {inquiry.propertyTitle}
-                        </Text>
-                        <Group gap="xs">
-                          <IconMapPin size={16} color="gray" />
-                          <Text size="sm" c={primaryTextColor}>
-                            {inquiry.propertyLocation}
-                          </Text>
-                        </Group>
-                        <Group gap="xs">
-                          <IconCurrencyDollar size={16} color="gray" />
-                          <Text size="sm" c={primaryTextColor}>
-                            {new Intl.NumberFormat("en-PH", {
-                              style: "currency",
-                              currency: "PHP",
-                            }).format(inquiry.propertyPrice)}
-                          </Text>
-                        </Group>
-                      </Stack>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        <IconCalendar size={16} color="gray" />
-                        <Text size="sm" c={primaryTextColor}>
-                          {new Date(inquiry.submittedAt).toLocaleDateString()}
-                        </Text>
-                      </Group>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge
-                        color={getStatusBadge(
-                          inquiry.status,
-                          inquiry.propertyStatus
-                        )}
-                        variant="light"
-                        size="sm"
-                        radius="md"
-                      >
-                        {inquiry.propertyStatus === "LEASED"
-                          ? "Leased"
-                          : inquiry.status.charAt(0).toUpperCase() +
-                            inquiry.status.slice(1)}
-                      </Badge>
-                      {inquiry.status === "rejected" &&
-                        inquiry.rejectionReason && (
-                          <Text size="xs" c="red.6" mt="xs">
-                            <Group gap="xs">
-                              <IconAlertCircle size={12} />
-                              {inquiry.rejectionReason}
-                            </Group>
-                          </Text>
-                        )}
-                    </Table.Td>
-                    <Table.Td>
-                      <MantineButton
-                        size="xs"
-                        color="blue"
-                        onClick={async () => {
-                          const errors = validateInquiry(inquiry);
-                          if (errors.length > 0) {
-                            showNotification("error", errors[0]);
-                            return;
-                          }
-                          setSelectedInquiry(inquiry);
-                          setShowViewModal(true);
-                          showNotification(
-                            "success",
-                            "Viewing application details"
-                          );
-                          if (
-                            inquiry.propertyStatus === "LEASED" ||
-                            inquiry.status === "approved"
-                          ) {
-                            await fetchPaymentPlan(
-                              inquiry.propertyId,
-                              inquiry.email
-                            );
-                          }
-                        }}
-                        disabled={isFetchingPayment}
-                        leftSection={<IconEye size={16} />}
-                      >
-                        View
-                      </MantineButton>
+              </Table.Thead>
+              <Table.Tbody>
+                {inquiries.length === 0 ? (
+                  <Table.Tr>
+                    <Table.Td colSpan={4} ta="center" py="xl">
+                      <Text c={primaryTextColor}>No applications found.</Text>
                     </Table.Td>
                   </Table.Tr>
-                ))
-              )}
-            </Table.Tbody>
-          </Table>
+                ) : (
+                  inquiries.map((inquiry, index) => (
+                    <Table.Tr
+                      key={`${inquiry.propertyId}-${inquiry.email}-${index}`}
+                    >
+                      <Table.Td>
+                        <Stack gap="xs">
+                          <Text fw={500} c={primaryTextColor}>
+                            {inquiry.propertyTitle}
+                          </Text>
+                          <Group gap="xs">
+                            <IconMapPin size={16} color="gray" />
+                            <Text size="sm" c={primaryTextColor}>
+                              {inquiry.propertyLocation}
+                            </Text>
+                          </Group>
+                          <Group gap="xs">
+                            <IconCurrencyDollar size={16} color="gray" />
+                            <Text size="sm" c={primaryTextColor}>
+                              {new Intl.NumberFormat("en-PH", {
+                                style: "currency",
+                                currency: "PHP",
+                              }).format(inquiry.propertyPrice)}
+                            </Text>
+                          </Group>
+                        </Stack>
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap="xs">
+                          <IconCalendar size={16} color="gray" />
+                          <Text size="sm" c={primaryTextColor}>
+                            {new Date(inquiry.submittedAt).toLocaleDateString()}
+                          </Text>
+                        </Group>
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge
+                          color={getStatusBadge(
+                            inquiry.status,
+                            inquiry.propertyStatus
+                          )}
+                          variant="light"
+                          size="sm"
+                          radius="md"
+                        >
+                          {inquiry.propertyStatus === "LEASED"
+                            ? "Leased"
+                            : inquiry.status.charAt(0).toUpperCase() +
+                              inquiry.status.slice(1)}
+                        </Badge>
+                        {inquiry.status === "rejected" &&
+                          inquiry.rejectionReason && (
+                            <Text size="xs" c="red.6" mt="xs">
+                              <Group gap="xs">
+                                <IconAlertCircle size={12} />
+                                {inquiry.rejectionReason}
+                              </Group>
+                            </Text>
+                          )}
+                      </Table.Td>
+                      <Table.Td>
+                        <MantineButton
+                          size="xs"
+                          color="blue"
+                          onClick={async () => {
+                            const errors = validateInquiry(inquiry);
+                            if (errors.length > 0) {
+                              showNotification("error", errors[0]);
+                              return;
+                            }
+                            setSelectedInquiry(inquiry);
+                            setShowViewModal(true);
+                            showNotification(
+                              "success",
+                              "Viewing application details"
+                            );
+                            if (
+                              inquiry.propertyStatus === "LEASED" ||
+                              inquiry.status === "approved"
+                            ) {
+                              await fetchPaymentPlan(
+                                inquiry.propertyId,
+                                inquiry.email
+                              );
+                            }
+                          }}
+                          disabled={isFetchingPayment}
+                          leftSection={<IconEye size={16} />}
+                        >
+                          View
+                        </MantineButton>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))
+                )}
+              </Table.Tbody>
+            </Table>
+          </ScrollArea>
         </Card>
 
         {/* View Details Modal */}

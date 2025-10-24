@@ -15,12 +15,12 @@ import {
   LoadingOverlay,
   Notification,
   Badge,
-  ActionIcon,
   Progress,
   Table,
   useMantineTheme,
   useMantineColorScheme,
   rgba,
+  ScrollArea,
 } from "@mantine/core";
 import {
   IconClock,
@@ -28,7 +28,6 @@ import {
   IconCreditCard,
   IconRefresh,
   IconEye,
-  IconX,
   IconHome,
   IconTrendingUp,
   IconCheck,
@@ -87,13 +86,21 @@ const TransactionPage = () => {
   const [paymentPlans, setPaymentPlans] = useState<PaymentPlan[]>([]);
   const [monthlyPayments, setMonthlyPayments] = useState<MonthlyPayment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [processingPayment, setProcessingPayment] = useState<string | null>(null);
+  const [processingPayment, setProcessingPayment] = useState<string | null>(
+    null
+  );
   const [selectedPlan, setSelectedPlan] = useState<PaymentPlan | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<MonthlyPayment | null>(null);
-  const [filter, setFilter] = useState<"all" | "active" | "completed" | "overdue">("all");
-  const [notification, setNotification] = useState<NotificationType | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<MonthlyPayment | null>(
+    null
+  );
+  const [filter, setFilter] = useState<
+    "all" | "active" | "completed" | "overdue"
+  >("all");
+  const [notification, setNotification] = useState<NotificationType | null>(
+    null
+  );
 
   const primaryTextColor = colorScheme === "dark" ? "white" : "dark";
   const getDefaultShadow = () => {
@@ -119,7 +126,10 @@ const TransactionPage = () => {
       }
     } catch (error) {
       console.error("Error fetching payment plans:", error);
-      showNotification("error", (error as Error).message || "Failed to load payment plans");
+      showNotification(
+        "error",
+        (error as Error).message || "Failed to load payment plans"
+      );
     }
   }, []);
 
@@ -135,7 +145,10 @@ const TransactionPage = () => {
       }
     } catch (error) {
       console.error("Error fetching monthly payments:", error);
-      showNotification("error", (error as Error).message || "Failed to load monthly payments");
+      showNotification(
+        "error",
+        (error as Error).message || "Failed to load monthly payments"
+      );
     }
   }, []);
 
@@ -156,28 +169,37 @@ const TransactionPage = () => {
   });
 
   const getPaymentsForPlan = (planId: string) => {
-    return monthlyPayments.filter((payment) => payment.paymentPlanId === planId);
+    return monthlyPayments.filter(
+      (payment) => payment.paymentPlanId === planId
+    );
   };
 
   const getOverduePayments = () => {
     const today = new Date();
     return monthlyPayments.filter(
-      (payment) => payment.status === "pending" && new Date(payment.dueDate) < today
+      (payment) =>
+        payment.status === "pending" && new Date(payment.dueDate) < today
     );
   };
 
-  const updatePaymentPlanProgress = async (paymentPlanId: string, paymentAmount: number) => {
+  const updatePaymentPlanProgress = async (
+    paymentPlanId: string,
+    paymentAmount: number
+  ) => {
     try {
-      const response = await fetch(`/api/tenant/payment-plans/${paymentPlanId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          paymentAmount,
-          updateType: "payment_made",
-        }),
-      });
+      const response = await fetch(
+        `/api/tenant/payment-plans/${paymentPlanId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            paymentAmount,
+            updateType: "payment_made",
+          }),
+        }
+      );
 
       const data = await response.json();
       if (!data.success) {
@@ -212,7 +234,10 @@ const TransactionPage = () => {
       if (data.success) {
         if (data.paymentProcessed) {
           await markPaymentAsPaid(payment._id, data.paymentIntentId);
-          await updatePaymentPlanProgress(payment.paymentPlanId, payment.amount);
+          await updatePaymentPlanProgress(
+            payment.paymentPlanId,
+            payment.amount
+          );
           await Promise.all([fetchPaymentPlans(), fetchMonthlyPayments()]);
           showNotification("success", "Payment successful!");
           setShowPaymentModal(false);
@@ -234,26 +259,35 @@ const TransactionPage = () => {
       }
     } catch (error) {
       console.error("Error processing payment:", error);
-      showNotification("error", (error as Error).message || "Failed to process payment");
+      showNotification(
+        "error",
+        (error as Error).message || "Failed to process payment"
+      );
       setProcessingPayment(null);
       setShowPaymentModal(false);
     }
   };
 
-  const markPaymentAsPaid = async (paymentId: string, paymentIntentId?: string) => {
+  const markPaymentAsPaid = async (
+    paymentId: string,
+    paymentIntentId?: string
+  ) => {
     try {
-      const response = await fetch(`/api/tenant/monthly-payments/${paymentId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          status: "paid",
-          paidDate: new Date().toISOString(),
-          paymentMethod: "PayMongo",
-          paymentIntentId: paymentIntentId || undefined,
-        }),
-      });
+      const response = await fetch(
+        `/api/tenant/monthly-payments/${paymentId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            status: "paid",
+            paidDate: new Date().toISOString(),
+            paymentMethod: "PayMongo",
+            paymentIntentId: paymentIntentId || undefined,
+          }),
+        }
+      );
 
       const data = await response.json();
       if (data.success) {
@@ -264,7 +298,10 @@ const TransactionPage = () => {
       }
     } catch (error) {
       console.error("Error updating payment:", error);
-      showNotification("error", (error as Error).message || "Failed to update payment");
+      showNotification(
+        "error",
+        (error as Error).message || "Failed to update payment"
+      );
       return false;
     }
   };
@@ -281,14 +318,21 @@ const TransactionPage = () => {
           if (paymentStatus === "success") {
             const success = await markPaymentAsPaid(paymentInfo.paymentId);
             if (success) {
-              await updatePaymentPlanProgress(paymentInfo.paymentPlanId, paymentInfo.amount);
+              await updatePaymentPlanProgress(
+                paymentInfo.paymentPlanId,
+                paymentInfo.amount
+              );
               await Promise.all([fetchPaymentPlans(), fetchMonthlyPayments()]);
               showNotification("success", "Payment completed successfully!");
             }
           }
           localStorage.removeItem("pendingPayment");
           if (paymentStatus) {
-            window.history.replaceState({}, document.title, window.location.pathname);
+            window.history.replaceState(
+              {},
+              document.title,
+              window.location.pathname
+            );
           }
         } catch (error) {
           console.error("Error processing pending payment:", error);
@@ -354,7 +398,13 @@ const TransactionPage = () => {
       )}
       <Stack gap="xl">
         {/* Header */}
-        <Card shadow="sm" padding="lg" radius="lg" withBorder style={{ boxShadow: getDefaultShadow() }}>
+        <Card
+          shadow="sm"
+          padding="lg"
+          radius="lg"
+          withBorder
+          style={{ boxShadow: getDefaultShadow() }}
+        >
           <Group justify="space-between" align="center">
             <Stack gap="xs">
               <Title order={1} size="h2" fw={600} c={primaryTextColor}>
@@ -367,7 +417,9 @@ const TransactionPage = () => {
             <Group gap="md">
               <Select
                 value={filter}
-                onChange={(value) => setFilter(value as "all" | "active" | "completed" | "overdue")}
+                onChange={(value) =>
+                  setFilter(value as "all" | "active" | "completed" | "overdue")
+                }
                 data={[
                   { value: "all", label: "All Plans" },
                   { value: "active", label: "Active" },
@@ -390,7 +442,13 @@ const TransactionPage = () => {
 
         {/* Stats Cards */}
         <SimpleGrid cols={{ base: 1, md: 4 }} spacing="md">
-          <Card shadow="sm" padding="lg" radius="lg" withBorder style={{ boxShadow: getDefaultShadow() }}>
+          <Card
+            shadow="sm"
+            padding="lg"
+            radius="lg"
+            withBorder
+            style={{ boxShadow: getDefaultShadow() }}
+          >
             <Group justify="space-between" align="center">
               <Stack gap="xs">
                 <Text size="sm" c={primaryTextColor} fw={500}>
@@ -400,12 +458,21 @@ const TransactionPage = () => {
                   {paymentPlans.filter((p) => p.status === "active").length}
                 </Text>
               </Stack>
-              <Group className="h-12 w-12 bg-blue-100 rounded-lg" justify="center">
+              <Group
+                className="h-12 w-12 bg-blue-100 rounded-lg"
+                justify="center"
+              >
                 <IconHome size={24} color="blue" />
               </Group>
             </Group>
           </Card>
-          <Card shadow="sm" padding="lg" radius="lg" withBorder style={{ boxShadow: getDefaultShadow() }}>
+          <Card
+            shadow="sm"
+            padding="lg"
+            radius="lg"
+            withBorder
+            style={{ boxShadow: getDefaultShadow() }}
+          >
             <Group justify="space-between" align="center">
               <Stack gap="xs">
                 <Text size="sm" c={primaryTextColor} fw={500}>
@@ -415,12 +482,21 @@ const TransactionPage = () => {
                   {monthlyPayments.filter((p) => p.status === "pending").length}
                 </Text>
               </Stack>
-              <Group className="h-12 w-12 bg-yellow-100 rounded-lg" justify="center">
+              <Group
+                className="h-12 w-12 bg-yellow-100 rounded-lg"
+                justify="center"
+              >
                 <IconClock size={24} color="yellow" />
               </Group>
             </Group>
           </Card>
-          <Card shadow="sm" padding="lg" radius="lg" withBorder style={{ boxShadow: getDefaultShadow() }}>
+          <Card
+            shadow="sm"
+            padding="lg"
+            radius="lg"
+            withBorder
+            style={{ boxShadow: getDefaultShadow() }}
+          >
             <Group justify="space-between" align="center">
               <Stack gap="xs">
                 <Text size="sm" c={primaryTextColor} fw={500}>
@@ -430,22 +506,39 @@ const TransactionPage = () => {
                   {getOverduePayments().length}
                 </Text>
               </Stack>
-              <Group className="h-12 w-12 bg-red-100 rounded-lg" justify="center">
+              <Group
+                className="h-12 w-12 bg-red-100 rounded-lg"
+                justify="center"
+              >
                 <IconAlertCircle size={24} color="red" />
               </Group>
             </Group>
           </Card>
-          <Card shadow="sm" padding="lg" radius="lg" withBorder style={{ boxShadow: getDefaultShadow() }}>
+          <Card
+            shadow="sm"
+            padding="lg"
+            radius="lg"
+            withBorder
+            style={{ boxShadow: getDefaultShadow() }}
+          >
             <Group justify="space-between" align="center">
               <Stack gap="xs">
                 <Text size="sm" c={primaryTextColor} fw={500}>
                   Total Remaining
                 </Text>
                 <Text size="xl" fw={700} c="green.6">
-                  {formatCurrency(paymentPlans.reduce((sum, plan) => sum + plan.remainingBalance, 0))}
+                  {formatCurrency(
+                    paymentPlans.reduce(
+                      (sum, plan) => sum + plan.remainingBalance,
+                      0
+                    )
+                  )}
                 </Text>
               </Stack>
-              <Group className="h-12 w-12 bg-green-100 rounded-lg" justify="center">
+              <Group
+                className="h-12 w-12 bg-green-100 rounded-lg"
+                justify="center"
+              >
                 <IconTrendingUp size={24} color="green" />
               </Group>
             </Group>
@@ -453,7 +546,13 @@ const TransactionPage = () => {
         </SimpleGrid>
 
         {/* Payment Plans */}
-        <Card shadow="sm" padding="lg" radius="lg" withBorder style={{ boxShadow: getDefaultShadow() }}>
+        <Card
+          shadow="sm"
+          padding="lg"
+          radius="lg"
+          withBorder
+          style={{ boxShadow: getDefaultShadow() }}
+        >
           {filteredPaymentPlans.length === 0 ? (
             <Stack align="center" gap="md" py="xl">
               <IconHome size={64} color="gray" />
@@ -461,20 +560,31 @@ const TransactionPage = () => {
                 No Payment Plans Found
               </Text>
               <Text size="sm" c={primaryTextColor}>
-                You don&apos;t have any {filter !== "all" ? filter : ""} payment plans at the moment.
+                You don&apos;t have any {filter !== "all" ? filter : ""} payment
+                plans at the moment.
               </Text>
             </Stack>
           ) : (
             <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
               {filteredPaymentPlans.map((plan) => {
                 const planPayments = getPaymentsForPlan(plan._id);
-                const pendingPayments = planPayments.filter((p) => p.status === "pending");
+                const pendingPayments = planPayments.filter(
+                  (p) => p.status === "pending"
+                );
                 const nextPayment = pendingPayments.sort(
-                  (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+                  (a, b) =>
+                    new Date(a.dueDate).getTime() -
+                    new Date(b.dueDate).getTime()
                 )[0];
 
                 return (
-                  <Card key={plan._id} padding="lg" radius="lg" withBorder style={{ boxShadow: getDefaultShadow() }}>
+                  <Card
+                    key={plan._id}
+                    padding="lg"
+                    radius="lg"
+                    withBorder
+                    style={{ boxShadow: getDefaultShadow() }}
+                  >
                     <Stack gap="md">
                       <Group justify="space-between" align="flex-start">
                         <Stack gap="xs">
@@ -527,13 +637,18 @@ const TransactionPage = () => {
                             Progress
                           </Text>
                           <Progress
-                            value={(plan.currentMonth / plan.leaseDuration) * 100}
+                            value={
+                              (plan.currentMonth / plan.leaseDuration) * 100
+                            }
                             color="blue"
                             size="sm"
                             radius="md"
                           />
                           <Text size="xs" c={primaryTextColor}>
-                            {Math.round((plan.currentMonth / plan.leaseDuration) * 100)}% Complete
+                            {Math.round(
+                              (plan.currentMonth / plan.leaseDuration) * 100
+                            )}
+                            % Complete
                           </Text>
                         </Stack>
                       </SimpleGrid>
@@ -547,15 +662,31 @@ const TransactionPage = () => {
                         >
                           <Group justify="space-between" align="center">
                             <Stack gap="xs">
-                              <Text size="sm" fw={500} c={colorScheme === "dark" ? "white" : "yellow.8"}>
+                              <Text
+                                size="sm"
+                                fw={500}
+                                c={
+                                  colorScheme === "dark" ? "white" : "yellow.8"
+                                }
+                              >
                                 Payment Due: Month {nextPayment.monthNumber}
                               </Text>
-                              <Text size="xs" c={colorScheme === "dark" ? "white" : "yellow.6"}>
+                              <Text
+                                size="xs"
+                                c={
+                                  colorScheme === "dark" ? "white" : "yellow.6"
+                                }
+                              >
                                 Due: {formatDate(nextPayment.dueDate)}
                               </Text>
                             </Stack>
                             <Stack gap="xs" align="flex-end">
-                              <Text fw={500} c={colorScheme === "dark" ? "white" : "yellow.8"}>
+                              <Text
+                                fw={500}
+                                c={
+                                  colorScheme === "dark" ? "white" : "yellow.8"
+                                }
+                              >
                                 {formatCurrency(nextPayment.amount)}
                               </Text>
                               <Badge
@@ -584,7 +715,9 @@ const TransactionPage = () => {
                             disabled={processingPayment === nextPayment._id}
                             leftSection={<IconCreditCard size={16} />}
                           >
-                            {processingPayment === nextPayment._id ? "Processing..." : "Pay Now"}
+                            {processingPayment === nextPayment._id
+                              ? "Processing..."
+                              : "Pay Now"}
                           </MantineButton>
                         )}
                         <MantineButton
@@ -612,45 +745,76 @@ const TransactionPage = () => {
         <Modal
           opened={showPaymentModal}
           onClose={() => setShowPaymentModal(false)}
-          title={<Text fw={600} c={primaryTextColor}>Confirm Payment</Text>}
+          title={
+            <Text fw={600} c={primaryTextColor}>
+              Confirm Payment
+            </Text>
+          }
           centered
           size="md"
         >
           {selectedPayment && selectedPlan && (
             <Stack gap="md">
-              <Card withBorder radius="lg" style={{ boxShadow: getDefaultShadow() }}>
+              <Card
+                withBorder
+                radius="lg"
+                style={{ boxShadow: getDefaultShadow() }}
+              >
                 <Stack gap="sm">
                   <Group justify="space-between">
-                    <Text size="sm" c={primaryTextColor}>Property:</Text>
-                    <Text fw={500} c={primaryTextColor}>{selectedPlan.propertyTitle}</Text>
-                  </Group>
-                  <Group justify="space-between">
-                    <Text size="sm" c={primaryTextColor}>Payment Month:</Text>
+                    <Text size="sm" c={primaryTextColor}>
+                      Property:
+                    </Text>
                     <Text fw={500} c={primaryTextColor}>
-                      {selectedPayment.monthNumber} of {selectedPlan.leaseDuration}
+                      {selectedPlan.propertyTitle}
                     </Text>
                   </Group>
                   <Group justify="space-between">
-                    <Text size="sm" c={primaryTextColor}>Due Date:</Text>
-                    <Text fw={500} c={primaryTextColor}>{formatDate(selectedPayment.dueDate)}</Text>
-                  </Group>
-                  <Group justify="space-between">
-                    <Text size="sm" c={primaryTextColor}>Current Progress:</Text>
+                    <Text size="sm" c={primaryTextColor}>
+                      Payment Month:
+                    </Text>
                     <Text fw={500} c={primaryTextColor}>
-                      {selectedPlan.currentMonth} / {selectedPlan.leaseDuration} months
+                      {selectedPayment.monthNumber} of{" "}
+                      {selectedPlan.leaseDuration}
                     </Text>
                   </Group>
                   <Group justify="space-between">
-                    <Text size="sm" c={primaryTextColor}>Amount:</Text>
+                    <Text size="sm" c={primaryTextColor}>
+                      Due Date:
+                    </Text>
+                    <Text fw={500} c={primaryTextColor}>
+                      {formatDate(selectedPayment.dueDate)}
+                    </Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c={primaryTextColor}>
+                      Current Progress:
+                    </Text>
+                    <Text fw={500} c={primaryTextColor}>
+                      {selectedPlan.currentMonth} / {selectedPlan.leaseDuration}{" "}
+                      months
+                    </Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c={primaryTextColor}>
+                      Amount:
+                    </Text>
                     <Text fw={700} c="green.6" size="lg">
                       {formatCurrency(selectedPayment.amount)}
                     </Text>
                   </Group>
                 </Stack>
               </Card>
-              <Card withBorder radius="md" bg={colorScheme === "dark" ? "blue.9" : "blue.1"} p="sm">
+              <Card
+                withBorder
+                radius="md"
+                bg={colorScheme === "dark" ? "blue.9" : "blue.1"}
+                p="sm"
+              >
                 <Text size="xs" c={colorScheme === "dark" ? "white" : "blue.8"}>
-                  <strong>After payment:</strong> Progress will advance to month {selectedPayment.monthNumber}, and your remaining balance will be reduced by {formatCurrency(selectedPayment.amount)}.
+                  <strong>After payment:</strong> Progress will advance to month{" "}
+                  {selectedPayment.monthNumber}, and your remaining balance will
+                  be reduced by {formatCurrency(selectedPayment.amount)}.
                 </Text>
               </Card>
               <Group gap="md">
@@ -662,7 +826,9 @@ const TransactionPage = () => {
                   leftSection={<IconCreditCard size={16} />}
                   fullWidth
                 >
-                  {processingPayment === selectedPayment._id ? "Processing..." : "Pay with PayMongo"}
+                  {processingPayment === selectedPayment._id
+                    ? "Processing..."
+                    : "Pay with PayMongo"}
                 </MantineButton>
                 <MantineButton
                   size="md"
@@ -682,7 +848,11 @@ const TransactionPage = () => {
         <Modal
           opened={showDetailsModal}
           onClose={() => setShowDetailsModal(false)}
-          title={<Text fw={600} c={primaryTextColor}>Payment Plan Details</Text>}
+          title={
+            <Text fw={600} c={primaryTextColor}>
+              Payment Plan Details
+            </Text>
+          }
           centered
           size="xl"
           styles={{ content: { maxHeight: "90vh", overflowY: "auto" } }}
@@ -690,162 +860,259 @@ const TransactionPage = () => {
           {selectedPlan && (
             <Stack gap="md">
               {/* Plan Overview */}
-              <Card withBorder radius="lg" style={{ boxShadow: getDefaultShadow() }}>
+              <Card
+                withBorder
+                radius="lg"
+                style={{ boxShadow: getDefaultShadow() }}
+              >
                 <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
                   <Stack gap="md">
-                    <Text fw={600} c={primaryTextColor}>Property Information</Text>
+                    <Text fw={600} c={primaryTextColor}>
+                      Property Information
+                    </Text>
                     <Stack gap="xs">
-                      <Text size="sm" c={primaryTextColor}>Property:</Text>
-                      <Text fw={500} c={primaryTextColor}>{selectedPlan.propertyTitle}</Text>
+                      <Text size="sm" c={primaryTextColor}>
+                        Property:
+                      </Text>
+                      <Text fw={500} c={primaryTextColor}>
+                        {selectedPlan.propertyTitle}
+                      </Text>
                     </Stack>
                     <Stack gap="xs">
-                      <Text size="sm" c={primaryTextColor}>Property Price:</Text>
-                      <Text fw={500} c={primaryTextColor}>{formatCurrency(selectedPlan.propertyPrice)}</Text>
+                      <Text size="sm" c={primaryTextColor}>
+                        Property Price:
+                      </Text>
+                      <Text fw={500} c={primaryTextColor}>
+                        {formatCurrency(selectedPlan.propertyPrice)}
+                      </Text>
                     </Stack>
                     <Stack gap="xs">
-                      <Text size="sm" c={primaryTextColor}>Down Payment:</Text>
-                      <Text fw={500} c={primaryTextColor}>{formatCurrency(selectedPlan.downPayment)}</Text>
+                      <Text size="sm" c={primaryTextColor}>
+                        Down Payment:
+                      </Text>
+                      <Text fw={500} c={primaryTextColor}>
+                        {formatCurrency(selectedPlan.downPayment)}
+                      </Text>
                     </Stack>
                   </Stack>
                   <Stack gap="md">
-                    <Text fw={600} c={primaryTextColor}>Payment Terms</Text>
+                    <Text fw={600} c={primaryTextColor}>
+                      Payment Terms
+                    </Text>
                     <Stack gap="xs">
-                      <Text size="sm" c={primaryTextColor}>Monthly Payment:</Text>
-                      <Text fw={500} c={primaryTextColor}>{formatCurrency(selectedPlan.monthlyPayment)}</Text>
+                      <Text size="sm" c={primaryTextColor}>
+                        Monthly Payment:
+                      </Text>
+                      <Text fw={500} c={primaryTextColor}>
+                        {formatCurrency(selectedPlan.monthlyPayment)}
+                      </Text>
                     </Stack>
                     <Stack gap="xs">
-                      <Text size="sm" c={primaryTextColor}>Interest Rate:</Text>
-                      <Text fw={500} c={primaryTextColor}>{selectedPlan.interestRate}% per annum</Text>
+                      <Text size="sm" c={primaryTextColor}>
+                        Interest Rate:
+                      </Text>
+                      <Text fw={500} c={primaryTextColor}>
+                        {selectedPlan.interestRate}% per annum
+                      </Text>
                     </Stack>
                     <Stack gap="xs">
-                      <Text size="sm" c={primaryTextColor}>Lease Duration:</Text>
-                      <Text fw={500} c={primaryTextColor}>{selectedPlan.leaseDuration} months</Text>
+                      <Text size="sm" c={primaryTextColor}>
+                        Lease Duration:
+                      </Text>
+                      <Text fw={500} c={primaryTextColor}>
+                        {selectedPlan.leaseDuration} months
+                      </Text>
                     </Stack>
                     <Stack gap="xs">
-                      <Text size="sm" c={primaryTextColor}>Total Amount:</Text>
-                      <Text fw={500} c={primaryTextColor}>{formatCurrency(selectedPlan.totalAmount)}</Text>
+                      <Text size="sm" c={primaryTextColor}>
+                        Total Amount:
+                      </Text>
+                      <Text fw={500} c={primaryTextColor}>
+                        {formatCurrency(selectedPlan.totalAmount)}
+                      </Text>
                     </Stack>
                   </Stack>
                 </SimpleGrid>
               </Card>
 
               {/* Progress */}
-              <Card withBorder radius="lg" style={{ boxShadow: getDefaultShadow() }}>
+              <Card
+                withBorder
+                radius="lg"
+                style={{ boxShadow: getDefaultShadow() }}
+              >
                 <Stack gap="md">
-                  <Text fw={600} c={primaryTextColor}>Progress</Text>
+                  <Text fw={600} c={primaryTextColor}>
+                    Progress
+                  </Text>
                   <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
                     <Stack align="center" gap="xs">
-                      <Text size="xl" fw={700} c="blue.6">{selectedPlan.currentMonth}</Text>
-                      <Text size="sm" c={primaryTextColor}>Payments Made</Text>
+                      <Text size="xl" fw={700} c="blue.6">
+                        {selectedPlan.currentMonth}
+                      </Text>
+                      <Text size="sm" c={primaryTextColor}>
+                        Payments Made
+                      </Text>
                     </Stack>
                     <Stack align="center" gap="xs">
-                      <Text size="xl" fw={700} c="yellow.6">{selectedPlan.leaseDuration - selectedPlan.currentMonth}</Text>
-                      <Text size="sm" c={primaryTextColor}>Payments Remaining</Text>
+                      <Text size="xl" fw={700} c="yellow.6">
+                        {selectedPlan.leaseDuration - selectedPlan.currentMonth}
+                      </Text>
+                      <Text size="sm" c={primaryTextColor}>
+                        Payments Remaining
+                      </Text>
                     </Stack>
                     <Stack align="center" gap="xs">
-                      <Text size="xl" fw={700} c="green.6">{formatCurrency(selectedPlan.remainingBalance)}</Text>
-                      <Text size="sm" c={primaryTextColor}>Remaining Balance</Text>
+                      <Text size="xl" fw={700} c="green.6">
+                        {formatCurrency(selectedPlan.remainingBalance)}
+                      </Text>
+                      <Text size="sm" c={primaryTextColor}>
+                        Remaining Balance
+                      </Text>
                     </Stack>
                   </SimpleGrid>
                 </Stack>
               </Card>
 
               {/* Payment History */}
-              <Card withBorder radius="lg" style={{ boxShadow: getDefaultShadow() }}>
+              <Card
+                withBorder
+                radius="lg"
+                style={{ boxShadow: getDefaultShadow() }}
+              >
                 <Stack gap="md">
-                  <Text fw={600} c={primaryTextColor}>Payment History</Text>
+                  <Text fw={600} c={primaryTextColor}>
+                    Payment History
+                  </Text>
                   {getPaymentsForPlan(selectedPlan._id).length === 0 ? (
                     <Text size="sm" c={primaryTextColor} ta="center" py="md">
                       No payment history available.
                     </Text>
                   ) : (
-                    <Table verticalSpacing="sm" horizontalSpacing="md">
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th>Month</Table.Th>
-                          <Table.Th>Amount</Table.Th>
-                          <Table.Th>Due Date</Table.Th>
-                          <Table.Th>Status</Table.Th>
-                          <Table.Th>Paid Date</Table.Th>
-                          <Table.Th>Action</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {getPaymentsForPlan(selectedPlan._id).map((payment) => (
-                          <Table.Tr key={payment._id}>
-                            <Table.Td>Month {payment.monthNumber}</Table.Td>
-                            <Table.Td>{formatCurrency(payment.amount)}</Table.Td>
-                            <Table.Td>{formatDate(payment.dueDate)}</Table.Td>
-                            <Table.Td>
-                              <Badge
-                                variant="light"
-                                color={getStatusBadge(payment.status).color}
-                                size="sm"
-                                radius="md"
-                              >
-                                {getStatusBadge(payment.status).text}
-                              </Badge>
-                            </Table.Td>
-                            <Table.Td>{payment.paidDate ? formatDate(payment.paidDate) : "-"}</Table.Td>
-                            <Table.Td>
-                              {payment.status === "pending" && (
-                                <MantineButton
-                                  size="xs"
-                                  color="green"
-                                  onClick={() => {
-                                    setSelectedPayment(payment);
-                                    setShowPaymentModal(true);
-                                    setShowDetailsModal(false);
-                                  }}
-                                  disabled={processingPayment === payment._id}
-                                  leftSection={<IconCreditCard size={16} />}
-                                >
-                                  Pay Now
-                                </MantineButton>
-                              )}
-                              {payment.status === "paid" && payment.receiptUrl && (
-                                <MantineButton
-                                  size="xs"
-                                  variant="outline"
-                                  color="blue"
-                                  component="a"
-                                  href={payment.receiptUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  leftSection={<IconEye size={16} />}
-                                >
-                                  View Receipt
-                                </MantineButton>
-                              )}
-                            </Table.Td>
+                    <ScrollArea type="auto">
+                      <Table verticalSpacing="sm" horizontalSpacing="md">
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th>Month</Table.Th>
+                            <Table.Th>Amount</Table.Th>
+                            <Table.Th>Due Date</Table.Th>
+                            <Table.Th>Status</Table.Th>
+                            <Table.Th>Paid Date</Table.Th>
+                            <Table.Th>Action</Table.Th>
                           </Table.Tr>
-                        ))}
-                      </Table.Tbody>
-                    </Table>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {getPaymentsForPlan(selectedPlan._id).map(
+                            (payment) => (
+                              <Table.Tr key={payment._id}>
+                                <Table.Td>Month {payment.monthNumber}</Table.Td>
+                                <Table.Td>
+                                  {formatCurrency(payment.amount)}
+                                </Table.Td>
+                                <Table.Td>
+                                  {formatDate(payment.dueDate)}
+                                </Table.Td>
+                                <Table.Td>
+                                  <Badge
+                                    variant="light"
+                                    color={getStatusBadge(payment.status).color}
+                                    size="sm"
+                                    radius="md"
+                                  >
+                                    {getStatusBadge(payment.status).text}
+                                  </Badge>
+                                </Table.Td>
+                                <Table.Td>
+                                  {payment.paidDate
+                                    ? formatDate(payment.paidDate)
+                                    : "-"}
+                                </Table.Td>
+                                <Table.Td>
+                                  {payment.status === "pending" && (
+                                    <MantineButton
+                                      size="xs"
+                                      color="green"
+                                      onClick={() => {
+                                        setSelectedPayment(payment);
+                                        setShowPaymentModal(true);
+                                        setShowDetailsModal(false);
+                                      }}
+                                      disabled={
+                                        processingPayment === payment._id
+                                      }
+                                      leftSection={<IconCreditCard size={16} />}
+                                    >
+                                      Pay Now
+                                    </MantineButton>
+                                  )}
+                                  {payment.status === "paid" &&
+                                    payment.receiptUrl && (
+                                      <MantineButton
+                                        size="xs"
+                                        variant="outline"
+                                        color="blue"
+                                        component="a"
+                                        href={payment.receiptUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        leftSection={<IconEye size={16} />}
+                                      >
+                                        View Receipt
+                                      </MantineButton>
+                                    )}
+                                </Table.Td>
+                              </Table.Tr>
+                            )
+                          )}
+                        </Table.Tbody>
+                      </Table>
+                    </ScrollArea>
                   )}
                 </Stack>
               </Card>
 
               {/* Tenant Information */}
-              <Card withBorder radius="lg" style={{ boxShadow: getDefaultShadow() }}>
+              <Card
+                withBorder
+                radius="lg"
+                style={{ boxShadow: getDefaultShadow() }}
+              >
                 <Stack gap="md">
-                  <Text fw={600} c={primaryTextColor}>Tenant Information</Text>
+                  <Text fw={600} c={primaryTextColor}>
+                    Tenant Information
+                  </Text>
                   <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
                     <Stack gap="xs">
-                      <Text size="sm" c={primaryTextColor}>Full Name:</Text>
-                      <Text fw={500} c={primaryTextColor}>{selectedPlan.tenant.fullName}</Text>
+                      <Text size="sm" c={primaryTextColor}>
+                        Full Name:
+                      </Text>
+                      <Text fw={500} c={primaryTextColor}>
+                        {selectedPlan.tenant.fullName}
+                      </Text>
                     </Stack>
                     <Stack gap="xs">
-                      <Text size="sm" c={primaryTextColor}>Email:</Text>
-                      <Text fw={500} c={primaryTextColor}>{selectedPlan.tenant.email}</Text>
+                      <Text size="sm" c={primaryTextColor}>
+                        Email:
+                      </Text>
+                      <Text fw={500} c={primaryTextColor}>
+                        {selectedPlan.tenant.email}
+                      </Text>
                     </Stack>
                     <Stack gap="xs">
-                      <Text size="sm" c={primaryTextColor}>Phone:</Text>
-                      <Text fw={500} c={primaryTextColor}>{selectedPlan.tenant.phone}</Text>
+                      <Text size="sm" c={primaryTextColor}>
+                        Phone:
+                      </Text>
+                      <Text fw={500} c={primaryTextColor}>
+                        {selectedPlan.tenant.phone}
+                      </Text>
                     </Stack>
                     <Stack gap="xs">
-                      <Text size="sm" c={primaryTextColor}>Start Date:</Text>
-                      <Text fw={500} c={primaryTextColor}>{formatDate(selectedPlan.startDate)}</Text>
+                      <Text size="sm" c={primaryTextColor}>
+                        Start Date:
+                      </Text>
+                      <Text fw={500} c={primaryTextColor}>
+                        {formatDate(selectedPlan.startDate)}
+                      </Text>
                     </Stack>
                   </SimpleGrid>
                 </Stack>
