@@ -41,6 +41,10 @@ interface PaymentPlan {
   propertyPrice: number;
   downPayment: number;
   monthlyPayment: number;
+  guardFee?: number;
+  garbageFee?: number;
+  maintenanceFee?: number;
+  totalMonthlyPayment?: number;
   interestRate: number;
   leaseDuration: number;
   totalAmount: number;
@@ -606,16 +610,33 @@ const TransactionPage = () => {
                           </Group>
                         </Stack>
                       </Group>
-
                       <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                         <Stack gap="xs">
                           <Text size="sm" c={primaryTextColor}>
-                            Monthly Payment
+                            Base Monthly Payment
                           </Text>
                           <Text fw={500} c={primaryTextColor}>
                             {formatCurrency(plan.monthlyPayment)}
                           </Text>
                         </Stack>
+                        {((plan.guardFee ?? 0) > 0 ||
+                          (plan.garbageFee ?? 0) > 0 ||
+                          (plan.maintenanceFee ?? 0) > 0) && (
+                          <Stack gap="xs">
+                            <Text size="sm" c={primaryTextColor}>
+                              Total Monthly (incl. HOA)
+                            </Text>
+                            <Text fw={600} c="orange.6">
+                              {formatCurrency(
+                                plan.totalMonthlyPayment ??
+                                  plan.monthlyPayment +
+                                    (plan.guardFee ?? 0) +
+                                    (plan.garbageFee ?? 0) +
+                                    (plan.maintenanceFee ?? 0)
+                              )}
+                            </Text>
+                          </Stack>
+                        )}
                         <Stack gap="xs">
                           <Text size="sm" c={primaryTextColor}>
                             Remaining Balance
@@ -632,7 +653,7 @@ const TransactionPage = () => {
                             {formatDate(plan.nextPaymentDate)}
                           </Text>
                         </Stack>
-                        <Stack gap="xs">
+                        <Stack gap="xs" style={{ gridColumn: "1 / -1" }}>
                           <Text size="sm" c={primaryTextColor}>
                             Progress
                           </Text>
@@ -795,9 +816,61 @@ const TransactionPage = () => {
                       months
                     </Text>
                   </Group>
-                  <Group justify="space-between">
-                    <Text size="sm" c={primaryTextColor}>
-                      Amount:
+
+                  {/* Payment Breakdown */}
+                  <Stack gap="xs" mt="sm">
+                    <Text size="sm" fw={600} c={primaryTextColor}>
+                      Payment Breakdown:
+                    </Text>
+                    <Group justify="space-between" pl="md">
+                      <Text size="sm" c={primaryTextColor}>
+                        Base Payment:
+                      </Text>
+                      <Text fw={500} c={primaryTextColor}>
+                        {formatCurrency(selectedPlan.monthlyPayment)}
+                      </Text>
+                    </Group>
+                    {(selectedPlan.guardFee ?? 0) > 0 && (
+                      <Group justify="space-between" pl="md">
+                        <Text size="sm" c={primaryTextColor}>
+                          Guard Fee:
+                        </Text>
+                        <Text fw={500} c={primaryTextColor}>
+                          {formatCurrency(selectedPlan.guardFee ?? 0)}
+                        </Text>
+                      </Group>
+                    )}
+                    {(selectedPlan.garbageFee ?? 0) > 0 && (
+                      <Group justify="space-between" pl="md">
+                        <Text size="sm" c={primaryTextColor}>
+                          Garbage Collection:
+                        </Text>
+                        <Text fw={500} c={primaryTextColor}>
+                          {formatCurrency(selectedPlan.garbageFee ?? 0)}
+                        </Text>
+                      </Group>
+                    )}
+                    {(selectedPlan.maintenanceFee ?? 0) > 0 && (
+                      <Group justify="space-between" pl="md">
+                        <Text size="sm" c={primaryTextColor}>
+                          Street Maintenance:
+                        </Text>
+                        <Text fw={500} c={primaryTextColor}>
+                          {formatCurrency(selectedPlan.maintenanceFee ?? 0)}
+                        </Text>
+                      </Group>
+                    )}
+                  </Stack>
+
+                  <Group
+                    justify="space-between"
+                    pt="sm"
+                    style={{
+                      borderTop: "2px solid var(--mantine-color-gray-3)",
+                    }}
+                  >
+                    <Text size="sm" fw={600} c={primaryTextColor}>
+                      Total Amount:
                     </Text>
                     <Text fw={700} c="green.6" size="lg">
                       {formatCurrency(selectedPayment.amount)}
@@ -901,12 +974,72 @@ const TransactionPage = () => {
                     </Text>
                     <Stack gap="xs">
                       <Text size="sm" c={primaryTextColor}>
-                        Monthly Payment:
+                        Base Monthly Payment:
                       </Text>
                       <Text fw={500} c={primaryTextColor}>
                         {formatCurrency(selectedPlan.monthlyPayment)}
                       </Text>
                     </Stack>
+
+                    {/* HOA Fees Section */}
+                    {((selectedPlan.guardFee ?? 0) > 0 ||
+                      (selectedPlan.garbageFee ?? 0) > 0 ||
+                      (selectedPlan.maintenanceFee ?? 0) > 0) && (
+                      <>
+                        <Stack gap="xs">
+                          <Text size="sm" fw={600} c={primaryTextColor}>
+                            HOA Fees:
+                          </Text>
+                        </Stack>
+                        {(selectedPlan.guardFee ?? 0) > 0 && (
+                          <Stack gap="xs" pl="md">
+                            <Text size="sm" c={primaryTextColor}>
+                              • Guard Fee:
+                            </Text>
+                            <Text fw={500} c="blue.6">
+                              {formatCurrency(selectedPlan.guardFee ?? 0)}
+                            </Text>
+                          </Stack>
+                        )}
+                        {(selectedPlan.garbageFee ?? 0) > 0 && (
+                          <Stack gap="xs" pl="md">
+                            <Text size="sm" c={primaryTextColor}>
+                              • Garbage Collection:
+                            </Text>
+                            <Text fw={500} c="blue.6">
+                              {formatCurrency(selectedPlan.garbageFee ?? 0)}
+                            </Text>
+                          </Stack>
+                        )}
+                        {(selectedPlan.maintenanceFee ?? 0) > 0 && (
+                          <Stack gap="xs" pl="md">
+                            <Text size="sm" c={primaryTextColor}>
+                              • Street Maintenance:
+                            </Text>
+                            <Text fw={500} c="blue.6">
+                              {formatCurrency(selectedPlan.maintenanceFee ?? 0)}
+                            </Text>
+                          </Stack>
+                        )}
+                        <Card withBorder bg="orange.0" p="sm" radius="md">
+                          <Group justify="space-between">
+                            <Text size="sm" fw={600} c="orange.9">
+                              Total Monthly Payment:
+                            </Text>
+                            <Text size="lg" fw={700} c="orange.9">
+                              {formatCurrency(
+                                selectedPlan.totalMonthlyPayment ??
+                                  selectedPlan.monthlyPayment +
+                                    (selectedPlan.guardFee ?? 0) +
+                                    (selectedPlan.garbageFee ?? 0) +
+                                    (selectedPlan.maintenanceFee ?? 0)
+                              )}
+                            </Text>
+                          </Group>
+                        </Card>
+                      </>
+                    )}
+
                     <Stack gap="xs">
                       <Text size="sm" c={primaryTextColor}>
                         Interest Rate:

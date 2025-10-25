@@ -24,7 +24,6 @@ import {
   ActionIcon,
   SimpleGrid,
   useMantineTheme,
-  useMantineColorScheme,
   Box,
   Flex,
   Alert,
@@ -45,17 +44,11 @@ import {
   IconMapPin,
   IconSearch,
   IconRefresh,
-  IconSquare,
   IconCreditCard,
-  IconBuilding,
-  IconBed,
-  IconDroplet,
-  IconFileText,
   IconEye,
 } from "@tabler/icons-react";
 import { getServerSession } from "@/better-auth/action";
 import { Session } from "@/better-auth/auth-types";
-import { toast } from "react-hot-toast";
 import { DollarSign } from "lucide-react";
 
 interface Inquiry {
@@ -120,6 +113,9 @@ interface PaymentPlan {
   currentMonth: number;
   remainingBalance: number;
   nextPaymentDate: string;
+  guardFee: number;
+  garbageFee: number;
+  maintenanceFee: number;
 }
 
 interface NotificationType {
@@ -143,6 +139,9 @@ const ApplicationsPage = () => {
   const [monthlyPayment, setMonthlyPayment] = useState("");
   const [interestRate, setInterestRate] = useState("12");
   const [downPayment, setDownPayment] = useState("");
+  const [guardFee, setGuardFee] = useState("0");
+  const [garbageFee, setGarbageFee] = useState("0");
+  const [maintenanceFee, setMaintenanceFee] = useState("0");
   const [leaseDuration, setLeaseDuration] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
   const [filter, setFilter] = useState<
@@ -336,6 +335,26 @@ const ApplicationsPage = () => {
     setTotalAmount(total);
   };
 
+  const sendPaymentReminders = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/payment-reminders", {
+        method: "POST",
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        showNotification("success", data.message);
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error) {
+      showNotification("error", "Failed to send payment reminders");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     calculateLeaseTerms();
   }, [selectedInquiry, monthlyPayment, interestRate, downPayment]);
@@ -379,6 +398,14 @@ const ApplicationsPage = () => {
             propertyPrice: inquiry.propertyPrice,
             downPayment: parseFloat(downPayment) || 0,
             monthlyPayment: parseFloat(monthlyPayment),
+            guardFee: parseFloat(guardFee) || 0,
+            garbageFee: parseFloat(garbageFee) || 0,
+            maintenanceFee: parseFloat(maintenanceFee) || 0,
+            totalMonthlyPayment:
+              (parseFloat(monthlyPayment) || 0) +
+              (parseFloat(guardFee) || 0) +
+              (parseFloat(garbageFee) || 0) +
+              (parseFloat(maintenanceFee) || 0),
             interestRate: parseFloat(interestRate),
             leaseDuration: leaseDuration,
             totalAmount: totalAmount,
@@ -430,11 +457,17 @@ const ApplicationsPage = () => {
                 propertyPrice: inquiry.propertyPrice,
                 downPayment: parseFloat(downPayment) || 0,
                 monthlyPayment: parseFloat(monthlyPayment),
+                guardFee: parseFloat(guardFee) || 0,
+                garbageFee: parseFloat(garbageFee) || 0,
+                maintenanceFee: parseFloat(maintenanceFee) || 0,
+                totalMonthlyPayment:
+                  (parseFloat(monthlyPayment) || 0) +
+                  (parseFloat(guardFee) || 0) +
+                  (parseFloat(garbageFee) || 0) +
+                  (parseFloat(maintenanceFee) || 0),
                 interestRate: parseFloat(interestRate),
                 leaseDuration: leaseDuration,
                 totalAmount: totalAmount,
-                startDate: new Date().toISOString(),
-                paymentPlanId: paymentData.paymentPlanId,
               },
             },
           }),
@@ -470,6 +503,9 @@ const ApplicationsPage = () => {
     setMonthlyPayment("");
     setInterestRate("12");
     setDownPayment("");
+    setGuardFee("0");
+    setGarbageFee("0");
+    setMaintenanceFee("0");
     setLeaseDuration(0);
     setTotalAmount(0);
   };
@@ -1208,7 +1244,7 @@ const ApplicationsPage = () => {
                       </Grid.Col>
                       <Grid.Col span={6}>
                         <Text size="sm" c="blue.7">
-                          Monthly Payment
+                          Base Monthly Payment
                         </Text>
                         <Text fw={500} c="blue.9">
                           {formatCurrency(paymentPlanData.monthlyPayment)}
@@ -1222,6 +1258,69 @@ const ApplicationsPage = () => {
                           {paymentPlanData.interestRate}% per annum
                         </Text>
                       </Grid.Col>
+
+                      {/* HOA Fees Section */}
+                      <Grid.Col span={12}>
+                        <Divider
+                          label="HOA Fees"
+                          labelPosition="center"
+                          my="xs"
+                        />
+                      </Grid.Col>
+
+                      {paymentPlanData.guardFee > 0 && (
+                        <Grid.Col span={6}>
+                          <Text size="sm" c="blue.7">
+                            Guard Fee
+                          </Text>
+                          <Text fw={500} c="blue.9">
+                            {formatCurrency(paymentPlanData.guardFee)}
+                          </Text>
+                        </Grid.Col>
+                      )}
+                      {paymentPlanData.garbageFee > 0 && (
+                        <Grid.Col span={6}>
+                          <Text size="sm" c="blue.7">
+                            Garbage Collection
+                          </Text>
+                          <Text fw={500} c="blue.9">
+                            {formatCurrency(paymentPlanData.garbageFee)}
+                          </Text>
+                        </Grid.Col>
+                      )}
+                      {paymentPlanData.maintenanceFee > 0 && (
+                        <Grid.Col span={6}>
+                          <Text size="sm" c="blue.7">
+                            Street Maintenance
+                          </Text>
+                          <Text fw={500} c="blue.9">
+                            {formatCurrency(paymentPlanData.maintenanceFee)}
+                          </Text>
+                        </Grid.Col>
+                      )}
+
+                      <Grid.Col span={12}>
+                        <Card withBorder bg="orange.0" p="sm">
+                          <Group justify="apart">
+                            <Text size="sm" fw={600} c="orange.9">
+                              Total Monthly Payment (incl. HOA)
+                            </Text>
+                            <Text size="lg" fw={700} c="orange.9">
+                              {formatCurrency(
+                                paymentPlanData.monthlyPayment +
+                                  (paymentPlanData.guardFee || 0) +
+                                  (paymentPlanData.garbageFee || 0) +
+                                  (paymentPlanData.maintenanceFee || 0)
+                              )}
+                            </Text>
+                          </Group>
+                        </Card>
+                      </Grid.Col>
+
+                      <Grid.Col span={12}>
+                        <Divider my="xs" />
+                      </Grid.Col>
+
                       <Grid.Col span={6}>
                         <Text size="sm" c="blue.7">
                           Lease Duration
@@ -1401,6 +1500,60 @@ const ApplicationsPage = () => {
                     <Text fw={500} c={primaryTextColor}>
                       Payment Configuration
                     </Text>
+
+                    <Divider
+                      label="HOA Fees (Homeowners Association)"
+                      labelPosition="center"
+                      mt="md"
+                      mb="md"
+                    />
+
+                    <Grid gutter="md">
+                      <Grid.Col span={6}>
+                        <NumberInput
+                          label="Guard Fee (₱)"
+                          placeholder="0"
+                          value={parseFloat(guardFee) || 0}
+                          onChange={(value) =>
+                            setGuardFee((value || 0).toString())
+                          }
+                          min={0}
+                          step={0.01}
+                          description="Security guard service"
+                          leftSection={<IconUser size={16} />}
+                        />
+                      </Grid.Col>
+
+                      <Grid.Col span={6}>
+                        <NumberInput
+                          label="Garbage Collection Fee (₱)"
+                          placeholder="0"
+                          value={parseFloat(garbageFee) || 0}
+                          onChange={(value) =>
+                            setGarbageFee((value || 0).toString())
+                          }
+                          min={0}
+                          step={0.01}
+                          description="Waste management"
+                          leftSection={<IconTrash size={16} />}
+                        />
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <NumberInput
+                          label="Street Maintenance Fee (₱)"
+                          placeholder="0"
+                          value={parseFloat(maintenanceFee) || 0}
+                          onChange={(value) =>
+                            setMaintenanceFee((value || 0).toString())
+                          }
+                          min={0}
+                          step={0.01}
+                          description="Road and street upkeep"
+                          leftSection={<IconMapPin size={16} />}
+                        />
+                      </Grid.Col>
+                    </Grid>
+
                     <NumberInput
                       label="Down Payment (₱)"
                       placeholder="0"
@@ -1414,7 +1567,7 @@ const ApplicationsPage = () => {
                       description="Optional"
                     />
                     <NumberInput
-                      label="Monthly Payment (₱)"
+                      label="Base Monthly Payment (₱)"
                       placeholder="Enter monthly payment"
                       value={parseFloat(monthlyPayment) || 0}
                       onChange={(value) =>
@@ -1473,6 +1626,77 @@ const ApplicationsPage = () => {
                             )}
                           </Text>
                         </Group>
+
+                        <Divider c="blue.3" my="xs" />
+                        <Text size="sm" fw={500} c="blue.9" mb="xs">
+                          HOA Fees Breakdown:
+                        </Text>
+                        <Stack gap={4} mb="xs">
+                          {parseFloat(guardFee) > 0 && (
+                            <Group justify="apart">
+                              <Text size="xs" c="blue.6">
+                                • Guard Fee:
+                              </Text>
+                              <Text size="xs" fw={500}>
+                                {formatCurrency(parseFloat(guardFee))}
+                              </Text>
+                            </Group>
+                          )}
+                          {parseFloat(garbageFee) > 0 && (
+                            <Group justify="apart">
+                              <Text size="xs" c="blue.6">
+                                • Garbage Collection:
+                              </Text>
+                              <Text size="xs" fw={500}>
+                                {formatCurrency(parseFloat(garbageFee))}
+                              </Text>
+                            </Group>
+                          )}
+                          {parseFloat(maintenanceFee) > 0 && (
+                            <Group justify="apart">
+                              <Text size="xs" c="blue.6">
+                                • Street Maintenance:
+                              </Text>
+                              <Text size="xs" fw={500}>
+                                {formatCurrency(parseFloat(maintenanceFee))}
+                              </Text>
+                            </Group>
+                          )}
+                        </Stack>
+                        <Group justify="apart">
+                          <Text size="sm" c="blue.7">
+                            Total HOA Fees:
+                          </Text>
+                          <Text size="sm" fw={500} c="orange.6">
+                            {formatCurrency(
+                              (parseFloat(guardFee) || 0) +
+                                (parseFloat(garbageFee) || 0) +
+                                (parseFloat(maintenanceFee) || 0)
+                            )}
+                          </Text>
+                        </Group>
+                        <Divider c="blue.3" my="xs" />
+                        <Group justify="apart">
+                          <Text size="sm" fw={500} c="blue.7">
+                            Base Monthly Payment:
+                          </Text>
+                          <Text size="sm" fw={500}>
+                            {formatCurrency(parseFloat(monthlyPayment) || 0)}
+                          </Text>
+                        </Group>
+                        <Group justify="apart">
+                          <Text size="sm" fw={600} c="blue.9">
+                            Total Monthly Payment:
+                          </Text>
+                          <Text size="lg" fw={700} c="blue.6">
+                            {formatCurrency(
+                              (parseFloat(monthlyPayment) || 0) +
+                                (parseFloat(guardFee) || 0) +
+                                (parseFloat(garbageFee) || 0) +
+                                (parseFloat(maintenanceFee) || 0)
+                            )}
+                          </Text>
+                        </Group>
                         <Divider c="blue.3" />
                         <Group justify="apart">
                           <Text size="sm" c="blue.7">
@@ -1482,14 +1706,6 @@ const ApplicationsPage = () => {
                             {leaseDuration > 0
                               ? `${leaseDuration} months (${Math.floor(leaseDuration / 12)} years ${leaseDuration % 12} months)`
                               : "Invalid payment"}
-                          </Text>
-                        </Group>
-                        <Group justify="apart">
-                          <Text size="sm" c="blue.7">
-                            Monthly Payment:
-                          </Text>
-                          <Text size="sm" fw={500} c="blue.6">
-                            {formatCurrency(parseFloat(monthlyPayment) || 0)}
                           </Text>
                         </Group>
                         <Group justify="apart">
@@ -1606,6 +1822,13 @@ const ApplicationsPage = () => {
                 </MantineButton>
                 <MantineButton variant="outline" onClick={resetPaymentModal}>
                   Cancel
+                </MantineButton>
+                <MantineButton
+                  leftSection={<IconMail size={16} />}
+                  onClick={sendPaymentReminders}
+                  loading={loading}
+                >
+                  Send Payment Reminders
                 </MantineButton>
               </Group>
             </Stack>

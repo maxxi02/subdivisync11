@@ -102,6 +102,10 @@ interface PaymentPlan {
   currentMonth: number;
   remainingBalance: number;
   nextPaymentDate: string;
+  guardFee?: number;
+  garbageFee?: number;
+  maintenanceFee?: number;
+  totalMonthlyPayment?: number;
 }
 
 interface NotificationType {
@@ -870,7 +874,7 @@ const MyApplication = () => {
                       </Stack>
                       <Stack gap="xs">
                         <Text size="sm" c={primaryTextColor}>
-                          Monthly Payment
+                          Base Monthly Payment
                         </Text>
                         <Text fw={500} c="green.6">
                           {new Intl.NumberFormat("en-PH", {
@@ -887,6 +891,80 @@ const MyApplication = () => {
                           {paymentPlanData.interestRate}% per annum
                         </Text>
                       </Stack>
+
+                      {/* HOA Fees Section */}
+                      {((paymentPlanData.guardFee ?? 0) > 0 ||
+                        (paymentPlanData.garbageFee ?? 0) > 0 ||
+                        (paymentPlanData.maintenanceFee ?? 0) > 0) && (
+                        <>
+                          <Stack gap="xs" style={{ gridColumn: "1 / -1" }}>
+                            <Text fw={600} c={primaryTextColor} mt="md">
+                              HOA Fees (Homeowners Association)
+                            </Text>
+                          </Stack>
+                          {(paymentPlanData.guardFee ?? 0) > 0 && (
+                            <Stack gap="xs">
+                              <Text size="sm" c={primaryTextColor}>
+                                Guard Fee
+                              </Text>
+                              <Text fw={500} c="blue.6">
+                                {new Intl.NumberFormat("en-PH", {
+                                  style: "currency",
+                                  currency: "PHP",
+                                }).format(paymentPlanData.guardFee ?? 0)}
+                              </Text>
+                            </Stack>
+                          )}
+                          {(paymentPlanData.garbageFee ?? 0) > 0 && (
+                            <Stack gap="xs">
+                              <Text size="sm" c={primaryTextColor}>
+                                Garbage Collection Fee
+                              </Text>
+                              <Text fw={500} c="blue.6">
+                                {new Intl.NumberFormat("en-PH", {
+                                  style: "currency",
+                                  currency: "PHP",
+                                }).format(paymentPlanData.garbageFee ?? 0)}
+                              </Text>
+                            </Stack>
+                          )}
+                          {(paymentPlanData.maintenanceFee ?? 0) > 0 && (
+                            <Stack gap="xs">
+                              <Text size="sm" c={primaryTextColor}>
+                                Street Maintenance Fee
+                              </Text>
+                              <Text fw={500} c="blue.6">
+                                {new Intl.NumberFormat("en-PH", {
+                                  style: "currency",
+                                  currency: "PHP",
+                                }).format(paymentPlanData.maintenanceFee ?? 0)}
+                              </Text>
+                            </Stack>
+                          )}
+                          <Stack gap="xs" style={{ gridColumn: "1 / -1" }}>
+                            <Card withBorder bg="orange.0" p="md" radius="md">
+                              <Group justify="space-between">
+                                <Text size="sm" fw={600} c="orange.9">
+                                  Total Monthly Payment (incl. HOA)
+                                </Text>
+                                <Text size="lg" fw={700} c="orange.9">
+                                  {new Intl.NumberFormat("en-PH", {
+                                    style: "currency",
+                                    currency: "PHP",
+                                  }).format(
+                                    paymentPlanData.totalMonthlyPayment ??
+                                      paymentPlanData.monthlyPayment +
+                                        (paymentPlanData.guardFee ?? 0) +
+                                        (paymentPlanData.garbageFee ?? 0) +
+                                        (paymentPlanData.maintenanceFee ?? 0)
+                                  )}
+                                </Text>
+                              </Group>
+                            </Card>
+                          </Stack>
+                        </>
+                      )}
+
                       <Stack gap="xs">
                         <Text size="sm" c={primaryTextColor}>
                           Lease Duration
