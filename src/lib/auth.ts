@@ -8,12 +8,36 @@ import { admin as adminPlugin, twoFactor } from "better-auth/plugins";
 const resend = getResend();
 // asd
 export const auth = betterAuth({
+  user: {
+    additionalFields: {
+      address: {
+        type: "string",
+        required: false,
+      },
+      gender: {
+        type: "string",
+        required: false,
+      },
+      age: {
+        type: "number",
+        required: false,
+      },
+      phoneNumber: {
+        type: "string",
+        required: false,
+      },
+      status: {
+        type: "string",
+        required: false,
+      },
+    },
+  },
   database: mongodbAdapter(db),
   trustedOrigins: [
     process.env.NODE_ENV === "production"
       ? (process.env.NEXT_PUBLIC_URL! as string)
       : (process.env.BETTER_AUTH_URL! as string),
-          "https://subdivisync11.vercel.app",
+    "https://subdivisync11.vercel.app",
   ],
   appName: "SubdiviSync",
   emailAndPassword: {
@@ -57,6 +81,7 @@ export const auth = betterAuth({
         },
       },
     }),
+
     nextCookies(),
   ],
 });

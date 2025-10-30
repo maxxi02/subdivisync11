@@ -958,7 +958,7 @@ export default function PropertyManagement() {
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>Property</Table.Th>
-                  <Table.Th>Location</Table.Th>
+                  <Table.Th>Block/Street</Table.Th>
                   <Table.Th>Type</Table.Th>
                   <Table.Th>Size</Table.Th>
                   <Table.Th>Price</Table.Th>
@@ -1089,16 +1089,16 @@ export default function PropertyManagement() {
               }
               required
             />
-            <TextInput
-              label="Location/Address *"
-              placeholder="Enter property location"
-              value={formData.location}
-              onChange={(e) =>
-                setFormData({ ...formData, location: e.target.value })
-              }
-              required
-              leftSection={<IconMapPin size={16} />}
-            />
+<TextInput
+  label="Block and Street *"
+  placeholder="Enter block and street"
+  value={formData.location}
+  onChange={(e) =>
+    setFormData({ ...formData, location: e.target.value })
+  }
+  required
+  leftSection={<IconMapPin size={16} />}
+/>
             <TextInput
               label="Size *"
               placeholder="e.g., 300 sqm"
@@ -1390,16 +1390,16 @@ export default function PropertyManagement() {
               }
               required
             />
-            <TextInput
-              label="Location/Address *"
-              placeholder="Enter property location"
-              value={editFormData.location}
-              onChange={(e) =>
-                setEditFormData({ ...editFormData, location: e.target.value })
-              }
-              required
-              leftSection={<IconMapPin size={16} />}
-            />
+<TextInput
+  label="Block and Street *"
+  placeholder="Enter block and street"
+  value={editFormData.location}
+  onChange={(e) =>
+    setEditFormData({ ...editFormData, location: e.target.value })
+  }
+  required
+  leftSection={<IconMapPin size={16} />}
+/>
             <TextInput
               label="Size *"
               placeholder="e.g., 300 sqm"

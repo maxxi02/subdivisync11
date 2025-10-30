@@ -17,7 +17,6 @@ import {
   FileInput,
   Button as MantineButton,
   Center,
-  Group,
   useMantineTheme,
   useMantineColorScheme,
   rgba,
@@ -37,9 +36,13 @@ const TenantProfilePage = () => {
   const theme = useMantineTheme();
   const { colorScheme } = useMantineColorScheme();
   const [session, setSession] = useState<null | Session>(null);
-  const [loading, setLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>("");
-  const [notification, setNotification] = useState<NotificationType | null>(null);
+  const [notification, setNotification] = useState<NotificationType | null>(
+    null
+  );
 
   const primaryTextColor = colorScheme === "dark" ? "white" : "dark";
   const getDefaultShadow = () => {
@@ -65,15 +68,15 @@ const TenantProfilePage = () => {
         value && value.size > 5 * 1024 * 1024
           ? "Image must be less than 5MB"
           : value &&
-            ![
-              "image/jpeg",
-              "image/jpg",
-              "image/png",
-              "image/gif",
-              "image/webp",
-            ].includes(value.type)
-          ? "Image must be JPEG, PNG, GIF, or WebP"
-          : null,
+              ![
+                "image/jpeg",
+                "image/jpg",
+                "image/png",
+                "image/gif",
+                "image/webp",
+              ].includes(value.type)
+            ? "Image must be JPEG, PNG, GIF, or WebP"
+            : null,
     },
   });
 
@@ -160,7 +163,7 @@ const TenantProfilePage = () => {
       return;
     }
 
-    setLoading(true);
+    setProfileLoading(true);
 
     try {
       let imageData = session?.user?.image || "";
@@ -184,7 +187,7 @@ const TenantProfilePage = () => {
         error instanceof Error ? error.message : "Failed to update profile"
       );
     } finally {
-      setLoading(false);
+      setProfileLoading(false);
     }
   };
 
@@ -198,7 +201,7 @@ const TenantProfilePage = () => {
       return;
     }
 
-    setLoading(true);
+    setPasswordLoading(true);
 
     try {
       const { error: authError } = await authClient.changePassword({
@@ -223,7 +226,7 @@ const TenantProfilePage = () => {
         error instanceof Error ? error.message : "Failed to change password"
       );
     } finally {
-      setLoading(false);
+      setPasswordLoading(false);
     }
   };
 
@@ -237,7 +240,7 @@ const TenantProfilePage = () => {
       return;
     }
 
-    setLoading(true);
+    setTwoFactorLoading(true);
 
     try {
       const { error: authError } = await authClient.twoFactor.enable({
@@ -269,7 +272,7 @@ const TenantProfilePage = () => {
           : "Failed to enable two-factor authentication"
       );
     } finally {
-      setLoading(false);
+      setTwoFactorLoading(false);
     }
   };
 
@@ -328,163 +331,159 @@ const TenantProfilePage = () => {
           boxShadow: getDefaultShadow(),
         }}
       >
-      <Stack gap="lg">
-        <Title order={2} size="h2" fw={600} ta="center" c={primaryTextColor}>
-          Manage Your Profile
-        </Title>
-        <Text size="md" c="dimmed" ta="center">
-          Update your profile information
-        </Text>
-
-        <form
-          onSubmit={profileForm.onSubmit(handleProfileSubmit)}
-          method="dialog"
-        >
-          <Stack gap="md">
-            <Center>
-              <Stack align="center" gap="md">
-                <Avatar
-                  src={
-                    imagePreview ||
-                    session.user?.image ||
-                    "/default-profile.png"
-                  }
-                  size={100}
-                  radius="xl"
-                  style={{ border: `2px solid ${theme.colors.gray[2]}` }}
-                >
-                  {session.user?.name?.charAt(0).toUpperCase()}
-                </Avatar>
-                <FileInput
-                  label="Profile Picture"
-                  placeholder="Choose image file"
-                  accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                  leftSection={<IconUpload size={16} />}
-                  {...profileForm.getInputProps("image")}
-                  onChange={handleFileChange}
-                  clearable
-                  disabled={loading}
-                  style={{ width: "100%", maxWidth: 300 }}
-                />
-                <Text size="xs" c="dimmed">
-                  Max file size: 5MB. Supported formats: JPEG, PNG, GIF, WebP
-                </Text>
-              </Stack>
-            </Center>
-
-            <TextInput
-              label="Name"
-              placeholder="Enter your name"
-              {...profileForm.getInputProps("name")}
-              disabled={loading}
-            />
-            <Text size="sm" c="dimmed">
-              Email: {session.user?.email}
-            </Text>
-            <Text size="sm" c="dimmed">
-              Role: {session.user?.role}
-            </Text>
-            <Text size="sm" c="dimmed">
-              Two-Factor Authentication:{" "}
-              {session.user?.twoFactorEnabled ? "Enabled" : "Disabled"}
-            </Text>
-            <Text size="sm" c="dimmed">
-              Created At:{" "}
-              {new Date(session.user?.createdAt).toLocaleDateString()}
-            </Text>
-            <Text size="sm" c="dimmed">
-              Updated At:{" "}
-              {new Date(session.user?.updatedAt).toLocaleDateString()}
-            </Text>
-
-            <MantineButton
-              type="submit"
-              color="blue"
-              size="md"
-              fullWidth
-              loading={loading}
-              disabled={loading}
-            >
-              Update Profile
-            </MantineButton>
-          </Stack>
-        </form>
-
-        <Divider label="Change Password" labelPosition="center" />
-
-        <form
-          onSubmit={passwordForm.onSubmit(handlePasswordSubmit)}
-          method="dialog"
-        >
-          <Stack gap="md">
-            <TextInput
-              label="Current Password"
-              placeholder="Enter your current password"
-              type="password"
-              {...passwordForm.getInputProps("currentPassword")}
-              disabled={loading}
-            />
-            <TextInput
-              label="New Password"
-              placeholder="Enter your new password"
-              type="password"
-              {...passwordForm.getInputProps("newPassword")}
-              disabled={loading}
-            />
-            <TextInput
-              label="Confirm New Password"
-              placeholder="Confirm your new password"
-              type="password"
-              {...passwordForm.getInputProps("confirmNewPassword")}
-              disabled={loading}
-            />
-            <MantineButton
-              type="submit"
-              color="blue"
-              size="md"
-              fullWidth
-              loading={loading}
-              disabled={loading}
-            >
-              Change Password
-            </MantineButton>
-          </Stack>
-        </form>
-
-        <Divider label="Two-Factor Authentication" labelPosition="center" />
-
-        {session.user?.twoFactorEnabled ? (
-          <Text size="sm" c="dimmed" ta="center">
-            Two-Factor Authentication is already enabled.
+        <Stack gap="lg">
+          <Title order={2} size="h2" fw={600} ta="center" c={primaryTextColor}>
+            Manage Your Profile
+          </Title>
+          <Text size="md" c="dimmed" ta="center">
+            Update your profile information
           </Text>
-        ) : (
+
           <form
-            onSubmit={twoFactorForm.onSubmit(handleTwoFactorSubmit)}
+            onSubmit={profileForm.onSubmit(handleProfileSubmit)}
+            method="dialog"
+          >
+            <Stack gap="md">
+              <Center>
+                <Stack align="center" gap="md">
+                  <Avatar
+                    src={
+                      imagePreview ||
+                      session.user?.image ||
+                      "/default-profile.png"
+                    }
+                    size={100}
+                    radius="xl"
+                    style={{ border: `2px solid ${theme.colors.gray[2]}` }}
+                  >
+                    {session.user?.name?.charAt(0).toUpperCase()}
+                  </Avatar>
+                  <FileInput
+                    label="Profile Picture"
+                    placeholder="Choose image file"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                    leftSection={<IconUpload size={16} />}
+                    {...profileForm.getInputProps("image")}
+                    onChange={handleFileChange}
+                    clearable
+                    disabled={profileLoading}
+                    style={{ width: "100%", maxWidth: 300 }}
+                  />
+                  <Text size="xs" c="dimmed">
+                    Max file size: 5MB. Supported formats: JPEG, PNG, GIF, WebP
+                  </Text>
+                </Stack>
+              </Center>
+
+              <TextInput
+                label="Name"
+                placeholder="Enter your name"
+                {...profileForm.getInputProps("name")}
+                disabled={profileLoading}
+              />
+              <Text size="sm" c="dimmed">
+                Email: {session.user?.email}
+              </Text>
+              <Text size="sm" c="dimmed">
+                Role: {session.user?.role}
+              </Text>
+              <Text size="sm" c="dimmed">
+                Two-Factor Authentication:{" "}
+                {session.user?.twoFactorEnabled ? "Enabled" : "Disabled"}
+              </Text>
+              <Text size="sm" c="dimmed">
+                Created At:{" "}
+                {new Date(session.user?.createdAt).toLocaleDateString()}
+              </Text>
+
+              <MantineButton
+                type="submit"
+                color="blue"
+                size="md"
+                fullWidth
+                loading={profileLoading}
+                disabled={profileLoading}
+              >
+                Update Profile
+              </MantineButton>
+            </Stack>
+          </form>
+
+          <Divider label="Change Password" labelPosition="center" />
+
+          <form
+            onSubmit={passwordForm.onSubmit(handlePasswordSubmit)}
             method="dialog"
           >
             <Stack gap="md">
               <TextInput
-                label="Password"
-                placeholder="Enter your password"
+                label="Current Password"
+                placeholder="Enter your current password"
                 type="password"
-                {...twoFactorForm.getInputProps("password")}
-                disabled={loading}
+                {...passwordForm.getInputProps("currentPassword")}
+                disabled={passwordLoading}
+              />
+              <TextInput
+                label="New Password"
+                placeholder="Enter your new password"
+                type="password"
+                {...passwordForm.getInputProps("newPassword")}
+                disabled={passwordLoading}
+              />
+              <TextInput
+                label="Confirm New Password"
+                placeholder="Confirm your new password"
+                type="password"
+                {...passwordForm.getInputProps("confirmNewPassword")}
+                disabled={passwordLoading}
               />
               <MantineButton
                 type="submit"
                 color="blue"
                 size="md"
                 fullWidth
-                loading={loading}
-                disabled={loading}
+                loading={passwordLoading}
+                disabled={passwordLoading}
               >
-                Enable Two-Factor Authentication
+                Change Password
               </MantineButton>
             </Stack>
           </form>
-        )}
-      </Stack>
-    </Paper>
+
+          <Divider label="Two-Factor Authentication" labelPosition="center" />
+
+          {session.user?.twoFactorEnabled ? (
+            <Text size="sm" c="dimmed" ta="center">
+              Two-Factor Authentication is already enabled.
+            </Text>
+          ) : (
+            <form
+              onSubmit={twoFactorForm.onSubmit(handleTwoFactorSubmit)}
+              method="dialog"
+            >
+              <Stack gap="md">
+                <TextInput
+                  label="Password"
+                  placeholder="Enter your password"
+                  type="password"
+                  {...twoFactorForm.getInputProps("password")}
+                  disabled={twoFactorLoading}
+                />
+                <MantineButton
+                  type="submit"
+                  color="blue"
+                  size="md"
+                  fullWidth
+                  loading={twoFactorLoading}
+                  disabled={twoFactorLoading}
+                >
+                  Enable Two-Factor Authentication
+                </MantineButton>
+              </Stack>
+            </form>
+          )}
+        </Stack>
+      </Paper>
     </>
   );
 };

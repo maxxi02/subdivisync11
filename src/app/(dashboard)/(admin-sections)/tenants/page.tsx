@@ -17,17 +17,11 @@ import {
   Loader,
   Center,
   Container,
-  Flex,
   Box,
   PasswordInput,
   ScrollArea,
 } from "@mantine/core";
-import {
-  IconTrash,
-  IconEdit,
-  IconUsers,
-  IconSearch,
-} from "@tabler/icons-react";
+import { IconEdit, IconUsers, IconSearch, IconEye } from "@tabler/icons-react";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "react-hot-toast";
 
@@ -38,6 +32,10 @@ interface Tenant {
   user_email: string;
   status: string;
   created_at: string;
+  address?: string;
+  gender?: string;
+  age?: number;
+  phoneNumber?: string;
   property?: {
     title: string;
     location: string;
@@ -53,17 +51,18 @@ interface UserWithData {
   name: string;
   email: string;
   createdAt: Date;
-  data?: {
-    status?: string;
-    property?: {
-      title: string;
-      location: string;
-      type: string;
-      sqft?: number;
-      bedrooms?: number;
-      bathrooms?: number;
-    };
-    [key: string]: unknown;
+  status?: string;
+  address?: string;
+  gender?: string;
+  age?: number;
+  phoneNumber?: string;
+  property?: {
+    title: string;
+    location: string;
+    type: string;
+    sqft?: number;
+    bedrooms?: number;
+    bathrooms?: number;
   };
 }
 
@@ -73,6 +72,10 @@ const defaultForm = {
   password: "",
   confirmPassword: "",
   status: "Active",
+  address: "",
+  gender: "",
+  age: "",
+  phoneNumber: "",
 };
 
 const TenantsSection = () => {
@@ -87,8 +90,14 @@ const TenantsSection = () => {
     email?: string;
     password?: string;
     confirmPassword?: string;
+    address?: string;
+    gender?: string;
+    age?: string;
+    phoneNumber?: string;
   }>({});
   const [dataFetched, setDataFetched] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewingTenant, setViewingTenant] = useState<Tenant | null>(null);
 
   useEffect(() => {
     if (!dataFetched) {
@@ -128,13 +137,17 @@ const TenantsSection = () => {
       }
 
       const mappedTenants = (users.users || []).map((user: UserWithData) => ({
-        _id: user.id,
+        _id: user.id, // IMPORTANT: Use user.id (UUID), not the MongoDB _id
         user_id: user.id,
         user_name: user.name,
         user_email: user.email,
-        status: user.data?.status || "Active",
+        status: user.status || "Active",
         created_at: user.createdAt.toISOString(),
-        property: user.data?.property,
+        address: user.address || "",
+        gender: user.gender || "",
+        age: user.age || 0,
+        phoneNumber: user.phoneNumber || "",
+        property: user.property,
       }));
 
       setTenants(mappedTenants);
@@ -156,6 +169,10 @@ const TenantsSection = () => {
       password: "",
       confirmPassword: "",
       status: tenant.status || "Active",
+      address: tenant.address || "",
+      gender: tenant.gender || "",
+      age: tenant.age?.toString() || "",
+      phoneNumber: tenant.phoneNumber || "",
     });
     setShowEditModal(true);
   };
@@ -179,6 +196,7 @@ const TenantsSection = () => {
     }
 
     if (!editingTenant) {
+      // Only validate these for NEW tenants
       if (!editForm.password) {
         errors.password = "Password is required";
         isValid = false;
@@ -194,6 +212,42 @@ const TenantsSection = () => {
         errors.confirmPassword = "Passwords do not match";
         isValid = false;
       }
+
+      // For NEW tenants, all fields are required
+      if (!editForm.address.trim()) {
+        errors.address = "Address is required";
+        isValid = false;
+      }
+
+      if (!editForm.gender) {
+        errors.gender = "Gender is required";
+        isValid = false;
+      }
+
+      if (!editForm.age.trim()) {
+        errors.age = "Age is required";
+        isValid = false;
+      } else if (parseInt(editForm.age) < 18 || parseInt(editForm.age) > 120) {
+        errors.age = "Please enter a valid age (18-120)";
+        isValid = false;
+      }
+
+      if (!editForm.phoneNumber.trim()) {
+        errors.phoneNumber = "Phone number is required";
+        isValid = false;
+      }
+    } else {
+      // For EXISTING tenants, only validate if they've entered something
+      if (editForm.address.trim() === "") {
+        errors.address = "Address is recommended";
+      }
+
+      if (editForm.age.trim() !== "") {
+        if (parseInt(editForm.age) < 18 || parseInt(editForm.age) > 120) {
+          errors.age = "Please enter a valid age (18-120)";
+          isValid = false;
+        }
+      }
     }
 
     setFormErrors(errors);
@@ -208,17 +262,32 @@ const TenantsSection = () => {
     if (editingTenant) {
       // Update
       try {
-        const { data: updatedUser, error } = await authClient.admin.updateUser({
-          userId: editingTenant._id,
-          data: {
+        console.log("Updating tenant:", editingTenant._id);
+
+        const response = await fetch("/api/admin/update-tenant", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: editingTenant._id,
             name: editForm.full_name,
             email: editForm.email,
             status: editForm.status,
-          },
+            address: editForm.address,
+            gender: editForm.gender,
+            age: parseInt(editForm.age) || 0,
+            phoneNumber: editForm.phoneNumber,
+          }),
         });
 
-        if (error) {
-          throw new Error(error.message || "Failed to update tenant");
+        console.log("Response status:", response.status);
+
+        const data = await response.json();
+        console.log("Response data:", data);
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || "Failed to update tenant");
         }
 
         setTenants((prev) =>
@@ -229,80 +298,82 @@ const TenantsSection = () => {
                   user_name: editForm.full_name,
                   user_email: editForm.email,
                   status: editForm.status,
+                  address: editForm.address,
+                  gender: editForm.gender,
+                  age: parseInt(editForm.age) || 0,
+                  phoneNumber: editForm.phoneNumber,
                 }
               : t
           )
         );
+
         setShowEditModal(false);
         setEditingTenant(null);
+        setEditForm(defaultForm);
         toast.success("Tenant updated successfully!");
       } catch (error) {
         console.error("Error updating tenant:", error);
-        toast.error("Failed to update tenant. Please try again.");
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Failed to update tenant. Please try again."
+        );
       }
     } else {
-      // Create
+      // Create - keep existing code
       try {
         if (!editForm.password) {
           toast.error("Password is required for new tenants.");
           return;
         }
-
-        const createData = {
-          email: editForm.email,
-          password: editForm.password,
-          name: editForm.full_name,
-          role: "tenant" as const,
-          data: {
-            status: editForm.status,
+        const response = await fetch("/api/admin/create-tenant", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
-        };
+          body: JSON.stringify({
+            email: editForm.email,
+            password: editForm.password,
+            name: editForm.full_name,
+            status: editForm.status,
+            address: editForm.address,
+            gender: editForm.gender,
+            age: parseInt(editForm.age),
+            phoneNumber: editForm.phoneNumber,
+          }),
+        });
 
-        const { data: newUser, error } =
-          await authClient.admin.createUser(createData);
+        const data = await response.json();
 
-        if (error) {
-          throw new Error(error.message || "Failed to create tenant");
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || "Failed to create tenant");
         }
 
         const newTenant: Tenant = {
-          _id: newUser.user.id,
-          user_id: newUser.user.id,
-          user_name: newUser.user.name,
-          user_email: newUser.user.email,
-          status: editForm.status,
-          created_at: newUser.user.createdAt.toISOString(),
+          _id: data.user.id,
+          user_id: data.user.id,
+          user_name: data.user.name,
+          user_email: data.user.email,
+          status: data.user.status,
+          created_at: new Date(data.user.createdAt).toISOString(),
+          address: data.user.address,
+          gender: data.user.gender,
+          age: data.user.age,
+          phoneNumber: data.user.phoneNumber,
         };
 
         setTenants((prev) => [...prev, newTenant]);
         setShowEditModal(false);
+        setEditForm(defaultForm);
         toast.success("Tenant created successfully!");
       } catch (error) {
         console.error("Error creating tenant:", error);
-        toast.error("Failed to create tenant. Please try again.");
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Failed to create tenant. Please try again."
+        );
       }
-    }
-  };
-
-  const handleDeleteTenant = async (tenantId: string) => {
-    if (!confirm("Are you sure you want to delete this tenant?")) {
-      return;
-    }
-
-    try {
-      const { error } = await authClient.admin.removeUser({
-        userId: tenantId,
-      });
-
-      if (error) {
-        throw new Error(error.message || "Failed to delete tenant");
-      }
-
-      setTenants((prev) => prev.filter((t) => t._id !== tenantId));
-      toast.success("Tenant deleted successfully!");
-    } catch (error) {
-      console.error("Error deleting tenant:", error);
-      toast.error("Failed to delete tenant. Please try again.");
     }
   };
 
@@ -352,15 +423,17 @@ const TenantsSection = () => {
             <Text c="dimmed">Manage all your tenants</Text>
           </Box>
         </Group>
-        <Button
-          onClick={() => {
-            setEditingTenant(null);
-            setEditForm(defaultForm);
-            setShowEditModal(true);
-          }}
-        >
-          Add New Tenant
-        </Button>
+        <Group>
+          <Button
+            onClick={() => {
+              setEditingTenant(null);
+              setEditForm(defaultForm);
+              setShowEditModal(true);
+            }}
+          >
+            Add New Tenant
+          </Button>
+        </Group>
       </Group>
 
       {/* Search */}
@@ -406,17 +479,20 @@ const TenantsSection = () => {
                     <Group gap="xs">
                       <ActionIcon
                         variant="light"
+                        color="blue"
+                        onClick={() => {
+                          setViewingTenant(tenant);
+                          setShowViewModal(true);
+                        }}
+                      >
+                        <IconEye size={16} />
+                      </ActionIcon>
+                      <ActionIcon
+                        variant="light"
                         color="green"
                         onClick={() => handleEditTenant(tenant)}
                       >
                         <IconEdit size={16} />
-                      </ActionIcon>
-                      <ActionIcon
-                        variant="light"
-                        color="red"
-                        onClick={() => handleDeleteTenant(tenant._id)}
-                      >
-                        <IconTrash size={16} />
                       </ActionIcon>
                     </Group>
                   </Table.Td>
@@ -534,6 +610,52 @@ const TenantsSection = () => {
             required
             error={formErrors.email}
           />
+          <TextInput
+            label="Address"
+            value={editForm.address}
+            onChange={(e) =>
+              setEditForm({ ...editForm, address: e.currentTarget.value })
+            }
+            required
+            error={formErrors.address}
+          />
+
+          <TextInput
+            label="Phone Number"
+            value={editForm.phoneNumber}
+            onChange={(e) =>
+              setEditForm({ ...editForm, phoneNumber: e.currentTarget.value })
+            }
+            required
+            error={formErrors.phoneNumber}
+          />
+
+          <Group grow>
+            <Select
+              label="Gender"
+              value={editForm.gender}
+              onChange={(value) =>
+                setEditForm({ ...editForm, gender: value || "" })
+              }
+              data={[
+                { value: "male", label: "Male" },
+                { value: "female", label: "Female" },
+                { value: "other", label: "Other" },
+              ]}
+              required
+              error={formErrors.gender}
+            />
+            <TextInput
+              label="Age"
+              type="number"
+              value={editForm.age}
+              onChange={(e) =>
+                setEditForm({ ...editForm, age: e.currentTarget.value })
+              }
+              required
+              error={formErrors.age}
+            />
+          </Group>
           {!editingTenant && (
             <>
               <PasswordInput
@@ -587,6 +709,162 @@ const TenantsSection = () => {
             </Button>
           </Group>
         </Stack>
+      </Modal>
+
+      {/* View Modal */}
+      <Modal
+        opened={showViewModal}
+        onClose={() => setShowViewModal(false)}
+        title="Tenant Details"
+        size="lg"
+      >
+        {viewingTenant && (
+          <Stack gap="md">
+            <Box className="rounded-lg p-4">
+              <Text size="sm" fw={500} mb="sm">
+                Personal Information
+              </Text>
+              <Stack gap="xs">
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Full Name:
+                  </Text>
+                  <Text size="sm" fw={500}>
+                    {viewingTenant.user_name}
+                  </Text>
+                </Group>
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Email:
+                  </Text>
+                  <Text size="sm" fw={500}>
+                    {viewingTenant.user_email}
+                  </Text>
+                </Group>
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Phone Number:
+                  </Text>
+                  <Text size="sm" fw={500}>
+                    {viewingTenant.phoneNumber || "N/A"}
+                  </Text>
+                </Group>
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Address:
+                  </Text>
+                  <Text size="sm" fw={500}>
+                    {viewingTenant.address || "N/A"}
+                  </Text>
+                </Group>
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Gender:
+                  </Text>
+                  <Text size="sm" fw={500}>
+                    {viewingTenant.gender
+                      ? viewingTenant.gender.charAt(0).toUpperCase() +
+                        viewingTenant.gender.slice(1)
+                      : "N/A"}
+                  </Text>
+                </Group>
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Age:
+                  </Text>
+                  <Text size="sm" fw={500}>
+                    {viewingTenant.age || "N/A"}
+                  </Text>
+                </Group>
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Status:
+                  </Text>
+                  <div>{getStatusBadge(viewingTenant.status)}</div>
+                </Group>
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Created At:
+                  </Text>
+                  <Text size="sm" fw={500}>
+                    {new Date(viewingTenant.created_at).toLocaleDateString()}
+                  </Text>
+                </Group>
+              </Stack>
+            </Box>
+
+            {viewingTenant.property && (
+              <Box className=" rounded-lg p-4">
+                <Text size="sm" fw={500} mb="sm">
+                  Property Information
+                </Text>
+                <Stack gap="xs">
+                  <Group justify="space-between">
+                    <Text size="sm" c="dimmed">
+                      Property Title:
+                    </Text>
+                    <Text size="sm" fw={500}>
+                      {viewingTenant.property.title}
+                    </Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c="dimmed">
+                      Location:
+                    </Text>
+                    <Text size="sm" fw={500}>
+                      {viewingTenant.property.location}
+                    </Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c="dimmed">
+                      Type:
+                    </Text>
+                    <Text size="sm" fw={500}>
+                      {viewingTenant.property.type}
+                    </Text>
+                  </Group>
+                  {viewingTenant.property.bedrooms &&
+                    viewingTenant.property.bedrooms > 0 && (
+                      <Group justify="space-between">
+                        <Text size="sm" c="dimmed">
+                          Bedrooms:
+                        </Text>
+                        <Text size="sm" fw={500}>
+                          {viewingTenant.property.bedrooms}
+                        </Text>
+                      </Group>
+                    )}
+                  {viewingTenant.property.bathrooms &&
+                    viewingTenant.property.bathrooms > 0 && (
+                      <Group justify="space-between">
+                        <Text size="sm" c="dimmed">
+                          Bathrooms:
+                        </Text>
+                        <Text size="sm" fw={500}>
+                          {viewingTenant.property.bathrooms}
+                        </Text>
+                      </Group>
+                    )}
+                  {viewingTenant.property.sqft &&
+                    viewingTenant.property.sqft > 0 && (
+                      <Group justify="space-between">
+                        <Text size="sm" c="dimmed">
+                          Square Footage:
+                        </Text>
+                        <Text size="sm" fw={500}>
+                          {viewingTenant.property.sqft} sq ft
+                        </Text>
+                      </Group>
+                    )}
+                </Stack>
+              </Box>
+            )}
+
+            <Group justify="flex-end" mt="md">
+              <Button onClick={() => setShowViewModal(false)}>Close</Button>
+            </Group>
+          </Stack>
+        )}
       </Modal>
     </Container>
   );

@@ -15,16 +15,15 @@ import {
   FileInput,
   Button as MantineButton,
   Center,
-  Group,
   useMantineTheme,
   useMantineColorScheme,
   rgba,
+  Notification,
+  Select,
 } from "@mantine/core";
 import { IconUpload, IconCheck, IconX } from "@tabler/icons-react";
 import { useForm } from "@mantine/form";
-import { toast } from "react-hot-toast";
 import { authClient } from "@/lib/auth-client";
-import { Notification } from "@mantine/core";
 
 interface NotificationType {
   type: "success" | "error";
@@ -35,7 +34,9 @@ const AdminProfilePage = () => {
   const theme = useMantineTheme();
   const { colorScheme } = useMantineColorScheme();
   const [session, setSession] = useState<null | Session>(null);
-  const [loading, setLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [notification, setNotification] = useState<NotificationType | null>(
     null
@@ -57,6 +58,10 @@ const AdminProfilePage = () => {
     initialValues: {
       name: "",
       image: null as File | null,
+      address: "",
+      gender: "",
+      age: "",
+      phoneNumber: "",
     },
     validate: {
       name: (value) =>
@@ -65,14 +70,29 @@ const AdminProfilePage = () => {
         value && value.size > 5 * 1024 * 1024
           ? "Image must be less than 5MB"
           : value &&
-            ![
-              "image/jpeg",
-              "image/jpg",
-              "image/png",
-              "image/gif",
-              "image/webp",
-            ].includes(value.type)
-          ? "Image must be JPEG, PNG, GIF, or WebP"
+              ![
+                "image/jpeg",
+                "image/jpg",
+                "image/png",
+                "image/gif",
+                "image/webp",
+              ].includes(value.type)
+            ? "Image must be JPEG, PNG, GIF, or WebP"
+            : null,
+      address: (value) =>
+        value.trim().length < 5
+          ? "Address must be at least 5 characters"
+          : null,
+      gender: (value) => (!value ? "Gender is required" : null),
+      age: (value) =>
+        !value
+          ? "Age is required"
+          : parseInt(value) < 18 || parseInt(value) > 120
+            ? "Age must be between 18 and 120"
+            : null,
+      phoneNumber: (value) =>
+        value.trim().length < 10
+          ? "Phone number must be at least 10 characters"
           : null,
     },
   });
@@ -110,7 +130,13 @@ const AdminProfilePage = () => {
       try {
         const session = await getServerSession();
         setSession(session);
-        profileForm.setValues({ name: session?.user?.name || "" });
+        profileForm.setValues({
+          name: session?.user?.name || "",
+          address: session?.user?.address || "",
+          gender: session?.user?.gender || "",
+          age: session?.user?.age?.toString() || "",
+          phoneNumber: session?.user?.phoneNumber || "",
+        });
         setImagePreview(session?.user?.image || "");
         showNotification("success", "Profile data loaded successfully");
       } catch (error) {
@@ -156,7 +182,7 @@ const AdminProfilePage = () => {
       return;
     }
 
-    setLoading(true);
+    setProfileLoading(true);
 
     try {
       let imageData = session?.user?.image || "";
@@ -164,10 +190,25 @@ const AdminProfilePage = () => {
         imageData = await convertFileToBase64(values.image);
       }
 
-      await authClient.updateUser({
-        name: values.name.trim(),
-        image: imageData,
+      // Update using fetch API directly since authClient.updateUser doesn't support custom fields
+      const response = await fetch("/api/auth/update-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: values.name.trim(),
+          image: imageData,
+          address: values.address.trim(),
+          gender: values.gender,
+          age: parseInt(values.age),
+          phoneNumber: values.phoneNumber.trim(),
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to update profile");
+      }
 
       const updatedSession = await getServerSession();
       setSession(updatedSession);
@@ -180,7 +221,7 @@ const AdminProfilePage = () => {
         error instanceof Error ? error.message : "Failed to update profile"
       );
     } finally {
-      setLoading(false);
+      setProfileLoading(false);
     }
   };
 
@@ -194,7 +235,7 @@ const AdminProfilePage = () => {
       return;
     }
 
-    setLoading(true);
+    setPasswordLoading(true);
 
     try {
       const { error: authError } = await authClient.changePassword({
@@ -219,7 +260,7 @@ const AdminProfilePage = () => {
         error instanceof Error ? error.message : "Failed to change password"
       );
     } finally {
-      setLoading(false);
+      setPasswordLoading(false);
     }
   };
 
@@ -233,7 +274,7 @@ const AdminProfilePage = () => {
       return;
     }
 
-    setLoading(true);
+    setTwoFactorLoading(true);
 
     try {
       const { error: authError } = await authClient.twoFactor.enable({
@@ -265,7 +306,7 @@ const AdminProfilePage = () => {
           : "Failed to enable two-factor authentication"
       );
     } finally {
-      setLoading(false);
+      setTwoFactorLoading(false);
     }
   };
 
@@ -294,7 +335,11 @@ const AdminProfilePage = () => {
       radius="lg"
       withBorder
       shadow="sm"
-      style={{ maxWidth: "100%", margin: "auto", boxShadow: getDefaultShadow() }}
+      style={{
+        maxWidth: "100%",
+        margin: "auto",
+        boxShadow: getDefaultShadow(),
+      }}
     >
       {notification && (
         <Notification
@@ -345,7 +390,7 @@ const AdminProfilePage = () => {
                   {...profileForm.getInputProps("image")}
                   onChange={handleFileChange}
                   clearable
-                  disabled={loading}
+                  disabled={profileLoading}
                   style={{ width: "100%", maxWidth: 300 }}
                 />
                 <Text size="xs" c="dimmed">
@@ -358,34 +403,84 @@ const AdminProfilePage = () => {
               label="Name"
               placeholder="Enter your name"
               {...profileForm.getInputProps("name")}
-              disabled={loading}
+              disabled={profileLoading}
             />
-            <Text size="sm" c="dimmed">
-              Email: {session.user?.email}
-            </Text>
-            <Text size="sm" c="dimmed">
-              Role: {session.user?.role}
-            </Text>
-            <Text size="sm" c="dimmed">
-              Two-Factor Authentication:{" "}
-              {session.user?.twoFactorEnabled ? "Enabled" : "Disabled"}
-            </Text>
-            <Text size="sm" c="dimmed">
-              Created At:{" "}
-              {new Date(session.user?.createdAt).toLocaleDateString()}
-            </Text>
-            <Text size="sm" c="dimmed">
-              Updated At:{" "}
-              {new Date(session.user?.updatedAt).toLocaleDateString()}
-            </Text>
+
+            <TextInput
+              label="Address"
+              placeholder="Enter your address"
+              {...profileForm.getInputProps("address")}
+              disabled={profileLoading}
+            />
+
+            <TextInput
+              label="Phone Number"
+              placeholder="Enter your phone number"
+              type="tel"
+              {...profileForm.getInputProps("phoneNumber")}
+              disabled={profileLoading}
+            />
+
+            <Select
+              label="Gender"
+              placeholder="Select your gender"
+              data={[
+                { value: "male", label: "Male" },
+                { value: "female", label: "Female" },
+                { value: "other", label: "Other" },
+              ]}
+              {...profileForm.getInputProps("gender")}
+              disabled={profileLoading}
+            />
+
+            <TextInput
+              label="Age"
+              placeholder="Enter your age"
+              type="number"
+              {...profileForm.getInputProps("age")}
+              disabled={profileLoading}
+            />
+
+            <Stack gap="xs">
+              <Text size="sm" c="dimmed">
+                Email: {session.user?.email}
+              </Text>
+              <Text size="sm" c="dimmed">
+                Role: {session.user?.role}
+              </Text>
+              <Text size="sm" c="dimmed">
+                Address: {session.user?.address || "Not provided"}
+              </Text>
+              <Text size="sm" c="dimmed">
+                Phone Number: {session.user?.phoneNumber || "Not provided"}
+              </Text>
+              <Text size="sm" c="dimmed">
+                Gender:{" "}
+                {session.user?.gender
+                  ? session.user.gender.charAt(0).toUpperCase() +
+                    session.user.gender.slice(1)
+                  : "Not provided"}
+              </Text>
+              <Text size="sm" c="dimmed">
+                Age: {session.user?.age || "Not provided"}
+              </Text>
+              <Text size="sm" c="dimmed">
+                Two-Factor Authentication:{" "}
+                {session.user?.twoFactorEnabled ? "Enabled" : "Disabled"}
+              </Text>
+              <Text size="sm" c="dimmed">
+                Created At:{" "}
+                {new Date(session.user?.createdAt).toLocaleDateString()}
+              </Text>
+            </Stack>
 
             <MantineButton
               type="submit"
               color="blue"
               size="md"
               fullWidth
-              loading={loading}
-              disabled={loading}
+              loading={profileLoading}
+              disabled={profileLoading}
             >
               Update Profile
             </MantineButton>
@@ -401,29 +496,29 @@ const AdminProfilePage = () => {
               placeholder="Enter your current password"
               type="password"
               {...passwordForm.getInputProps("currentPassword")}
-              disabled={loading}
+              disabled={passwordLoading}
             />
             <TextInput
               label="New Password"
               placeholder="Enter your new password"
               type="password"
               {...passwordForm.getInputProps("newPassword")}
-              disabled={loading}
+              disabled={passwordLoading}
             />
             <TextInput
               label="Confirm New Password"
               placeholder="Confirm your new password"
               type="password"
               {...passwordForm.getInputProps("confirmNewPassword")}
-              disabled={loading}
+              disabled={passwordLoading}
             />
             <MantineButton
               type="submit"
               color="blue"
               size="md"
               fullWidth
-              loading={loading}
-              disabled={loading}
+              loading={passwordLoading}
+              disabled={passwordLoading}
             >
               Change Password
             </MantineButton>
@@ -444,15 +539,15 @@ const AdminProfilePage = () => {
                 placeholder="Enter your password"
                 type="password"
                 {...twoFactorForm.getInputProps("password")}
-                disabled={loading}
+                disabled={twoFactorLoading}
               />
               <MantineButton
                 type="submit"
                 color="blue"
                 size="md"
                 fullWidth
-                loading={loading}
-                disabled={loading}
+                loading={twoFactorLoading}
+                disabled={twoFactorLoading}
               >
                 Enable Two-Factor Authentication
               </MantineButton>

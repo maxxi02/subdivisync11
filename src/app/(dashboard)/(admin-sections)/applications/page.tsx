@@ -1024,17 +1024,6 @@ const ApplicationsPage = () => {
                                 </MantineButton>
                               </>
                             )}
-                          {(inquiry.status === "approved" ||
-                            inquiry.propertyStatus === "LEASED") && (
-                            <MantineButton
-                              size="xs"
-                              color="gray"
-                              disabled
-                              leftSection={<IconX size={14} />}
-                            >
-                              Reject
-                            </MantineButton>
-                          )}
                           <ActionIcon
                             variant="light"
                             color="blue"
@@ -1145,7 +1134,7 @@ const ApplicationsPage = () => {
                   </Grid.Col>
                   <Grid.Col span={6}>
                     <Text size="sm" c="dimmed">
-                      Location
+                      Block/Street
                     </Text>
                     <Text fw={500}>{selectedInquiry.propertyLocation}</Text>
                   </Grid.Col>
