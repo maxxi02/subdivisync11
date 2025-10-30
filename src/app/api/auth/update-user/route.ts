@@ -14,9 +14,15 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
-
     const body = await request.json();
     const { name, image, address, gender, age, phoneNumber } = body;
+
+    console.log("Update user request:", {
+      userId: session.user.id,
+      name,
+      address,
+      sessionUser: session.user,
+    });
 
     // Validate required fields
     if (!name?.trim()) {
@@ -54,7 +60,70 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update user in database
+    // Check if user exists - Better-Auth uses 'id' field (UUID string)
+    const existingUser = await db.collection("user").findOne({
+      id: session.user.id,
+    });
+
+    console.log("User lookup:", {
+      searchingFor: session.user.id,
+      found: existingUser ? "Yes" : "No",
+      existingUserId: existingUser?.id,
+      existingUserObjectId: existingUser?._id,
+    });
+
+    if (!existingUser) {
+      // Try alternate query in case the field name is different
+      const altUser = await db.collection("user").findOne({
+        email: session.user.email,
+      });
+
+      console.log("Alternate user lookup by email:", {
+        email: session.user.email,
+        found: altUser ? "Yes" : "No",
+      });
+
+      if (altUser) {
+        console.log("User found by email, updating...");
+        // Use the email to update instead
+        const result = await db.collection("user").updateOne(
+          { email: session.user.email },
+          {
+            $set: {
+              name: name.trim(),
+              image,
+              address: address.trim(),
+              gender,
+              age: parseInt(age.toString()),
+              phoneNumber: phoneNumber.trim(),
+              updatedAt: new Date(),
+            },
+          }
+        );
+
+        if (result.matchedCount === 0) {
+          return NextResponse.json(
+            { success: false, error: "Failed to update user" },
+            { status: 404 }
+          );
+        }
+
+        return NextResponse.json(
+          {
+            success: true,
+            message: "Profile updated successfully",
+          },
+          { status: 200 }
+        );
+      }
+
+      return NextResponse.json(
+        { success: false, error: "User not found" },
+        { status: 404 }
+      );
+    }
+
+    // Update user in database using 'id' field (Better-Auth standard)
     const result = await db.collection("user").updateOne(
       { id: session.user.id },
       {
@@ -70,9 +139,14 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    if (result.modifiedCount === 0 && result.matchedCount === 0) {
+    console.log("Update result:", {
+      matchedCount: result.matchedCount,
+      modifiedCount: result.modifiedCount,
+    });
+
+    if (result.matchedCount === 0) {
       return NextResponse.json(
-        { success: false, error: "User not found" },
+        { success: false, error: "User not found during update" },
         { status: 404 }
       );
     }

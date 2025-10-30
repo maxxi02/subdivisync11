@@ -1,12 +1,11 @@
 import { getServerSession } from "@/better-auth/action";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB, db } from "@/database/mongodb";
-import { hash } from "bcryptjs";
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession();
-
+    
     if (!session) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
@@ -14,37 +13,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (session.user.role !== "admin") {
-      return NextResponse.json(
-        { success: false, error: "Forbidden - Admin access required" },
-        { status: 403 }
-      );
-    }
-
     await connectDB();
 
     const body = await request.json();
-    const { email, password, name, status, address, gender, age, phoneNumber } =
-      body;
+    const { name, image, address, gender, age, phoneNumber } = body;
+
+    console.log("Update user request:", { userId: session.user.id, name, address });
 
     // Validate required fields
     if (!name?.trim()) {
       return NextResponse.json(
         { success: false, error: "Name is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!email?.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Email is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!password || password.length < 8) {
-      return NextResponse.json(
-        { success: false, error: "Password must be at least 8 characters" },
         { status: 400 }
       );
     }
@@ -77,74 +56,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user already exists
-    const existingUser = await db
-      .collection("user")
-      .findOne({ email: email.trim() });
-    if (existingUser) {
+    // Check if user exists
+    const existingUser = await db.collection("user").findOne({ id: session.user.id });
+    
+    console.log("User found:", existingUser ? "Yes" : "No");
+
+    if (!existingUser) {
       return NextResponse.json(
-        { success: false, error: "User with this email already exists" },
-        { status: 400 }
+        { success: false, error: "User not found" },
+        { status: 404 }
       );
     }
 
-    // Generate user ID
-    const userId = crypto.randomUUID();
+    // Update user in database using 'id' field (Better-Auth standard)
+    const result = await db.collection("user").updateOne(
+      { id: session.user.id },
+      {
+        $set: {
+          name: name.trim(),
+          image,
+          address: address.trim(),
+          gender,
+          age: parseInt(age.toString()),
+          phoneNumber: phoneNumber.trim(),
+          updatedAt: new Date(),
+        },
+      }
+    );
 
-    // Hash password
-    const hashedPassword = await hash(password, 10);
+    console.log("Update result:", { matchedCount: result.matchedCount, modifiedCount: result.modifiedCount });
 
-    // Create user document
-    const newUser = {
-      id: userId,
-      email: email.trim(),
-      emailVerified: false,
-      name: name.trim(),
-      role: "tenant",
-      status,
-      address: address.trim(),
-      gender,
-      age: parseInt(age.toString()),
-      phoneNumber: phoneNumber.trim(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      banned: false,
-      twoFactorEnabled: false,
-    };
-
-    // Insert user
-    const userResult = await db.collection("user").insertOne(newUser);
-
-    if (!userResult.insertedId) {
+    if (result.matchedCount === 0) {
       return NextResponse.json(
-        { success: false, error: "Failed to create user" },
-        { status: 500 }
+        { success: false, error: "User not found during update" },
+        { status: 404 }
       );
     }
-
-    // Create account record for password authentication
-    await db.collection("account").insertOne({
-      id: crypto.randomUUID(),
-      userId: userId,
-      accountId: email.trim(),
-      providerId: "credential",
-      password: hashedPassword,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
 
     return NextResponse.json(
       {
         success: true,
-        user: newUser,
-        message: "Tenant created successfully",
+        message: "Profile updated successfully",
       },
-      { status: 201 }
+      { status: 200 }
     );
   } catch (error) {
-    console.error("Error creating tenant:", error);
+    console.error("Error updating user:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to create tenant" },
+      { success: false, error: "Failed to update profile" },
       { status: 500 }
     );
   }

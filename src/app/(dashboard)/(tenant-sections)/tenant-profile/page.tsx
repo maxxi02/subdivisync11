@@ -21,6 +21,8 @@ import {
   useMantineColorScheme,
   rgba,
   Notification,
+  Group,
+  Select,
 } from "@mantine/core";
 import { IconUpload, IconCheck, IconX } from "@tabler/icons-react";
 import { useForm } from "@mantine/form";
@@ -60,6 +62,10 @@ const TenantProfilePage = () => {
     initialValues: {
       name: "",
       image: null as File | null,
+      address: "",
+      gender: "",
+      age: "",
+      phoneNumber: "",
     },
     validate: {
       name: (value) =>
@@ -77,6 +83,21 @@ const TenantProfilePage = () => {
               ].includes(value.type)
             ? "Image must be JPEG, PNG, GIF, or WebP"
             : null,
+      address: (value) =>
+        value.trim().length < 5
+          ? "Address must be at least 5 characters"
+          : null,
+      gender: (value) => (!value ? "Gender is required" : null),
+      age: (value) =>
+        !value
+          ? "Age is required"
+          : parseInt(value) < 18 || parseInt(value) > 120
+            ? "Age must be between 18 and 120"
+            : null,
+      phoneNumber: (value) =>
+        value.trim().length < 10
+          ? "Phone number must be at least 10 characters"
+          : null,
     },
   });
 
@@ -116,7 +137,13 @@ const TenantProfilePage = () => {
         if (session?.user?.role !== "tenant") {
           router.push("/dashboard");
         } else {
-          profileForm.setValues({ name: session?.user?.name || "" });
+          profileForm.setValues({
+            name: session?.user?.name || "",
+            address: session?.user?.address || "",
+            gender: session?.user?.gender || "",
+            age: session?.user?.age?.toString() || "",
+            phoneNumber: session?.user?.phoneNumber || "",
+          });
           setImagePreview(session?.user?.image || "");
           showNotification("success", "Profile data loaded successfully");
         }
@@ -171,10 +198,26 @@ const TenantProfilePage = () => {
         imageData = await convertFileToBase64(values.image);
       }
 
-      await authClient.updateUser({
-        name: values.name.trim(),
-        image: imageData,
+      const response = await fetch("/api/auth/update-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: values.name.trim(),
+          image: imageData,
+          address: values.address.trim(),
+          gender: values.gender,
+          age: parseInt(values.age),
+          phoneNumber: values.phoneNumber.trim(),
+        }),
       });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to update profile");
+      }
 
       const updatedSession = await getServerSession();
       setSession(updatedSession);
@@ -381,20 +424,61 @@ const TenantProfilePage = () => {
                 {...profileForm.getInputProps("name")}
                 disabled={profileLoading}
               />
-              <Text size="sm" c="dimmed">
-                Email: {session.user?.email}
-              </Text>
-              <Text size="sm" c="dimmed">
-                Role: {session.user?.role}
-              </Text>
-              <Text size="sm" c="dimmed">
-                Two-Factor Authentication:{" "}
-                {session.user?.twoFactorEnabled ? "Enabled" : "Disabled"}
-              </Text>
-              <Text size="sm" c="dimmed">
-                Created At:{" "}
-                {new Date(session.user?.createdAt).toLocaleDateString()}
-              </Text>
+
+              <TextInput
+                label="Address"
+                placeholder="Enter your address"
+                {...profileForm.getInputProps("address")}
+                disabled={profileLoading}
+              />
+
+              <TextInput
+                label="Phone Number"
+                placeholder="Enter your phone number"
+                type="tel"
+                {...profileForm.getInputProps("phoneNumber")}
+                disabled={profileLoading}
+              />
+              <Group grow>
+                <Select
+                  label="Gender"
+                  placeholder="Select your gender"
+                  data={[
+                    { value: "male", label: "Male" },
+                    { value: "female", label: "Female" },
+                    { value: "other", label: "Other" },
+                  ]}
+                  {...profileForm.getInputProps("gender")}
+                  disabled={profileLoading}
+                />
+                <TextInput
+                  label="Age"
+                  placeholder="Enter your age"
+                  type="number"
+                  {...profileForm.getInputProps("age")}
+                  disabled={profileLoading}
+                />
+              </Group>
+
+              <Stack gap="xs">
+                <Text size="sm" c="dimmed">
+                  Email: {session.user?.email}
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Role: {session.user?.role}
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Status: {session.user?.status || "Active"}
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Two-Factor Authentication:{" "}
+                  {session.user?.twoFactorEnabled ? "Enabled" : "Disabled"}
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Created At:{" "}
+                  {new Date(session.user?.createdAt).toLocaleDateString()}
+                </Text>
+              </Stack>
 
               <MantineButton
                 type="submit"
