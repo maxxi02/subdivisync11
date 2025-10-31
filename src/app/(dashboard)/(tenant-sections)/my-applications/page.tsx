@@ -107,7 +107,6 @@ interface PaymentPlan {
   maintenanceFee?: number;
   totalMonthlyPayment?: number;
 }
-
 interface NotificationType {
   type: "success" | "error";
   message: string;

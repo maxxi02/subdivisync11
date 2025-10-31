@@ -37,13 +37,17 @@ export async function POST(request: NextRequest) {
     const paymentPlansCollection = db.collection("payment_plans");
     const monthlyPaymentsCollection = db.collection("monthly_payments");
 
-    // Create payment plan
     const paymentPlanData = {
       propertyId,
       propertyTitle: paymentPlan.propertyTitle || description,
       propertyPrice: paymentPlan.propertyPrice,
       downPayment: paymentPlan.downPayment,
       monthlyPayment: paymentPlan.monthlyPayment,
+      guardFee: paymentPlan.guardFee || 0, // Add this
+      garbageFee: paymentPlan.garbageFee || 0, // Add this
+      maintenanceFee: paymentPlan.maintenanceFee || 0, // Add this
+      totalMonthlyPayment:
+        paymentPlan.totalMonthlyPayment || paymentPlan.monthlyPayment, // Add this
       interestRate: paymentPlan.interestRate,
       leaseDuration: paymentPlan.leaseDuration,
       totalAmount: paymentPlan.totalAmount,
@@ -60,9 +64,8 @@ export async function POST(request: NextRequest) {
       created_at: new Date(),
     };
 
-    const paymentPlanResult = await paymentPlansCollection.insertOne(
-      paymentPlanData
-    );
+    const paymentPlanResult =
+      await paymentPlansCollection.insertOne(paymentPlanData);
 
     // Create first monthly payment record
     const dueDate = new Date();
@@ -71,27 +74,20 @@ export async function POST(request: NextRequest) {
       propertyId,
       tenantEmail: customer.email,
       monthNumber: 1,
-      amount: paymentPlan.monthlyPayment,
+      amount: paymentPlan.totalMonthlyPayment || paymentPlan.monthlyPayment, 
       dueDate: dueDate.toISOString(),
       status: "pending",
       created_at: new Date(),
     };
 
-    const monthlyPaymentResult = await monthlyPaymentsCollection.insertOne(
-      monthlyPaymentData
-    );
+    const monthlyPaymentResult =
+      await monthlyPaymentsCollection.insertOne(monthlyPaymentData);
 
-    // Define PayMongo payment methods - using only confirmed working methods
-    // Based on API errors, many banking methods are not valid or require different naming
     const allowedPaymentMethods = [
       "card",
       "gcash",
       "paymaya",
       "grab_pay",
-      // Temporarily removing banking methods that cause API errors
-      // "billease", // May require special activation
-      // "dob", // Generic direct online banking
-      // Add banking methods back individually after testing each one
     ];
 
     // Create PayMongo payment intent
