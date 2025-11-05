@@ -169,17 +169,25 @@ export async function GET(request: NextRequest) {
       }
     }
     // Get multiple requests
-    let query = {};
+    let query: Record<string, unknown> = {};
 
     if (session.user.role === "tenant") {
-      // Tenants can only see their own requests
-      query = { user_id: session.user.id };
+      query = {
+        $or: [
+          { user_id: session.user.id },
+          { user_id: session.user.id.toString() },
+          { user_email: session.user.email },
+        ],
+      };
     } else if (session.user.role === "admin") {
-      // Admins can see all requests
       if (userRequests) {
-        query = { user_id: session.user.id };
+        query = {
+          $or: [
+            { user_id: session.user.id },
+            { user_id: session.user.id.toString() },
+          ],
+        };
       }
-      // Otherwise, no filter (get all requests)
     }
 
     const serviceRequests = await serviceRequestsCollection

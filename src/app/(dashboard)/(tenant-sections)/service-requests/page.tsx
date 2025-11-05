@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect, useCallback } from "react";
 import {
   Container,
@@ -151,39 +150,37 @@ const ServiceRequestsSection = () => {
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(
     null
   );
-
   const primaryTextColor = colorScheme === "dark" ? "white" : "dark";
+  const secondaryTextColor =
+    colorScheme === "dark" ? theme.colors.dark[2] : theme.colors.gray[6];
   const getDefaultShadow = () => {
     const baseShadow = "0 1px 3px";
     const opacity = colorScheme === "dark" ? 0.2 : 0.12;
     return `${baseShadow} ${rgba(theme.black, opacity)}`;
   };
-
   const showNotification = (type: "success" | "error", message: string) => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 5000);
   };
-
   useEffect(() => {
     fetchServiceRequests();
   }, []);
-
   useEffect(() => {
     return () => {
       // Cleanup image preview URLs on unmount
       imagePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
     };
   }, []);
-
   const fetchServiceRequests = async () => {
     try {
       setLoading(true);
       const response = await axios.get("/api/service-requests");
+      console.log("API Response:", response.data); // Debug log
       if (response.data.success && response.data.serviceRequests) {
         const transformedRequests = response.data.serviceRequests.map(
           (request: ServiceRequest) => ({
             ...request,
-            id: request._id || request.id,
+            id: request._id || request.id, // Use _id as primary identifier
             date: request.created_at
               ? new Date(request.created_at).toLocaleDateString("en-PH", {
                   year: "numeric",
@@ -194,6 +191,7 @@ const ServiceRequestsSection = () => {
             amount: request.final_cost || request.estimated_cost,
           })
         );
+        console.log("Transformed Requests:", transformedRequests); // Debug log
         setRequests(transformedRequests);
         showNotification("success", "Service requests loaded successfully");
       } else {
@@ -203,6 +201,7 @@ const ServiceRequestsSection = () => {
         );
       }
     } catch (err) {
+      console.error("Fetch error:", err); // Debug log
       const errorMessage = axios.isAxiosError(err)
         ? err.message
         : "An error occurred";
@@ -211,7 +210,6 @@ const ServiceRequestsSection = () => {
       setLoading(false);
     }
   };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
@@ -226,7 +224,6 @@ const ServiceRequestsSection = () => {
         return "gray";
     }
   };
-
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "high":
@@ -239,7 +236,6 @@ const ServiceRequestsSection = () => {
         return "gray";
     }
   };
-
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
     const category = categories.find((c) => c.id === categoryId);
@@ -247,13 +243,10 @@ const ServiceRequestsSection = () => {
       setIssueDescription(category.defaultDescription);
     }
   };
-
   const uploadImages = async (files: File[]): Promise<string[]> => {
     if (files.length === 0) return [];
-
     const formData = new FormData();
     files.forEach((file) => formData.append("images", file));
-
     try {
       const response = await axios.post(
         "/api/service-upload-images",
@@ -262,7 +255,6 @@ const ServiceRequestsSection = () => {
           headers: { "Content-Type": "multipart/form-data" },
         }
       );
-
       if (response.data.success) {
         return response.data.imageUrls || [];
       } else {
@@ -273,19 +265,16 @@ const ServiceRequestsSection = () => {
       throw error;
     }
   };
-
   const handleFilesChange = (newFiles: File[]) => {
     setFiles((prev) => [...prev, ...newFiles]);
     const newPreviewUrls = newFiles.map((file) => URL.createObjectURL(file));
     setImagePreviewUrls((prev) => [...prev, ...newPreviewUrls]);
   };
-
   const removeFile = (index: number) => {
     URL.revokeObjectURL(imagePreviewUrls[index]);
     setFiles(files.filter((_, i) => i !== index));
     setImagePreviewUrls(imagePreviewUrls.filter((_, i) => i !== index));
   };
-
   const handleCancelRequest = async (id: string) => {
     if (!confirm("Are you sure you want to cancel this request?")) return;
     try {
@@ -313,7 +302,6 @@ const ServiceRequestsSection = () => {
       showNotification("error", errorMessage);
     }
   };
-
   const handlePayment = async (request: ServiceRequest) => {
     if (!request.final_cost) {
       showNotification("error", "No final cost available for payment");
@@ -343,7 +331,6 @@ const ServiceRequestsSection = () => {
       setPaymentLoading(false);
     }
   };
-
   const submitRequest = async () => {
     if (!selectedCategory || !issueDescription.trim()) {
       showNotification(
@@ -355,7 +342,6 @@ const ServiceRequestsSection = () => {
     try {
       setSubmitting(true);
       let imageUrls: string[] = [];
-
       if (files.length > 0) {
         try {
           imageUrls = await uploadImages(files);
@@ -370,7 +356,6 @@ const ServiceRequestsSection = () => {
           return;
         }
       }
-
       const categoryTitle =
         categories.find((c) => c.id === selectedCategory)?.title || "Other";
       const response = await axios.post("/api/service-requests", {
@@ -379,7 +364,6 @@ const ServiceRequestsSection = () => {
         priority: priority,
         images: imageUrls,
       });
-
       if (response.data.success && response.data.serviceRequest) {
         const newRequest = {
           ...response.data.serviceRequest,
@@ -418,11 +402,9 @@ const ServiceRequestsSection = () => {
       setSubmitting(false);
     }
   };
-
   const handlePriorityChange = useCallback((value: string | null) => {
     setPriority(value || "medium");
   }, []);
-
   const formatCurrency = (amount?: number) => {
     if (!amount) return "Not set";
     return new Intl.NumberFormat("en-PH", {
@@ -430,7 +412,6 @@ const ServiceRequestsSection = () => {
       currency: "PHP",
     }).format(amount);
   };
-
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Not set";
     return new Date(dateString).toLocaleDateString("en-PH", {
@@ -439,7 +420,6 @@ const ServiceRequestsSection = () => {
       day: "numeric",
     });
   };
-
   const filteredRequests = requests
     .filter(
       (request) =>
@@ -451,14 +431,12 @@ const ServiceRequestsSection = () => {
       const priorityOrder = { high: 3, medium: 2, low: 1 };
       return priorityOrder[b.priority] - priorityOrder[a.priority];
     });
-
   const stats = {
     pending: requests.filter((r) => r.status === "pending").length,
     inProgress: requests.filter((r) => r.status === "in-progress").length,
     completed: requests.filter((r) => r.status === "completed").length,
     highPriority: requests.filter((r) => r.priority === "high").length,
   };
-
   return (
     <Container size="100%" py="md">
       <LoadingOverlay visible={loading} />
@@ -513,7 +491,6 @@ const ServiceRequestsSection = () => {
             </MantineButton>
           </Group>
         </Card>
-
         {/* Stats Cards */}
         <SimpleGrid cols={{ base: 1, sm: 4 }} spacing="md">
           <Card
@@ -649,7 +626,6 @@ const ServiceRequestsSection = () => {
             </Group>
           </Card>
         </SimpleGrid>
-
         {/* Priority Alert */}
         {stats.highPriority > 0 && (
           <Card
@@ -676,7 +652,6 @@ const ServiceRequestsSection = () => {
             </Group>
           </Card>
         )}
-
         {/* Request Categories */}
         <Card
           padding="xl"
@@ -744,7 +719,6 @@ const ServiceRequestsSection = () => {
             ))}
           </SimpleGrid>
         </Card>
-
         {selectedCategory && (
           <>
             {/* Issue Description Input */}
@@ -772,7 +746,6 @@ const ServiceRequestsSection = () => {
                 maxRows={6}
               />
             </Card>
-
             {/* Priority Selection */}
             <Card
               padding="xl"
@@ -799,7 +772,6 @@ const ServiceRequestsSection = () => {
                 clearable={false}
               />
             </Card>
-
             {/* Image Upload */}
             <Card
               padding="xl"
@@ -904,7 +876,6 @@ const ServiceRequestsSection = () => {
                 </Stack>
               )}
             </Card>
-
             {/* Submit/Cancel Buttons */}
             <Group justify="center" mt="md">
               <MantineButton
@@ -938,7 +909,6 @@ const ServiceRequestsSection = () => {
             </Group>
           </>
         )}
-
         {/* Search Bar */}
         <Card
           padding="xl"
@@ -969,7 +939,6 @@ const ServiceRequestsSection = () => {
             />
           </Group>
         </Card>
-
         {/* Request History Table */}
         <Card
           padding="xl"
@@ -984,16 +953,173 @@ const ServiceRequestsSection = () => {
           <Title order={2} size="h3" mb="md" c={primaryTextColor}>
             Request History
           </Title>
-
           {/* Desktop View - Table */}
           <Box display={{ base: "none", md: "block" }}>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                {/* Keep your existing table structure */}
+                <thead
+                  style={{
+                    backgroundColor:
+                      colorScheme === "dark"
+                        ? theme.colors.dark[8]
+                        : theme.colors.gray[0],
+                    borderBottom: `1px solid ${
+                      colorScheme === "dark"
+                        ? theme.colors.dark[5]
+                        : theme.colors.gray[3]
+                    }`,
+                  }}
+                >
+                  <tr>
+                    {[
+                      "Category",
+                      "Description",
+                      "Priority",
+                      "Status",
+                      "Date",
+                      "Actions",
+                    ].map((header) => (
+                      <th
+                        key={header}
+                        style={{
+                          padding: "12px 16px",
+                          textAlign: "left",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: secondaryTextColor,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                        }}
+                      >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRequests.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        style={{
+                          padding: "32px",
+                          textAlign: "center",
+                          color: secondaryTextColor,
+                        }}
+                      >
+                        No service requests found
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRequests.map((request) => (
+                      <tr
+                        key={request.id}
+                        style={{
+                          borderBottom: `1px solid ${
+                            colorScheme === "dark"
+                              ? theme.colors.dark[5]
+                              : theme.colors.gray[2]
+                          }`,
+                          transition: "background-color 0.2s",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.backgroundColor =
+                            colorScheme === "dark"
+                              ? theme.colors.dark[6]
+                              : theme.colors.gray[0])
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.backgroundColor =
+                            "transparent")
+                        }
+                      >
+                        <td style={{ padding: "12px 16px" }}>
+                          <Text size="sm" fw={500} c={primaryTextColor}>
+                            {request.category}
+                          </Text>
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <Text size="sm" lineClamp={2} c={primaryTextColor}>
+                            {request.description}
+                          </Text>
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <Badge
+                            color={getPriorityColor(request.priority)}
+                            variant="light"
+                            size="sm"
+                            radius="md"
+                          >
+                            {request.priority.toUpperCase()}
+                          </Badge>
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <Badge
+                            color={getStatusColor(request.status)}
+                            variant="light"
+                            size="sm"
+                            radius="md"
+                          >
+                            {request.status.toUpperCase()}
+                          </Badge>
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <Text size="sm" c={primaryTextColor}>
+                            {request.date}
+                          </Text>
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <Group gap="xs">
+                            <MantineButton
+                              size="xs"
+                              variant="outline"
+                              color="gray"
+                              leftSection={<IconEye size={12} />}
+                              onClick={() => {
+                                setSelectedRequest(request);
+                                openView();
+                              }}
+                            >
+                              View
+                            </MantineButton>
+                            {request.status === "completed" &&
+                              request.final_cost &&
+                              (request.payment_status !== "paid" ? (
+                                <MantineButton
+                                  size="xs"
+                                  variant="filled"
+                                  color="blue"
+                                  onClick={() => handlePayment(request)}
+                                  loading={paymentLoading}
+                                  disabled={paymentLoading}
+                                  leftSection={<IconCash size={14} />}
+                                >
+                                  Pay
+                                </MantineButton>
+                              ) : (
+                                <Badge color="green" variant="light" size="sm">
+                                  Paid
+                                </Badge>
+                              ))}
+                            {request.status === "pending" && (
+                              <MantineButton
+                                size="xs"
+                                variant="outline"
+                                color="red"
+                                onClick={() => handleCancelRequest(request.id)}
+                              >
+                                Cancel
+                              </MantineButton>
+                            )}
+                          </Group>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
               </table>
             </div>
           </Box>
-
           {/* Mobile View - Cards */}
           <Stack display={{ base: "block", md: "none" }} gap="md">
             {filteredRequests.length === 0 ? (
@@ -1022,11 +1148,9 @@ const ServiceRequestsSection = () => {
                         {request.status.toUpperCase()}
                       </Badge>
                     </Group>
-
                     <Text size="sm" lineClamp={2} c={primaryTextColor}>
                       {request.description}
                     </Text>
-
                     <Group gap="xs">
                       <Badge
                         color={getPriorityColor(request.priority)}
@@ -1039,7 +1163,6 @@ const ServiceRequestsSection = () => {
                         {request.date}
                       </Text>
                     </Group>
-
                     <Group gap="xs" mt="xs">
                       <MantineButton
                         size="xs"
@@ -1097,7 +1220,6 @@ const ServiceRequestsSection = () => {
             )}
           </Stack>
         </Card>
-
         {/* View Details Modal */}
         <Modal
           opened={viewModalOpened}
@@ -1191,9 +1313,7 @@ const ServiceRequestsSection = () => {
                 )}
               </Grid>
             </Card>
-
             <Divider />
-
             <Box>
               <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
                 Issue Description
@@ -1202,7 +1322,6 @@ const ServiceRequestsSection = () => {
                 {selectedRequest?.description}
               </Text>
             </Box>
-
             {selectedRequest?.images && selectedRequest.images.length > 0 && (
               <Box>
                 <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
@@ -1217,7 +1336,6 @@ const ServiceRequestsSection = () => {
                 />
               </Box>
             )}
-
             {selectedRequest?.assignment_message && (
               <Box>
                 <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
@@ -1228,7 +1346,6 @@ const ServiceRequestsSection = () => {
                 </Text>
               </Box>
             )}
-
             {selectedRequest?.technician_notes && (
               <Box>
                 <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
@@ -1239,7 +1356,6 @@ const ServiceRequestsSection = () => {
                 </Text>
               </Box>
             )}
-
             {selectedRequest?.estimated_cost && (
               <Box>
                 <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
@@ -1250,7 +1366,6 @@ const ServiceRequestsSection = () => {
                 </Text>
               </Box>
             )}
-
             {selectedRequest?.completion_notes && (
               <Box>
                 <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
@@ -1261,7 +1376,6 @@ const ServiceRequestsSection = () => {
                 </Text>
               </Box>
             )}
-
             {selectedRequest?.final_cost && (
               <Box>
                 <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
@@ -1272,7 +1386,6 @@ const ServiceRequestsSection = () => {
                 </Text>
               </Box>
             )}
-
             {selectedRequest?.payment_status && (
               <Box>
                 <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
@@ -1294,7 +1407,6 @@ const ServiceRequestsSection = () => {
                 </Badge>
               </Box>
             )}
-
             <Group justify="right">
               <MantineButton variant="outline" color="gray" onClick={closeView}>
                 Close
@@ -1302,7 +1414,6 @@ const ServiceRequestsSection = () => {
             </Group>
           </Stack>
         </Modal>
-
         {/* Payment Modal */}
         <Modal
           opened={opened}

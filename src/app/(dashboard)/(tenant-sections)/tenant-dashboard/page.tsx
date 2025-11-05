@@ -20,16 +20,14 @@ import {
   rgba,
 } from "@mantine/core";
 import {
-  IconHome,
-  IconCurrencyDollar,
   IconAlertCircle,
   IconClipboardCheck,
   IconCheck,
   IconX,
 } from "@tabler/icons-react";
-import { BarChart, PieChart } from "@mantine/charts";
 import { useRouter } from "next/navigation";
 import { getServerSession } from "@/better-auth/action";
+import Image from "next/image";
 
 interface Announcement {
   _id: string;
@@ -197,31 +195,7 @@ const TenantDashboard = () => {
     fetchData();
   }, []);
 
-  // Stats for tenant
   const stats = [
-    {
-      title: "My Properties",
-      value: properties.length.toString(),
-      icon: IconHome,
-      color: "blue",
-      change: "+0%",
-    },
-    {
-      title: "Service Requests",
-      value: serviceRequests.length.toString(),
-      icon: IconClipboardCheck,
-      color: "green",
-      change: "+0%",
-    },
-    {
-      title: "Pending Payments",
-      value: payments
-        .filter((p) => p.status === "pending" || p.status === "overdue")
-        .length.toString(),
-      icon: IconCurrencyDollar,
-      color: "yellow",
-      change: "+0%",
-    },
     {
       title: "Announcements",
       value: announcements.length.toString(),
@@ -229,75 +203,41 @@ const TenantDashboard = () => {
       color: "teal",
       change: "+0%",
     },
-  ];
-
-  // Payment analytics for bar chart
-  const monthlyData = payments.reduce(
-    (
-      acc: { [key: string]: { month: string; paid: number; due: number } },
-      p
-    ) => {
-      const month = new Date(p.dueDate).toLocaleString("default", {
-        month: "short",
-        year: "numeric",
-      });
-      if (!acc[month]) {
-        acc[month] = { month, paid: 0, due: 0 };
-      }
-      if (p.status === "paid") {
-        acc[month].paid += p.amount;
-      } else {
-        acc[month].due += p.amount;
-      }
-      return acc;
-    },
-    {}
-  );
-
-  const barData = Object.values(monthlyData).sort(
-    (a, b) => new Date(a.month).getTime() - new Date(b.month).getTime()
-  );
-
-  // Service request pie data
-  const srStats = [
     {
-      name: "Pending",
-      value: serviceRequests.filter((s) => s.status === "pending").length,
-      color: "yellow.6",
+      title: "Pending Requests",
+      value: serviceRequests
+        .filter((s) => s.status === "pending")
+        .length.toString(),
+      icon: IconClipboardCheck,
+      color: "yellow",
+      change: "+0%",
     },
     {
-      name: "In Progress",
-      value: serviceRequests.filter((s) => s.status === "in-progress").length,
-      color: "blue.6",
+      title: "In Progress",
+      value: serviceRequests
+        .filter((s) => s.status === "in-progress")
+        .length.toString(),
+      icon: IconClipboardCheck,
+      color: "blue",
+      change: "+0%",
     },
     {
-      name: "Completed",
-      value: serviceRequests.filter((s) => s.status === "completed").length,
-      color: "green.6",
+      title: "Completed",
+      value: serviceRequests
+        .filter((s) => s.status === "completed")
+        .length.toString(),
+      icon: IconCheck,
+      color: "green",
+      change: "+0%",
     },
     {
-      name: "Cancelled",
-      value: serviceRequests.filter((s) => s.status === "cancelled").length,
-      color: "red.6",
-    },
-  ];
-
-  // Payment pie data
-  const paymentStats = [
-    {
-      name: "Paid",
-      value: payments.filter((p) => p.status === "paid").length,
-      color: "green.6",
-    },
-    {
-      name: "Pending",
-      value: payments.filter((p) => p.status === "pending").length,
-      color: "yellow.6",
-    },
-    {
-      name: "Overdue",
-      value: payments.filter((p) => p.status === "overdue").length,
-      color: "red.6",
+      title: "High Priority",
+      value: announcements
+        .filter((a) => a.priority === "high")
+        .length.toString(),
+      icon: IconAlertCircle,
+      color: "red",
+      change: "+0%",
     },
   ];
 
@@ -398,105 +338,8 @@ const TenantDashboard = () => {
         </SimpleGrid>
 
         <Grid gutter={{ base: "md", md: "xl" }}>
-          <Grid.Col span={{ base: 12, lg: 6 }}>
-            <Card
-              padding="xl"
-              radius="lg"
-              withBorder
-              style={{ boxShadow: getDefaultShadow(), height: "400px" }}
-            >
-              <Stack gap="lg" h="100%">
-                <Group justify="space-between" align="center">
-                  <Title order={3} size="h4" fw={600} c={primaryTextColor}>
-                    Monthly Payments Overview
-                  </Title>
-                  <Text size="sm" c={primaryTextColor}>
-                    Last 6 months
-                  </Text>
-                </Group>
-                <Box flex={1}>
-                  <BarChart
-                    h={300}
-                    data={barData}
-                    dataKey="month"
-                    series={[
-                      { name: "paid", color: "#2e7d32", label: "Paid" },
-                      { name: "due", color: "#d32f2f", label: "Due" },
-                    ]}
-                    gridAxis="xy"
-                  />
-                </Box>
-              </Stack>
-            </Card>
-          </Grid.Col>
-
-          <Grid.Col span={{ base: 12, lg: 6 }}>
-            <Card
-              padding="xl"
-              radius="lg"
-              withBorder
-              style={{ boxShadow: getDefaultShadow(), height: "400px" }}
-            >
-              <Stack gap="lg" h="100%">
-                <Group justify="space-between" align="center">
-                  <Title order={3} size="h4" fw={600} c={primaryTextColor}>
-                    Service Requests Status
-                  </Title>
-                </Group>
-                <Box flex={1}>
-                  <PieChart
-                    h={300}
-                    data={srStats}
-                    withTooltip
-                    tooltipDataSource="segment"
-                  />
-                </Box>
-              </Stack>
-            </Card>
-          </Grid.Col>
-        </Grid>
-
-        <Grid gutter={{ base: "md", md: "xl" }}>
-          <Grid.Col span={{ base: 12, md: 5 }}>
-            <Card
-              padding="xl"
-              radius="lg"
-              withBorder
-              style={{ boxShadow: getDefaultShadow() }}
-            >
-              <Stack gap="lg">
-                <Title order={3} size="h4" fw={600} c={primaryTextColor}>
-                  Payment Statuses
-                </Title>
-                <Box>
-                  <PieChart
-                    h={200}
-                    data={paymentStats}
-                    withTooltip
-                    tooltipDataSource="segment"
-                  />
-                </Box>
-                <Flex justify="center" gap="xl" wrap="wrap">
-                  {paymentStats.map((stat, index) => (
-                    <Group key={index} gap="xs">
-                      <Box
-                        w={12}
-                        h={12}
-                        bg={stat.color}
-                        style={{ borderRadius: 3 }}
-                        aria-hidden="true"
-                      />
-                      <Text size="sm" c={primaryTextColor} fw={500}>
-                        {stat.name} ({stat.value})
-                      </Text>
-                    </Group>
-                  ))}
-                </Flex>
-              </Stack>
-            </Card>
-          </Grid.Col>
-
-          <Grid.Col span={{ base: 12, md: 7 }}>
+          {/* Latest Announcements with Images */}
+          <Grid.Col span={{ base: 12, lg: 8 }}>
             <Card
               padding="xl"
               radius="lg"
@@ -512,47 +355,141 @@ const TenantDashboard = () => {
                     className="text-blue-500 p-1 text-sm cursor-pointer hover:underline"
                     onClick={() => router.push("/view-announcements")}
                   >
-                    Read More
+                    View All
                   </span>
                 </Group>
-                <Stack gap="lg">
+                <Stack gap="xl">
                   {announcements.length === 0 ? (
-                    <Text c={primaryTextColor}>No announcements available.</Text>
+                    <Text c={primaryTextColor}>
+                      No announcements available.
+                    </Text>
                   ) : (
                     announcements.map((ann) => (
-                      <Flex
+                      <Card
                         key={ann._id}
-                        justify="space-between"
-                        align="center"
-                        gap="md"
+                        padding="md"
+                        radius="md"
+                        withBorder
+                        style={{
+                          backgroundColor:
+                            colorScheme === "dark"
+                              ? theme.colors.dark[6]
+                              : theme.white,
+                        }}
                       >
-                        <Stack gap={4} flex={1}>
-                          <Text size="sm" fw={500} c={primaryTextColor} lh={1.4}>
-                            {ann.title}
-                          </Text>
-                          <Text size="xs" c={primaryTextColor}>
-                            {new Date(ann.scheduledDate).toLocaleDateString()}
-                          </Text>
-                        </Stack>
-                        <Badge
-                          color="blue"
-                          variant="light"
-                          size="sm"
-                          radius="md"
-                        >
-                          {ann.priority}
-                        </Badge>
-                      </Flex>
+                        <Grid gutter="md">
+                          {/* Image Section */}
+                          {ann.images && ann.images.length > 0 && (
+                            <Grid.Col span={{ base: 12, sm: 4 }}>
+                              <Box
+                                style={{
+                                  width: "100%",
+                                  height: 150,
+                                  borderRadius: theme.radius.md,
+                                  overflow: "hidden",
+                                  backgroundColor:
+                                    colorScheme === "dark"
+                                      ? theme.colors.dark[5]
+                                      : theme.colors.gray[1],
+                                }}
+                              >
+                                <Image
+                                width={500}
+                                height={500}
+                                  src={ann.images[0].url}
+                                  alt={ann.title}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                  }}
+                                />
+                              </Box>
+                            </Grid.Col>
+                          )}
+
+                          {/* Content Section */}
+                          <Grid.Col
+                            span={{
+                              base: 12,
+                              sm: ann.images && ann.images.length > 0 ? 8 : 12,
+                            }}
+                          >
+                            <Stack gap="xs">
+                              <Group justify="space-between" align="flex-start">
+                                <Title
+                                  order={4}
+                                  size="h5"
+                                  fw={600}
+                                  c={primaryTextColor}
+                                  style={{ flex: 1 }}
+                                >
+                                  {ann.title}
+                                </Title>
+                                <Badge
+                                  color={
+                                    ann.priority === "high"
+                                      ? "red"
+                                      : ann.priority === "medium"
+                                        ? "yellow"
+                                        : "green"
+                                  }
+                                  variant="light"
+                                  size="sm"
+                                  radius="md"
+                                >
+                                  {ann.priority}
+                                </Badge>
+                              </Group>
+
+                              <Text
+                                size="sm"
+                                c={primaryTextColor}
+                                lineClamp={2}
+                              >
+                                {ann.content}
+                              </Text>
+
+                              <Group gap="xs" mt="xs">
+                                <IconAlertCircle
+                                  size={16}
+                                  color={
+                                    colorScheme === "dark"
+                                      ? theme.colors.gray[5]
+                                      : theme.colors.gray[6]
+                                  }
+                                />
+                                <Text
+                                  size="xs"
+                                  c={
+                                    colorScheme === "dark"
+                                      ? theme.colors.gray[5]
+                                      : theme.colors.gray[6]
+                                  }
+                                >
+                                  Posted on{" "}
+                                  {new Date(
+                                    ann.scheduledDate
+                                  ).toLocaleDateString("en-US", {
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                  })}
+                                </Text>
+                              </Group>
+                            </Stack>
+                          </Grid.Col>
+                        </Grid>
+                      </Card>
                     ))
                   )}
                 </Stack>
               </Stack>
             </Card>
           </Grid.Col>
-        </Grid>
 
-        <Grid>
-          <Grid.Col span={{ base: 12, md: 8, lg: 6 }}>
+          {/* Service Requests */}
+          <Grid.Col span={{ base: 12, lg: 4 }}>
             <Card
               padding="xl"
               radius="lg"
@@ -560,91 +497,83 @@ const TenantDashboard = () => {
               style={{ boxShadow: getDefaultShadow() }}
             >
               <Stack gap="lg">
-                <Title order={3} size="h4" fw={600} c={primaryTextColor}>
-                  My Properties
-                </Title>
-                <Stack gap="xl">
-                  {properties.length === 0 ? (
-                    <Text c={primaryTextColor}>No properties leased.</Text>
-                  ) : (
-                    properties.map((prop) => (
-                      <Stack key={prop._id} gap="xs">
-                        <Group justify="space-between" align="center">
-                          <Text size="sm" fw={500} c={primaryTextColor}>
-                            {prop.propertyTitle}
-                          </Text>
-                          <Text size="sm" fw={600} c={primaryTextColor}>
-                            ₱{prop.propertyPrice.toLocaleString()}
-                          </Text>
-                        </Group>
-                        <Text size="xs" c={primaryTextColor}>
-                          Lease Duration: {prop.leaseDuration} months
-                        </Text>
-                        <Text size="xs" c={primaryTextColor}>
-                          Monthly Payment: ₱
-                          {prop.monthlyPayment.toLocaleString()}
-                        </Text>
-                        <Text size="xs" c={primaryTextColor}>
-                          Remaining Balance: ₱
-                          {prop.remainingBalance.toLocaleString()}
-                        </Text>
-                        <Text size="xs" c={primaryTextColor}>
-                          Next Payment Date:{" "}
-                          {new Date(prop.nextPaymentDate).toLocaleDateString()}
-                        </Text>
-                        <Badge
-                          color="green"
-                          variant="light"
-                          size="sm"
-                          radius="md"
-                        >
-                          {prop.status}
-                        </Badge>
-                      </Stack>
-                    ))
-                  )}
-                </Stack>
-              </Stack>
-            </Card>
-          </Grid.Col>
-
-          <Grid.Col span={{ base: 12, md: 4, lg: 6 }}>
-            <Card
-              padding="xl"
-              radius="lg"
-              withBorder
-              style={{ boxShadow: getDefaultShadow() }}
-            >
-              <Stack gap="lg">
-                <Title order={3} size="h4" fw={600} c={primaryTextColor}>
-                  Service Requests History
-                </Title>
-                <Stack gap="xl">
+                <Group justify="space-between" align="center">
+                  <Title order={3} size="h4" fw={600} c={primaryTextColor}>
+                    Service Requests
+                  </Title>
+                  <span
+                    className="text-blue-500 p-1 text-sm cursor-pointer hover:underline"
+                    onClick={() => router.push("/service-requests")}
+                  >
+                    View All
+                  </span>
+                </Group>
+                <Stack gap="md">
                   {serviceRequests.length === 0 ? (
                     <Text c={primaryTextColor}>No service requests.</Text>
                   ) : (
-                    serviceRequests.map((sr) => (
-                      <Stack key={sr.id} gap="xs">
-                        <Group justify="space-between" align="center">
-                          <Text size="sm" fw={500} c={primaryTextColor}>
-                            {sr.category}
+                    serviceRequests.slice(0, 5).map((sr) => (
+                      <Card
+                        key={sr.id}
+                        padding="sm"
+                        radius="md"
+                        withBorder
+                        style={{
+                          backgroundColor:
+                            colorScheme === "dark"
+                              ? theme.colors.dark[6]
+                              : theme.colors.gray[0],
+                        }}
+                      >
+                        <Stack gap="xs">
+                          <Group justify="space-between" align="flex-start">
+                            <Text size="sm" fw={600} c={primaryTextColor}>
+                              {sr.category}
+                            </Text>
+                            <Badge
+                              color={
+                                sr.status === "completed"
+                                  ? "green"
+                                  : sr.status === "in-progress"
+                                    ? "blue"
+                                    : sr.status === "cancelled"
+                                      ? "red"
+                                      : "yellow"
+                              }
+                              variant="light"
+                              size="xs"
+                              radius="md"
+                            >
+                              {sr.status}
+                            </Badge>
+                          </Group>
+
+                          <Text size="xs" c={primaryTextColor} lineClamp={2}>
+                            {sr.description}
                           </Text>
-                          <Text size="xs" c={primaryTextColor}>
-                            {new Date(sr.created_at).toLocaleDateString()}
-                          </Text>
-                        </Group>
-                        <Text size="xs" c={primaryTextColor}>
-                          {sr.description}
-                        </Text>
-                        <Badge
-                          color="blue"
-                          variant="light"
-                          size="sm"
-                          radius="md"
-                        >
-                          {sr.status}
-                        </Badge>
-                      </Stack>
+
+                          <Group gap="xs" mt="xs">
+                            <IconClipboardCheck
+                              size={14}
+                              color={
+                                colorScheme === "dark"
+                                  ? theme.colors.gray[6]
+                                  : theme.colors.gray[5]
+                              }
+                            />
+                            <Text
+                              size="xs"
+                              c={
+                                colorScheme === "dark"
+                                  ? theme.colors.gray[6]
+                                  : theme.colors.gray[5]
+                              }
+                            >
+                              {new Date(sr.created_at).toLocaleDateString()}
+                            </Text>
+                          </Group>
+                        </Stack>
+                      </Card>
                     ))
                   )}
                 </Stack>
@@ -652,51 +581,6 @@ const TenantDashboard = () => {
             </Card>
           </Grid.Col>
         </Grid>
-
-        <Card
-          padding="xl"
-          radius="lg"
-          withBorder
-          style={{ boxShadow: getDefaultShadow() }}
-        >
-          <Stack gap="lg">
-            <Title order={3} size="h4" fw={600} c={primaryTextColor}>
-              Payments
-            </Title>
-            <Stack gap="xl">
-              {payments.length === 0 ? (
-                <Text c={primaryTextColor}>No payments.</Text>
-              ) : (
-                payments.map((p) => (
-                  <Stack key={p._id.toString()} gap="xs">
-                    <Group justify="space-between" align="center">
-                      <Text size="sm" fw={500} c={primaryTextColor}>
-                        ₱{p.amount.toLocaleString()}
-                      </Text>
-                      <Text size="xs" c={primaryTextColor}>
-                        Due: {new Date(p.dueDate).toLocaleDateString()}
-                      </Text>
-                    </Group>
-                    <Badge
-                      color={
-                        p.status === "paid"
-                          ? "green"
-                          : p.status === "overdue"
-                          ? "red"
-                          : "yellow"
-                      }
-                      variant="light"
-                      size="sm"
-                      radius="md"
-                    >
-                      {p.status}
-                    </Badge>
-                  </Stack>
-                ))
-              )}
-            </Stack>
-          </Stack>
-        </Card>
       </Stack>
     </Container>
   );
