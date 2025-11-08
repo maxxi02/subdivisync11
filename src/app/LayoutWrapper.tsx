@@ -1,17 +1,12 @@
 import React from "react";
 import "@mantine/core/styles.css";
 import {
-  createTheme,
   MantineProvider,
   ActionIcon,
   useMantineColorScheme,
 } from "@mantine/core";
 import { Toaster } from "react-hot-toast";
 import { IconMoonStars, IconSun } from "@tabler/icons-react";
-
-const theme = createTheme({
-  /** Put your mantine theme override here */
-});
 
 // Toggle Color Scheme Component
 const ToggleColorScheme = () => {

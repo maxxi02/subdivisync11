@@ -272,7 +272,7 @@ const TenantDashboard = () => {
         </Box>
 
         <SimpleGrid
-          cols={{ base: 1, xs: 2, sm: 2, md: 4 }}
+          cols={{ base: 1, xs: 2, sm: 2, md: 5 }}
           spacing={{ base: "md", sm: "lg" }}
           verticalSpacing={{ base: "md", sm: "lg" }}
         >

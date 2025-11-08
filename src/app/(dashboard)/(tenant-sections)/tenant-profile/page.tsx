@@ -27,6 +27,7 @@ import {
 import { IconUpload, IconCheck, IconX } from "@tabler/icons-react";
 import { useForm } from "@mantine/form";
 import { authClient } from "@/lib/auth-client";
+import { modals } from "@mantine/modals";
 
 interface NotificationType {
   type: "success" | "error";
@@ -190,48 +191,60 @@ const TenantProfilePage = () => {
       return;
     }
 
-    setProfileLoading(true);
+    modals.openConfirmModal({
+      title: "Confirm Profile Update",
+      children: (
+        <Text size="sm">
+          Are you sure you want to update your profile information?
+        </Text>
+      ),
+      labels: { confirm: "Update", cancel: "Cancel" },
+      confirmProps: { color: "blue" },
+      onConfirm: async () => {
+        setProfileLoading(true);
 
-    try {
-      let imageData = session?.user?.image || "";
-      if (values.image) {
-        imageData = await convertFileToBase64(values.image);
-      }
+        try {
+          let imageData = session?.user?.image || "";
+          if (values.image) {
+            imageData = await convertFileToBase64(values.image);
+          }
 
-      const response = await fetch("/api/auth/update-user", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: values.name.trim(),
-          image: imageData,
-          address: values.address.trim(),
-          gender: values.gender,
-          age: parseInt(values.age),
-          phoneNumber: values.phoneNumber.trim(),
-        }),
-      });
+          const response = await fetch("/api/auth/update-user", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: values.name.trim(),
+              image: imageData,
+              address: values.address.trim(),
+              gender: values.gender,
+              age: parseInt(values.age),
+              phoneNumber: values.phoneNumber.trim(),
+            }),
+          });
 
-      const data = await response.json();
+          const data = await response.json();
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to update profile");
-      }
+          if (!response.ok || !data.success) {
+            throw new Error(data.error || "Failed to update profile");
+          }
 
-      const updatedSession = await getServerSession();
-      setSession(updatedSession);
-      setImagePreview(updatedSession?.user?.image || "");
+          const updatedSession = await getServerSession();
+          setSession(updatedSession);
+          setImagePreview(updatedSession?.user?.image || "");
 
-      showNotification("success", "Profile updated successfully");
-    } catch (error) {
-      showNotification(
-        "error",
-        error instanceof Error ? error.message : "Failed to update profile"
-      );
-    } finally {
-      setProfileLoading(false);
-    }
+          showNotification("success", "Profile updated successfully");
+        } catch (error) {
+          showNotification(
+            "error",
+            error instanceof Error ? error.message : "Failed to update profile"
+          );
+        } finally {
+          setProfileLoading(false);
+        }
+      },
+    });
   };
 
   const handlePasswordSubmit = async (values: typeof passwordForm.values) => {
@@ -244,35 +257,106 @@ const TenantProfilePage = () => {
       return;
     }
 
-    setPasswordLoading(true);
+    modals.openConfirmModal({
+      title: "Confirm Password Change",
+      children: (
+        <Text size="sm">
+          Are you sure you want to change your password? You will be logged out
+          from all other sessions.
+        </Text>
+      ),
+      labels: { confirm: "Change Password", cancel: "Cancel" },
+      confirmProps: { color: "blue" },
+      onConfirm: async () => {
+        setPasswordLoading(true);
 
-    try {
-      const { error: authError } = await authClient.changePassword({
-        currentPassword: values.currentPassword,
-        newPassword: values.newPassword,
-        revokeOtherSessions: true,
-      });
+        try {
+          const { error: authError } = await authClient.changePassword({
+            currentPassword: values.currentPassword,
+            newPassword: values.newPassword,
+            revokeOtherSessions: true,
+          });
 
-      if (authError) {
-        showNotification(
-          "error",
-          authError.message || "Failed to change password"
-        );
-        return;
-      }
+          if (authError) {
+            showNotification(
+              "error",
+              authError.message || "Failed to change password"
+            );
+            return;
+          }
 
-      showNotification("success", "Password changed successfully");
-      passwordForm.reset();
-    } catch (error) {
-      showNotification(
-        "error",
-        error instanceof Error ? error.message : "Failed to change password"
-      );
-    } finally {
-      setPasswordLoading(false);
-    }
+          showNotification("success", "Password changed successfully");
+          passwordForm.reset();
+        } catch (error) {
+          showNotification(
+            "error",
+            error instanceof Error ? error.message : "Failed to change password"
+          );
+        } finally {
+          setPasswordLoading(false);
+        }
+      },
+    });
   };
 
+  const handleTwoFactorDisable = async () => {
+    // Validate password first
+    const validationError = twoFactorForm.validate();
+    if (validationError.hasErrors || !twoFactorForm.values.password) {
+      showNotification(
+        "error",
+        "Please enter your password to disable two-factor authentication"
+      );
+      return;
+    }
+
+    modals.openConfirmModal({
+      title: "Disable Two-Factor Authentication",
+      children: (
+        <Text size="sm">
+          Are you sure you want to disable two-factor authentication? This will
+          make your account less secure.
+        </Text>
+      ),
+      labels: { confirm: "Disable", cancel: "Cancel" },
+      confirmProps: { color: "red" },
+      onConfirm: async () => {
+        setTwoFactorLoading(true);
+
+        try {
+          const { error: authError } = await authClient.twoFactor.disable({
+            password: twoFactorForm.values.password,
+          });
+
+          if (authError) {
+            showNotification(
+              "error",
+              authError.message || "Failed to disable two-factor authentication"
+            );
+            return;
+          }
+
+          const updatedSession = await getServerSession();
+          setSession(updatedSession);
+
+          showNotification(
+            "success",
+            "Two-factor authentication disabled successfully"
+          );
+          twoFactorForm.reset();
+        } catch (error) {
+          showNotification(
+            "error",
+            error instanceof Error
+              ? error.message
+              : "Failed to disable two-factor authentication"
+          );
+        } finally {
+          setTwoFactorLoading(false);
+        }
+      },
+    });
+  };
   const handleTwoFactorSubmit = async (values: typeof twoFactorForm.values) => {
     const validationError = twoFactorForm.validate();
     if (validationError.hasErrors) {
@@ -283,40 +367,53 @@ const TenantProfilePage = () => {
       return;
     }
 
-    setTwoFactorLoading(true);
+    modals.openConfirmModal({
+      title: "Enable Two-Factor Authentication",
+      children: (
+        <Text size="sm">
+          Are you sure you want to enable two-factor authentication? This will
+          add an extra layer of security to your account.
+        </Text>
+      ),
+      labels: { confirm: "Enable", cancel: "Cancel" },
+      confirmProps: { color: "blue" },
+      onConfirm: async () => {
+        setTwoFactorLoading(true);
 
-    try {
-      const { error: authError } = await authClient.twoFactor.enable({
-        password: values.password,
-        issuer: "TenantApp",
-      });
+        try {
+          const { error: authError } = await authClient.twoFactor.enable({
+            password: values.password,
+            issuer: "TenantApp",
+          });
 
-      if (authError) {
-        showNotification(
-          "error",
-          authError.message || "Failed to enable two-factor authentication"
-        );
-        return;
-      }
+          if (authError) {
+            showNotification(
+              "error",
+              authError.message || "Failed to enable two-factor authentication"
+            );
+            return;
+          }
 
-      const updatedSession = await getServerSession();
-      setSession(updatedSession);
+          const updatedSession = await getServerSession();
+          setSession(updatedSession);
 
-      showNotification(
-        "success",
-        "Two-factor authentication enabled successfully"
-      );
-      twoFactorForm.reset();
-    } catch (error) {
-      showNotification(
-        "error",
-        error instanceof Error
-          ? error.message
-          : "Failed to enable two-factor authentication"
-      );
-    } finally {
-      setTwoFactorLoading(false);
-    }
+          showNotification(
+            "success",
+            "Two-factor authentication enabled successfully"
+          );
+          twoFactorForm.reset();
+        } catch (error) {
+          showNotification(
+            "error",
+            error instanceof Error
+              ? error.message
+              : "Failed to enable two-factor authentication"
+          );
+        } finally {
+          setTwoFactorLoading(false);
+        }
+      },
+    });
   };
 
   if (!session) {
@@ -537,9 +634,35 @@ const TenantProfilePage = () => {
           <Divider label="Two-Factor Authentication" labelPosition="center" />
 
           {session.user?.twoFactorEnabled ? (
-            <Text size="sm" c="dimmed" ta="center">
-              Two-Factor Authentication is already enabled.
-            </Text>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleTwoFactorDisable();
+              }}
+            >
+              <Stack gap="md">
+                <Text size="sm" c="green" ta="center" fw={500}>
+                  Two-Factor Authentication is currently enabled.
+                </Text>
+                <TextInput
+                  label="Password"
+                  placeholder="Enter your password to disable"
+                  type="password"
+                  {...twoFactorForm.getInputProps("password")}
+                  disabled={twoFactorLoading}
+                />
+                <MantineButton
+                  type="submit"
+                  color="red"
+                  size="md"
+                  fullWidth
+                  loading={twoFactorLoading}
+                  disabled={twoFactorLoading}
+                >
+                  Disable Two-Factor Authentication
+                </MantineButton>
+              </Stack>
+            </form>
           ) : (
             <form
               onSubmit={twoFactorForm.onSubmit(handleTwoFactorSubmit)}
