@@ -80,8 +80,8 @@ const AdminProfilePage = () => {
             ? "Image must be JPEG, PNG, GIF, or WebP"
             : null,
       address: (value) =>
-        value.trim().length < 5
-          ? "Address must be at least 5 characters"
+        value.trim().length > 0 && value.trim().length < 5
+          ? "Address must be at least 5 characters if provided"
           : null,
       gender: (value) => (!value ? "Gender is required" : null),
       age: (value) =>
@@ -91,8 +91,8 @@ const AdminProfilePage = () => {
             ? "Age must be between 18 and 120"
             : null,
       phoneNumber: (value) =>
-        value.trim().length < 10
-          ? "Phone number must be at least 10 characters"
+        value.trim().length > 0 && value.trim().length < 10
+          ? "Phone number must be at least 10 characters if provided"
           : null,
     },
   });
@@ -208,10 +208,10 @@ const AdminProfilePage = () => {
             body: JSON.stringify({
               name: values.name.trim(),
               image: imageData,
-              address: values.address.trim(),
+              address: values.address.trim() || "n/a",
               gender: values.gender,
               age: parseInt(values.age),
-              phoneNumber: values.phoneNumber.trim(),
+              phoneNumber: values.phoneNumber.trim() || "n/a",
             }),
           });
 

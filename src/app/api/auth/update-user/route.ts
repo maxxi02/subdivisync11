@@ -16,6 +16,8 @@ export async function POST(request: NextRequest) {
     await connectDB();
     const body = await request.json();
     const { name, image, address, gender, age, phoneNumber } = body;
+    const finalAddress = address?.trim() || "n/a";
+    const finalPhoneNumber = phoneNumber?.trim() || "n/a";
 
     console.log("Update user request:", {
       userId: session.user.id,
@@ -23,21 +25,6 @@ export async function POST(request: NextRequest) {
       address,
       sessionUser: session.user,
     });
-
-    // Validate required fields
-    if (!name?.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Name is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!address?.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Address is required" },
-        { status: 400 }
-      );
-    }
 
     if (!gender) {
       return NextResponse.json(
@@ -92,10 +79,10 @@ export async function POST(request: NextRequest) {
             $set: {
               name: name.trim(),
               image,
-              address: address.trim(),
+              address: finalAddress,
               gender,
               age: parseInt(age.toString()),
-              phoneNumber: phoneNumber.trim(),
+              phoneNumber: finalPhoneNumber,
               updatedAt: new Date(),
             },
           }
@@ -130,10 +117,10 @@ export async function POST(request: NextRequest) {
         $set: {
           name: name.trim(),
           image,
-          address: address.trim(),
+          address: finalAddress,
           gender,
           age: parseInt(age.toString()),
-          phoneNumber: phoneNumber.trim(),
+          phoneNumber: finalPhoneNumber,
           updatedAt: new Date(),
         },
       }

@@ -213,9 +213,21 @@ const TenantsSection = () => {
         isValid = false;
       }
 
-      // For NEW tenants, all fields are required
-      if (!editForm.address.trim()) {
-        errors.address = "Address is required";
+      // For NEW tenants, validate address and phone if provided
+      if (
+        editForm.address.trim().length > 0 &&
+        editForm.address.trim().length < 5
+      ) {
+        errors.address = "Address must be at least 5 characters if provided";
+        isValid = false;
+      }
+
+      if (
+        editForm.phoneNumber.trim().length > 0 &&
+        editForm.phoneNumber.trim().length < 10
+      ) {
+        errors.phoneNumber =
+          "Phone number must be at least 10 characters if provided";
         isValid = false;
       }
 
@@ -231,15 +243,23 @@ const TenantsSection = () => {
         errors.age = "Please enter a valid age (18-120)";
         isValid = false;
       }
-
-      if (!editForm.phoneNumber.trim()) {
-        errors.phoneNumber = "Phone number is required";
-        isValid = false;
-      }
     } else {
       // For EXISTING tenants, only validate if they've entered something
-      if (editForm.address.trim() === "") {
-        errors.address = "Address is recommended";
+      if (
+        editForm.address.trim().length > 0 &&
+        editForm.address.trim().length < 5
+      ) {
+        errors.address = "Address must be at least 5 characters if provided";
+        isValid = false;
+      }
+
+      if (
+        editForm.phoneNumber.trim().length > 0 &&
+        editForm.phoneNumber.trim().length < 10
+      ) {
+        errors.phoneNumber =
+          "Phone number must be at least 10 characters if provided";
+        isValid = false;
       }
 
       if (editForm.age.trim() !== "") {
@@ -274,10 +294,10 @@ const TenantsSection = () => {
             name: editForm.full_name,
             email: editForm.email,
             status: editForm.status,
-            address: editForm.address,
+            address: editForm.address.trim() || "n/a",
             gender: editForm.gender,
             age: parseInt(editForm.age) || 0,
-            phoneNumber: editForm.phoneNumber,
+            phoneNumber: editForm.phoneNumber.trim() || "n/a",
           }),
         });
 
@@ -336,10 +356,10 @@ const TenantsSection = () => {
             password: editForm.password,
             name: editForm.full_name,
             status: editForm.status,
-            address: editForm.address,
+            address: editForm.address.trim() || "n/a",
             gender: editForm.gender,
             age: parseInt(editForm.age),
-            phoneNumber: editForm.phoneNumber,
+            phoneNumber: editForm.phoneNumber.trim() || "n/a",
           }),
         });
 
@@ -616,7 +636,6 @@ const TenantsSection = () => {
             onChange={(e) =>
               setEditForm({ ...editForm, address: e.currentTarget.value })
             }
-            required
             error={formErrors.address}
           />
 
@@ -626,7 +645,6 @@ const TenantsSection = () => {
             onChange={(e) =>
               setEditForm({ ...editForm, phoneNumber: e.currentTarget.value })
             }
-            required
             error={formErrors.phoneNumber}
           />
 

@@ -681,7 +681,7 @@ const ApplicationsPage = () => {
   };
 
   return (
-    <Container size="xl" px="md">
+    <Container size="xl">
       {notification && (
         <Notification
           icon={
