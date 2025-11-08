@@ -112,7 +112,7 @@ const ServicesSection = () => {
   const secondaryTextColor =
     colorScheme === "dark" ? theme.colors.gray[4] : theme.colors.gray[6];
   const cardBackground =
-    colorScheme === "dark" ? theme.colors.dark[7] : theme.colors.white[0];
+    colorScheme === "dark" ? theme.colors.dark[7] : theme.white;
   const hoverBackground =
     colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[0];
   const getDefaultShadow = () => {

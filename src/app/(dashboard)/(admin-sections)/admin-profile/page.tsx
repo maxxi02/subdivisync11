@@ -24,7 +24,7 @@ import {
 import { IconUpload, IconCheck, IconX } from "@tabler/icons-react";
 import { useForm } from "@mantine/form";
 import { authClient } from "@/lib/auth-client";
-import { modals, ModalsProvider } from "@mantine/modals";
+import { modals } from "@mantine/modals";
 interface NotificationType {
   type: "success" | "error";
   message: string;
