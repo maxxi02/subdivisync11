@@ -822,7 +822,7 @@ export default function HomePage() {
               }}
             >
               Our properties have been designed with attention to every detail,
-              both commercial and client.
+              both commercial and client. oh yeah!
             </Text>
           </Stack>
           <Group
