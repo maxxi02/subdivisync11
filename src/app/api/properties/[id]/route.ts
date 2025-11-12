@@ -542,6 +542,16 @@ async function handlePropertyUpdate(
       );
     }
 
+    if (existingProperty.status === "LEASED") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Cannot edit a leased property.",
+        },
+        { status: 400 }
+      );
+    }
+
     const updateData: Partial<DBProperty> = {
       title: body.title!.trim(),
       location: body.location!.trim(),
@@ -632,7 +642,7 @@ async function handlePropertyUpdate(
   }
 }
 
-// DELETE - Delete a property or a specific rejected inquiry
+// DELETE - Delete a property or a specific rejecteid nquiry
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -658,9 +668,6 @@ export async function DELETE(
       );
     }
 
-    const body = await request.json();
-    const { email } = body;
-
     const existingProperty = await propertiesCollection.findOne({
       _id: new ObjectId(id),
     });
@@ -683,6 +690,20 @@ export async function DELETE(
         },
         { status: 403 }
       );
+    }
+
+    // Try to parse body for email (optional - used for deleting specific inquiry)
+    let email: string | undefined;
+    const contentType = request.headers.get("content-type");
+
+    if (contentType?.includes("application/json")) {
+      try {
+        const body = await request.json();
+        email = body.email;
+      } catch {
+        // Invalid JSON, continue without email
+        email = undefined;
+      }
     }
 
     // If email is provided, delete the specific rejected inquiry
@@ -736,6 +757,18 @@ export async function DELETE(
     }
 
     // Otherwise, delete the entire property
+    // Prevent deletion of leased properties
+    if (existingProperty.status === "LEASED") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Cannot delete a leased property.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Prevent deletion if there are pending inquiries
     const pendingInquiries =
       existingProperty.inquiries?.filter((inq) => inq.status === "pending") ||
       [];

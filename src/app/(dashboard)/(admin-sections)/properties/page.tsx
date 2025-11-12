@@ -187,11 +187,11 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
       <Group>
         <input
           ref={inputRef}
-            id={inputId}
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={handleFileChange}
+          id={inputId}
+          type="file"
+          multiple
+          accept="image/*"
+          onChange={handleFileChange}
           style={{ display: "none" }}
         />
         <MantineButton
@@ -199,33 +199,37 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
           leftSection={<IconUpload size={16} />}
           onClick={() => inputRef.current?.click()}
         >
-            Select Images
+          Select Images
         </MantineButton>
         <Text size="sm" c="dimmed">
-            {selectedImages.length} new images selected
+          {selectedImages.length} new images selected
         </Text>
       </Group>
 
-        {images && images.length > 0 && (
+      {images && images.length > 0 && (
         <Box>
           <Text size="sm" fw={500} mb="xs" c="dimmed">
-              Current Images:
+            Current Images:
           </Text>
           <SimpleGrid cols={3} spacing="sm">
-              {images.map((image: string, index: number) => (
+            {images.map((image: string, index: number) => (
               <Box key={`existing-${index}`} pos="relative">
-                  <Image
-                    src={image}
-                    alt={`Property ${index + 1}`}
+                <Image
+                  src={image}
+                  alt={`Property ${index + 1}`}
                   height={96}
                   width={96}
-                  style={{ objectFit: "cover", borderRadius: theme.radius.md, border: `1px solid ${theme.colors.gray[colorScheme === 'dark' ? 7 : 3]}` }}
+                  style={{
+                    objectFit: "cover",
+                    borderRadius: theme.radius.md,
+                    border: `1px solid ${theme.colors.gray[colorScheme === "dark" ? 7 : 3]}`,
+                  }}
                 />
                 <ActionIcon
                   variant="filled"
                   color="red"
                   size="xs"
-                    onClick={() => handleRemoveClick(index, "existing")}
+                  onClick={() => handleRemoveClick(index, "existing")}
                   pos="absolute"
                   top={4}
                   right={4}
@@ -236,28 +240,32 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
             ))}
           </SimpleGrid>
         </Box>
-        )}
+      )}
 
-        {selectedImages.length > 0 && (
+      {selectedImages.length > 0 && (
         <Box>
           <Text size="sm" fw={500} mb="xs" c="dimmed">
-              New Images:
+            New Images:
           </Text>
           <SimpleGrid cols={3} spacing="sm">
-              {selectedImages.map((file: File, index: number) => (
+            {selectedImages.map((file: File, index: number) => (
               <Box key={`new-${index}`} pos="relative">
-                  <Image
-                    src={URL.createObjectURL(file)}
-                    alt={`New ${index + 1}`}
+                <Image
+                  src={URL.createObjectURL(file)}
+                  alt={`New ${index + 1}`}
                   height={96}
                   width={96}
-                  style={{ objectFit: "cover", borderRadius: theme.radius.md, border: `1px solid ${theme.colors.gray[colorScheme === 'dark' ? 7 : 3]}` }}
+                  style={{
+                    objectFit: "cover",
+                    borderRadius: theme.radius.md,
+                    border: `1px solid ${theme.colors.gray[colorScheme === "dark" ? 7 : 3]}`,
+                  }}
                 />
                 <ActionIcon
                   variant="filled"
                   color="red"
                   size="xs"
-                    onClick={() => handleRemoveClick(index, "new")}
+                  onClick={() => handleRemoveClick(index, "new")}
                   pos="absolute"
                   top={4}
                   right={4}
@@ -278,7 +286,9 @@ export default function PropertyManagement() {
   const theme = useMantineTheme();
   const { colorScheme } = useMantineColorScheme();
   const [properties, setProperties] = useState<Property[]>([]);
-  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [createLoading, setCreateLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -292,7 +302,9 @@ export default function PropertyManagement() {
     pages: 1,
   });
   const [error, setError] = useState<string | null>(null);
-  const [notification, setNotification] = useState<NotificationType | null>(null);
+  const [notification, setNotification] = useState<NotificationType | null>(
+    null
+  );
   const [dataFetched, setDataFetched] = useState(false);
 
   const [formData, setFormData] = useState<CreatePropertyRequest>({
@@ -662,6 +674,8 @@ export default function PropertyManagement() {
   };
 
   const handleDeleteProperty = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this property?")) return;
+
     try {
       setError(null);
 
@@ -747,7 +761,10 @@ export default function PropertyManagement() {
       } else {
         setFormData({ ...formData, amenities: newAmenities });
       }
-      showNotification("success", `${value.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())} removed from amenities`);
+      showNotification(
+        "success",
+        `${value.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())} removed from amenities`
+      );
     } else {
       const newAmenities = [...currentAmenities, value];
       if (isEdit) {
@@ -755,7 +772,10 @@ export default function PropertyManagement() {
       } else {
         setFormData({ ...formData, amenities: newAmenities });
       }
-      showNotification("success", `${value.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())} added to amenities`);
+      showNotification(
+        "success",
+        `${value.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())} added to amenities`
+      );
     }
   };
 
@@ -824,10 +844,10 @@ export default function PropertyManagement() {
         {/* Header */}
         <Box py="md">
           <Title order={1} size="h2" fw={600} c={primaryTextColor} mb="xs">
-                Property Management
+            Property Management
           </Title>
           <Text c="dimmed" size="md" lh={1.5}>
-                Manage your property listings and inquiries
+            Manage your property listings and inquiries
           </Text>
         </Box>
 
@@ -843,7 +863,8 @@ export default function PropertyManagement() {
             withBorder
             shadow="sm"
             style={{
-              background: "linear-gradient(135deg, var(--mantine-color-blue-6) 0%, var(--mantine-color-blue-7) 100%)",
+              background:
+                "linear-gradient(135deg, var(--mantine-color-blue-6) 0%, var(--mantine-color-blue-7) 100%)",
               color: "white",
               boxShadow: getDefaultShadow(),
             }}
@@ -869,7 +890,8 @@ export default function PropertyManagement() {
             withBorder
             shadow="sm"
             style={{
-              background: "linear-gradient(135deg, var(--mantine-color-yellow-6) 0%, var(--mantine-color-yellow-7) 100%)",
+              background:
+                "linear-gradient(135deg, var(--mantine-color-yellow-6) 0%, var(--mantine-color-yellow-7) 100%)",
               color: "white",
               boxShadow: getDefaultShadow(),
             }}
@@ -895,7 +917,8 @@ export default function PropertyManagement() {
             withBorder
             shadow="sm"
             style={{
-              background: "linear-gradient(135deg, var(--mantine-color-violet-6) 0%, var(--mantine-color-violet-7) 100%)",
+              background:
+                "linear-gradient(135deg, var(--mantine-color-violet-6) 0%, var(--mantine-color-violet-7) 100%)",
               color: "white",
               boxShadow: getDefaultShadow(),
             }}
@@ -924,8 +947,8 @@ export default function PropertyManagement() {
             title="Error Occurred"
             withCloseButton
             onClose={() => setError(null)}
-                >
-                  {error}
+          >
+            {error}
           </Notification>
         )}
 
@@ -933,7 +956,7 @@ export default function PropertyManagement() {
         <Card padding="xl" radius="lg" withBorder shadow="sm">
           <Group justify="space-between" mb="md">
             <Title order={3} size="h4" fw={600} c={primaryTextColor}>
-                Manage Properties
+              Manage Properties
             </Title>
             <Group>
               <TextInput
@@ -951,7 +974,7 @@ export default function PropertyManagement() {
               </MantineButton>
             </Group>
           </Group>
-          
+
           {/* Added ScrollArea for horizontal overflow */}
           <ScrollArea type="auto">
             <Table striped highlightOnHover miw={800}>
@@ -1009,7 +1032,10 @@ export default function PropertyManagement() {
                         </Text>
                       </Table.Td>
                       <Table.Td>
-                        <Badge color={getStatusColor(property.status)} variant="light">
+                        <Badge
+                          color={getStatusColor(property.status)}
+                          variant="light"
+                        >
                           {property.status}
                         </Badge>
                       </Table.Td>
@@ -1025,20 +1051,26 @@ export default function PropertyManagement() {
                           >
                             <IconEye size={16} />
                           </ActionIcon>
-                          <ActionIcon
-                            variant="light"
-                            color="yellow"
-                            onClick={() => openEditModal(property)}
-                          >
-                            <IconEdit size={16} />
-                          </ActionIcon>
-                          <ActionIcon
-                            variant="light"
-                            color="red"
-                            onClick={() => handleDeleteProperty(property._id)}
-                          >
-                            <IconX size={16} />
-                          </ActionIcon>
+                          {property.status !== "LEASED" && (
+                            <>
+                              <ActionIcon
+                                variant="light"
+                                color="yellow"
+                                onClick={() => openEditModal(property)}
+                              >
+                                <IconEdit size={16} />
+                              </ActionIcon>
+                              <ActionIcon
+                                variant="light"
+                                color="red"
+                                onClick={() =>
+                                  handleDeleteProperty(property._id)
+                                }
+                              >
+                                <IconX size={16} />
+                              </ActionIcon>
+                            </>
+                          )}
                         </Group>
                       </Table.Td>
                     </Table.Tr>
@@ -1047,7 +1079,7 @@ export default function PropertyManagement() {
               </Table.Tbody>
             </Table>
           </ScrollArea>
-          
+
           {pagination.pages > 1 && (
             <Group justify="apart" mt="md">
               <MantineButton
@@ -1089,16 +1121,16 @@ export default function PropertyManagement() {
               }
               required
             />
-<TextInput
-  label="Block and Street *"
-  placeholder="Enter block and street"
-  value={formData.location}
-  onChange={(e) =>
-    setFormData({ ...formData, location: e.target.value })
-  }
-  required
-  leftSection={<IconMapPin size={16} />}
-/>
+            <TextInput
+              label="Block and Street *"
+              placeholder="Enter block and street"
+              value={formData.location}
+              onChange={(e) =>
+                setFormData({ ...formData, location: e.target.value })
+              }
+              required
+              leftSection={<IconMapPin size={16} />}
+            />
             <TextInput
               label="Size *"
               placeholder="e.g., 300 sqm"
@@ -1184,11 +1216,14 @@ export default function PropertyManagement() {
             <Group gap="md">
               {formData.amenities?.map((amenity) => (
                 <Badge key={amenity} variant="light">
-                  {amenity.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                  {amenity
+                    .replace("-", " ")
+                    .replace(/\b\w/g, (l) => l.toUpperCase())}
                 </Badge>
               ))}
             </Group>
-            {(formData.type === "house-and-lot" || formData.type === "condo") && (
+            {(formData.type === "house-and-lot" ||
+              formData.type === "condo") && (
               <>
                 <NumberInput
                   label="Bedrooms"
@@ -1259,7 +1294,10 @@ export default function PropertyManagement() {
                     <Text size="h3" fw={700} c="green.6">
                       {formatCurrency(selectedProperty.price)}
                     </Text>
-                    <Badge color={getStatusColor(selectedProperty.status)} size="lg">
+                    <Badge
+                      color={getStatusColor(selectedProperty.status)}
+                      size="lg"
+                    >
                       {selectedProperty.status}
                     </Badge>
                   </Group>
@@ -1275,24 +1313,29 @@ export default function PropertyManagement() {
                       <Text c="dimmed">{selectedProperty.size}</Text>
                     </Group>
                   </Stack>
-                  {(selectedProperty.type === "house-and-lot" || selectedProperty.type === "condo") && (
+                  {(selectedProperty.type === "house-and-lot" ||
+                    selectedProperty.type === "condo") && (
                     <Group gap="md" mt="md">
-                      {selectedProperty.bedrooms && selectedProperty.bedrooms > 0 && (
-                        <Group gap="xs">
-                          <IconBed size={16} />
-                          <Text c="dimmed">
-                            {selectedProperty.bedrooms} Bedroom{selectedProperty.bedrooms > 1 ? "s" : ""}
-                          </Text>
-                        </Group>
-                      )}
-                      {selectedProperty.bathrooms && selectedProperty.bathrooms > 0 && (
-                        <Group gap="xs">
-                          <IconDroplet size={16} />
-                          <Text c="dimmed">
-                            {selectedProperty.bathrooms} Bathroom{selectedProperty.bathrooms > 1 ? "s" : ""}
-                          </Text>
-                        </Group>
-                      )}
+                      {selectedProperty.bedrooms &&
+                        selectedProperty.bedrooms > 0 && (
+                          <Group gap="xs">
+                            <IconBed size={16} />
+                            <Text c="dimmed">
+                              {selectedProperty.bedrooms} Bedroom
+                              {selectedProperty.bedrooms > 1 ? "s" : ""}
+                            </Text>
+                          </Group>
+                        )}
+                      {selectedProperty.bathrooms &&
+                        selectedProperty.bathrooms > 0 && (
+                          <Group gap="xs">
+                            <IconDroplet size={16} />
+                            <Text c="dimmed">
+                              {selectedProperty.bathrooms} Bathroom
+                              {selectedProperty.bathrooms > 1 ? "s" : ""}
+                            </Text>
+                          </Group>
+                        )}
                     </Group>
                   )}
                   {selectedProperty.description && (
@@ -1304,24 +1347,27 @@ export default function PropertyManagement() {
                       <Text c="dimmed">{selectedProperty.description}</Text>
                     </Card>
                   )}
-                  {selectedProperty.amenities && selectedProperty.amenities.length > 0 && (
-                    <Card withBorder radius="md" p="md" bg="transparent">
-                      <Group gap="xs" mb="md">
-                        <IconBuilding size={16} />
-                        <Text fw={500}>Amenities & Features</Text>
-                      </Group>
-                      <SimpleGrid cols={2} spacing="xs">
-                        {selectedProperty.amenities.map((amenity, index) => (
-                          <Group key={index} gap="xs">
-                            {getAmenityIcon(amenity)}
-                            <Text c="dimmed" size="sm">
-                              {amenity.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-                            </Text>
-                          </Group>
-                        ))}
-                      </SimpleGrid>
-                    </Card>
-                  )}
+                  {selectedProperty.amenities &&
+                    selectedProperty.amenities.length > 0 && (
+                      <Card withBorder radius="md" p="md" bg="transparent">
+                        <Group gap="xs" mb="md">
+                          <IconBuilding size={16} />
+                          <Text fw={500}>Amenities & Features</Text>
+                        </Group>
+                        <SimpleGrid cols={2} spacing="xs">
+                          {selectedProperty.amenities.map((amenity, index) => (
+                            <Group key={index} gap="xs">
+                              {getAmenityIcon(amenity)}
+                              <Text c="dimmed" size="sm">
+                                {amenity
+                                  .replace("-", " ")
+                                  .replace(/\b\w/g, (l) => l.toUpperCase())}
+                              </Text>
+                            </Group>
+                          ))}
+                        </SimpleGrid>
+                      </Card>
+                    )}
                   {selectedProperty.inquiry && (
                     <Card withBorder radius="md" p="md" bg="blue.0" c="blue.8">
                       <Group gap="xs" mb="md">
@@ -1329,12 +1375,25 @@ export default function PropertyManagement() {
                         <Text fw={500}>Inquiry Status</Text>
                       </Group>
                       <Stack gap="xs">
-                        <Text><strong>Reason:</strong> {selectedProperty.inquiry.reason}</Text>
-                        <Text><strong>Duration:</strong> {selectedProperty.inquiry.duration}</Text>
-                        <Text><strong>Status:</strong> {selectedProperty.inquiry.status}</Text>
-                        {selectedProperty.inquiry.status === "REJECTED" && selectedProperty.inquiry.rejectionReason && (
-                          <Text c="red"><strong>Rejection Reason:</strong> {selectedProperty.inquiry.rejectionReason}</Text>
-                        )}
+                        <Text>
+                          <strong>Reason:</strong>{" "}
+                          {selectedProperty.inquiry.reason}
+                        </Text>
+                        <Text>
+                          <strong>Duration:</strong>{" "}
+                          {selectedProperty.inquiry.duration}
+                        </Text>
+                        <Text>
+                          <strong>Status:</strong>{" "}
+                          {selectedProperty.inquiry.status}
+                        </Text>
+                        {selectedProperty.inquiry.status === "REJECTED" &&
+                          selectedProperty.inquiry.rejectionReason && (
+                            <Text c="red">
+                              <strong>Rejection Reason:</strong>{" "}
+                              {selectedProperty.inquiry.rejectionReason}
+                            </Text>
+                          )}
                       </Stack>
                     </Card>
                   )}
@@ -1349,16 +1408,22 @@ export default function PropertyManagement() {
                       <Stack gap="xs">
                         <Group gap="xs">
                           <IconUsers size={16} />
-                          <Text fw={500}>{selectedProperty.owner.fullName}</Text>
+                          <Text fw={500}>
+                            {selectedProperty.owner.fullName}
+                          </Text>
                         </Group>
                         <Group gap="xs">
                           <IconMail size={16} />
-                          <Text c="dimmed" style={{ wordBreak: "break-word" }}>{selectedProperty.owner.email}</Text>
+                          <Text c="dimmed" style={{ wordBreak: "break-word" }}>
+                            {selectedProperty.owner.email}
+                          </Text>
                         </Group>
                         {selectedProperty.owner.phone && (
                           <Group gap="xs">
                             <IconPhone size={16} />
-                            <Text c="dimmed">{selectedProperty.owner.phone}</Text>
+                            <Text c="dimmed">
+                              {selectedProperty.owner.phone}
+                            </Text>
                           </Group>
                         )}
                       </Stack>
@@ -1390,16 +1455,16 @@ export default function PropertyManagement() {
               }
               required
             />
-<TextInput
-  label="Block and Street *"
-  placeholder="Enter block and street"
-  value={editFormData.location}
-  onChange={(e) =>
-    setEditFormData({ ...editFormData, location: e.target.value })
-  }
-  required
-  leftSection={<IconMapPin size={16} />}
-/>
+            <TextInput
+              label="Block and Street *"
+              placeholder="Enter block and street"
+              value={editFormData.location}
+              onChange={(e) =>
+                setEditFormData({ ...editFormData, location: e.target.value })
+              }
+              required
+              leftSection={<IconMapPin size={16} />}
+            />
             <TextInput
               label="Size *"
               placeholder="e.g., 300 sqm"
@@ -1457,7 +1522,13 @@ export default function PropertyManagement() {
               ]}
             />
             {editFormData.status === "LEASED" && (
-              <Stack gap="md" pt="md" style={{ borderTop: `1px solid ${theme.colors.gray[colorScheme === 'dark' ? 7 : 3]}` }}>
+              <Stack
+                gap="md"
+                pt="md"
+                style={{
+                  borderTop: `1px solid ${theme.colors.gray[colorScheme === "dark" ? 7 : 3]}`,
+                }}
+              >
                 <Title order={4}>Owner Details</Title>
                 <TextInput
                   label="Full Name *"
@@ -1532,11 +1603,14 @@ export default function PropertyManagement() {
             <Group gap="md">
               {editFormData.amenities?.map((amenity) => (
                 <Badge key={amenity} variant="light">
-                  {amenity.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                  {amenity
+                    .replace("-", " ")
+                    .replace(/\b\w/g, (l) => l.toUpperCase())}
                 </Badge>
               ))}
             </Group>
-            {(editFormData.type === "house-and-lot" || editFormData.type === "condo") && (
+            {(editFormData.type === "house-and-lot" ||
+              editFormData.type === "condo") && (
               <>
                 <NumberInput
                   label="Bedrooms"

@@ -791,7 +791,6 @@ const ServiceRequestsSection = () => {
               <Dropzone
                 onDrop={handleFilesChange}
                 onReject={() => showNotification("error", "Rejected files")}
-                maxSize={5 * 1024 ** 2}
                 accept={["image/*"]}
                 multiple
               >
