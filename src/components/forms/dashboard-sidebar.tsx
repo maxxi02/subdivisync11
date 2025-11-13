@@ -115,12 +115,6 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
       description: "Manage Tenants",
     },
     {
-      icon: IconSpeakerphone,
-      label: "Announcements",
-      href: "/announcements",
-      description: "Post Updates",
-    },
-    {
       icon: IconCreditCard,
       label: "Payments",
       href: "/payments",

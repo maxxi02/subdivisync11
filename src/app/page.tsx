@@ -87,8 +87,8 @@ const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
                 height: 192,
                 backgroundColor:
                   colorScheme === "dark"
-                    ? theme.colors.purple[9]
-                    : theme.colors.purple[1],
+                    ? theme.colors.violet[9]
+                    : theme.colors.violet[1],
               }}
             />
           ) : (
