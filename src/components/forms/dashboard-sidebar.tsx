@@ -115,6 +115,12 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
       description: "Manage Tenants",
     },
     {
+      icon: IconSpeakerphone,
+      label: "Announcements",
+      href: "/announcements",
+      description: "Post Updates",
+    },
+    {
       icon: IconCreditCard,
       label: "Payments",
       href: "/payments",
@@ -153,12 +159,6 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
       label: "Service Requests",
       href: "/service-requests",
       description: "Maintenance Requests",
-    },
-    {
-      icon: IconSpeakerphone,
-      label: "Announcements",
-      href: "/view-announcements",
-      description: "Announcements",
     },
     {
       icon: IconReceipt,
