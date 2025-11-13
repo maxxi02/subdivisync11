@@ -274,126 +274,120 @@ const TenantsSection = () => {
     return isValid;
   };
 
-  const handleSaveTenant = async () => {
+  const handleCreateTenant = async () => {
     if (!validateForm()) {
       return;
     }
 
-    if (editingTenant) {
-      // Update
-      try {
-        console.log("Updating tenant:", editingTenant._id);
-
-        const response = await fetch("/api/admin/update-tenant", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userId: editingTenant._id,
-            name: editForm.full_name,
-            email: editForm.email,
-            status: editForm.status,
-            address: editForm.address.trim() || "n/a",
-            gender: editForm.gender,
-            age: parseInt(editForm.age) || 0,
-            phoneNumber: editForm.phoneNumber.trim() || "n/a",
-          }),
-        });
-
-        console.log("Response status:", response.status);
-
-        const data = await response.json();
-        console.log("Response data:", data);
-
-        if (!response.ok || !data.success) {
-          throw new Error(data.error || "Failed to update tenant");
-        }
-
-        setTenants((prev) =>
-          prev.map((t) =>
-            t._id === editingTenant._id
-              ? {
-                  ...t,
-                  user_name: editForm.full_name,
-                  user_email: editForm.email,
-                  status: editForm.status,
-                  address: editForm.address,
-                  gender: editForm.gender,
-                  age: parseInt(editForm.age) || 0,
-                  phoneNumber: editForm.phoneNumber,
-                }
-              : t
-          )
-        );
-
-        setShowEditModal(false);
-        setEditingTenant(null);
-        setEditForm(defaultForm);
-        toast.success("Tenant updated successfully!");
-      } catch (error) {
-        console.error("Error updating tenant:", error);
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Failed to update tenant. Please try again."
-        );
+    try {
+      if (!editForm.password) {
+        toast.error("Password is required for new tenants.");
+        return;
       }
-    } else {
-      // Create - keep existing code
-      try {
-        if (!editForm.password) {
-          toast.error("Password is required for new tenants.");
-          return;
-        }
-        const response = await fetch("/api/admin/create-tenant", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: editForm.email,
-            password: editForm.password,
-            name: editForm.full_name,
-            status: editForm.status,
-            address: editForm.address.trim() || "n/a",
-            gender: editForm.gender,
-            age: parseInt(editForm.age),
-            phoneNumber: editForm.phoneNumber.trim() || "n/a",
-          }),
-        });
 
-        const data = await response.json();
+      const response = await fetch("/api/admin/create-tenant", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: editForm.email,
+          password: editForm.password,
+          name: editForm.full_name,
+          status: editForm.status,
+          address: editForm.address.trim() || "n/a",
+          gender: editForm.gender,
+          age: parseInt(editForm.age),
+          phoneNumber: editForm.phoneNumber.trim() || "n/a",
+        }),
+      });
 
-        if (!response.ok || !data.success) {
-          throw new Error(data.error || "Failed to create tenant");
-        }
+      const data = await response.json();
 
-        const newTenant: Tenant = {
-          _id: data.user.id,
-          user_id: data.user.id,
-          user_name: data.user.name,
-          user_email: data.user.email,
-          status: data.user.status,
-          created_at: new Date(data.user.createdAt).toISOString(),
-          address: data.user.address,
-          gender: data.user.gender,
-          age: data.user.age,
-          phoneNumber: data.user.phoneNumber,
-        };
-
-        setTenants((prev) => [...prev, newTenant]);
-        setShowEditModal(false);
-        setEditForm(defaultForm);
-        toast.success("Tenant created successfully!");
-      } catch (error) {
-        console.error("Error creating tenant:", error);
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Failed to create tenant. Please try again."
-        );
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to create tenant");
       }
+
+      // Close modal and reset form immediately
+      setShowEditModal(false);
+      setEditForm(defaultForm);
+
+      // Refetch all tenants to get the newly created one
+      await fetchTenants();
+
+      toast.success("Tenant created successfully!");
+    } catch (error) {
+      console.error("Error creating tenant:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to create tenant. Please try again."
+      );
+    }
+  };
+
+  const handleUpdateTenant = async () => {
+    if (!validateForm() || !editingTenant) {
+      return;
+    }
+
+    try {
+      console.log("Updating tenant:", editingTenant._id);
+
+      const response = await fetch("/api/admin/update-tenant", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: editingTenant._id,
+          name: editForm.full_name,
+          email: editForm.email,
+          status: editForm.status,
+          address: editForm.address.trim() || "n/a",
+          gender: editForm.gender,
+          age: parseInt(editForm.age) || 0,
+          phoneNumber: editForm.phoneNumber.trim() || "n/a",
+        }),
+      });
+
+      console.log("Response status:", response.status);
+
+      const data = await response.json();
+      console.log("Response data:", data);
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to update tenant");
+      }
+
+      setTenants((prev) =>
+        prev.map((t) =>
+          t._id === editingTenant._id
+            ? {
+                ...t,
+                user_name: editForm.full_name,
+                user_email: editForm.email,
+                status: editForm.status,
+                address: editForm.address,
+                gender: editForm.gender,
+                age: parseInt(editForm.age) || 0,
+                phoneNumber: editForm.phoneNumber,
+              }
+            : t
+        )
+      );
+
+      setShowEditModal(false);
+      setEditingTenant(null);
+      setEditForm(defaultForm);
+      toast.success("Tenant updated successfully!");
+    } catch (error) {
+      console.error("Error updating tenant:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update tenant. Please try again."
+      );
     }
   };
 
@@ -722,7 +716,9 @@ const TenantsSection = () => {
             >
               Cancel
             </Button>
-            <Button onClick={handleSaveTenant}>
+            <Button
+              onClick={editingTenant ? handleUpdateTenant : handleCreateTenant}
+            >
               {editingTenant ? "Update Tenant" : "Create Tenant"}
             </Button>
           </Group>

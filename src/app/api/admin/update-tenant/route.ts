@@ -1,7 +1,7 @@
 import { getServerSession } from "@/better-auth/action";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB, db } from "@/database/mongodb";
-import { ObjectId } from "mongodb";
+import { ObjectId } from "mongodb"; // Import ObjectId
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +12,6 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-
     if (session.user.role !== "admin") {
       return NextResponse.json(
         { success: false, error: "Forbidden - Admin access required" },
@@ -21,7 +20,6 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
-
     const body = await request.json();
     const { userId, name, email, status, address, gender, age, phoneNumber } =
       body;
@@ -36,20 +34,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate ObjectId format
+    if (!ObjectId.isValid(userId)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid user ID format" },
+        { status: 400 }
+      );
+    }
+
     if (!name?.trim()) {
       return NextResponse.json(
         { success: false, error: "Name is required" },
         { status: 400 }
       );
     }
-
     if (!email?.trim()) {
       return NextResponse.json(
         { success: false, error: "Email is required" },
         { status: 400 }
       );
     }
-
     if (age && (age < 0 || age > 120)) {
       return NextResponse.json(
         { success: false, error: "Valid age is required (0-120)" },
@@ -57,7 +61,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user exists - Use _id as ObjectId
+    // Use _id with ObjectId
     const existingUser = await db
       .collection("user")
       .findOne({ _id: new ObjectId(userId) });
@@ -77,7 +81,6 @@ export async function POST(request: NextRequest) {
         email: email.trim(),
         _id: { $ne: new ObjectId(userId) },
       });
-
       if (emailExists) {
         return NextResponse.json(
           { success: false, error: "Email already in use" },
@@ -103,7 +106,7 @@ export async function POST(request: NextRequest) {
 
     console.log("Updating user with id:", userId);
 
-    // Update user using the _id field
+    // Update user using _id with ObjectId
     const result = await db
       .collection("user")
       .updateOne({ _id: new ObjectId(userId) }, { $set: updateFields });
