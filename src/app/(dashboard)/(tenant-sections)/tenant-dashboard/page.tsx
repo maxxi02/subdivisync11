@@ -394,8 +394,8 @@ const TenantDashboard = () => {
                                 }}
                               >
                                 <Image
-                                width={500}
-                                height={500}
+                                  width={500}
+                                  height={500}
                                   src={ann.images[0].url}
                                   alt={ann.title}
                                   style={{
