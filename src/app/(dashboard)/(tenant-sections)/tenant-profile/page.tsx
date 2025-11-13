@@ -507,7 +507,6 @@ const TenantProfilePage = () => {
                     onChange={handleFileChange}
                     clearable
                     disabled={profileLoading}
-                    style={{ width: "100%", maxWidth: 300 }}
                   />
                   <Text size="xs" c="dimmed">
                     Max file size: 5MB. Supported formats: JPEG, PNG, GIF, WebP

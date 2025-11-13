@@ -20,6 +20,7 @@ import {
   rgba,
   Notification,
   Select,
+  Container,
 } from "@mantine/core";
 import { IconUpload, IconCheck, IconX } from "@tabler/icons-react";
 import { useForm } from "@mantine/form";
@@ -426,258 +427,259 @@ const AdminProfilePage = () => {
   }
 
   return (
-    <Paper
-      p="xl"
-      radius="lg"
-      withBorder
-      shadow="sm"
-      style={{
-        maxWidth: "100%",
-        margin: "auto",
-        boxShadow: getDefaultShadow(),
-      }}
-    >
-      {notification && (
-        <Notification
-          icon={
-            notification.type === "success" ? (
-              <IconCheck size={18} />
-            ) : (
-              <IconX size={18} />
-            )
-          }
-          color={notification.type === "success" ? "green" : "red"}
-          title={notification.type === "success" ? "Success" : "Error"}
-          onClose={() => setNotification(null)}
-          style={{ position: "fixed", top: 20, right: 20, zIndex: 1000 }}
-        >
-          {notification.message}
-        </Notification>
-      )}
-      <Stack gap="lg">
-        <Title order={2} size="h2" fw={600} ta="center" c={primaryTextColor}>
-          Manage Your Profile
-        </Title>
-        <Text size="md" c="dimmed" ta="center">
-          Update your profile information
-        </Text>
+    <Container size="md" px="md" py="xl">
+      <Paper
+        p={{ base: "md", sm: "xl" }}
+        radius="lg"
+        withBorder
+        shadow="sm"
+        style={{
+          maxWidth: "100%",
+          margin: "auto",
+          boxShadow: getDefaultShadow(),
+        }}
+      >
+        {notification && (
+          <Notification
+            icon={
+              notification.type === "success" ? (
+                <IconCheck size={18} />
+              ) : (
+                <IconX size={18} />
+              )
+            }
+            color={notification.type === "success" ? "green" : "red"}
+            title={notification.type === "success" ? "Success" : "Error"}
+            onClose={() => setNotification(null)}
+            style={{ position: "fixed", top: 20, right: 20, zIndex: 1000 }}
+          >
+            {notification.message}
+          </Notification>
+        )}
+        <Stack gap="lg">
+          <Title order={2} size="h2" fw={600} ta="center" c={primaryTextColor}>
+            Manage Your Profile
+          </Title>
+          <Text size="md" c="dimmed" ta="center">
+            Update your profile information
+          </Text>
 
-        <form onSubmit={profileForm.onSubmit(handleProfileSubmit)}>
-          <Stack gap="md">
-            <Center>
-              <Stack align="center" gap="md">
-                <Avatar
-                  src={
-                    imagePreview ||
-                    session.user?.image ||
-                    "/default-profile.png"
-                  }
-                  size={100}
-                  radius="xl"
-                  style={{ border: `2px solid ${theme.colors.gray[2]}` }}
-                >
-                  {session.user?.name?.charAt(0).toUpperCase()}
-                </Avatar>
-                <FileInput
-                  label="Profile Picture"
-                  placeholder="Choose image file"
-                  accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                  leftSection={<IconUpload size={16} />}
-                  {...profileForm.getInputProps("image")}
-                  onChange={handleFileChange}
-                  clearable
-                  disabled={profileLoading}
-                  style={{ width: "100%", maxWidth: 300 }}
-                />
-                <Text size="xs" c="dimmed">
-                  Max file size: 5MB. Supported formats: JPEG, PNG, GIF, WebP
+          <form onSubmit={profileForm.onSubmit(handleProfileSubmit)}>
+            <Stack gap="md">
+              <Center>
+                <Stack align="center" gap="md">
+                  <Avatar
+                    src={
+                      imagePreview ||
+                      session.user?.image ||
+                      "/default-profile.png"
+                    }
+                    size={100}
+                    radius="xl"
+                    style={{ border: `2px solid ${theme.colors.gray[2]}` }}
+                  >
+                    {session.user?.name?.charAt(0).toUpperCase()}
+                  </Avatar>
+                  <FileInput
+                    label="Profile Picture"
+                    placeholder="Choose image file"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                    leftSection={<IconUpload size={16} />}
+                    {...profileForm.getInputProps("image")}
+                    onChange={handleFileChange}
+                    clearable
+                    disabled={profileLoading}
+                  />
+                  <Text size="xs" c="dimmed">
+                    Max file size: 5MB. Supported formats: JPEG, PNG, GIF, WebP
+                  </Text>
+                </Stack>
+              </Center>
+
+              <TextInput
+                label="Name"
+                placeholder="Enter your name"
+                {...profileForm.getInputProps("name")}
+                disabled={profileLoading}
+              />
+
+              <TextInput
+                label="Address"
+                placeholder="Enter your address"
+                {...profileForm.getInputProps("address")}
+                disabled={profileLoading}
+              />
+
+              <TextInput
+                label="Phone Number"
+                placeholder="Enter your phone number"
+                type="tel"
+                {...profileForm.getInputProps("phoneNumber")}
+                disabled={profileLoading}
+              />
+
+              <Select
+                label="Gender"
+                placeholder="Select your gender"
+                data={[
+                  { value: "male", label: "Male" },
+                  { value: "female", label: "Female" },
+                  { value: "other", label: "Other" },
+                ]}
+                {...profileForm.getInputProps("gender")}
+                disabled={profileLoading}
+              />
+
+              <TextInput
+                label="Age"
+                placeholder="Enter your age"
+                type="number"
+                {...profileForm.getInputProps("age")}
+                disabled={profileLoading}
+              />
+
+              <Stack gap="xs">
+                <Text size="sm" c="dimmed">
+                  Email: {session.user?.email}
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Role: {session.user?.role}
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Address: {session.user?.address || "Not provided"}
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Phone Number: {session.user?.phoneNumber || "Not provided"}
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Gender:{" "}
+                  {session.user?.gender
+                    ? session.user.gender.charAt(0).toUpperCase() +
+                      session.user.gender.slice(1)
+                    : "Not provided"}
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Age: {session.user?.age || "Not provided"}
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Two-Factor Authentication:{" "}
+                  {session.user?.twoFactorEnabled ? "Enabled" : "Disabled"}
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Created At:{" "}
+                  {new Date(session.user?.createdAt).toLocaleDateString()}
                 </Text>
               </Stack>
-            </Center>
 
-            <TextInput
-              label="Name"
-              placeholder="Enter your name"
-              {...profileForm.getInputProps("name")}
-              disabled={profileLoading}
-            />
-
-            <TextInput
-              label="Address"
-              placeholder="Enter your address"
-              {...profileForm.getInputProps("address")}
-              disabled={profileLoading}
-            />
-
-            <TextInput
-              label="Phone Number"
-              placeholder="Enter your phone number"
-              type="tel"
-              {...profileForm.getInputProps("phoneNumber")}
-              disabled={profileLoading}
-            />
-
-            <Select
-              label="Gender"
-              placeholder="Select your gender"
-              data={[
-                { value: "male", label: "Male" },
-                { value: "female", label: "Female" },
-                { value: "other", label: "Other" },
-              ]}
-              {...profileForm.getInputProps("gender")}
-              disabled={profileLoading}
-            />
-
-            <TextInput
-              label="Age"
-              placeholder="Enter your age"
-              type="number"
-              {...profileForm.getInputProps("age")}
-              disabled={profileLoading}
-            />
-
-            <Stack gap="xs">
-              <Text size="sm" c="dimmed">
-                Email: {session.user?.email}
-              </Text>
-              <Text size="sm" c="dimmed">
-                Role: {session.user?.role}
-              </Text>
-              <Text size="sm" c="dimmed">
-                Address: {session.user?.address || "Not provided"}
-              </Text>
-              <Text size="sm" c="dimmed">
-                Phone Number: {session.user?.phoneNumber || "Not provided"}
-              </Text>
-              <Text size="sm" c="dimmed">
-                Gender:{" "}
-                {session.user?.gender
-                  ? session.user.gender.charAt(0).toUpperCase() +
-                    session.user.gender.slice(1)
-                  : "Not provided"}
-              </Text>
-              <Text size="sm" c="dimmed">
-                Age: {session.user?.age || "Not provided"}
-              </Text>
-              <Text size="sm" c="dimmed">
-                Two-Factor Authentication:{" "}
-                {session.user?.twoFactorEnabled ? "Enabled" : "Disabled"}
-              </Text>
-              <Text size="sm" c="dimmed">
-                Created At:{" "}
-                {new Date(session.user?.createdAt).toLocaleDateString()}
-              </Text>
-            </Stack>
-
-            <MantineButton
-              type="submit"
-              color="blue"
-              size="md"
-              fullWidth
-              loading={profileLoading}
-              disabled={profileLoading}
-            >
-              Update Profile
-            </MantineButton>
-          </Stack>
-        </form>
-
-        <Divider label="Change Password" labelPosition="center" />
-
-        <form onSubmit={passwordForm.onSubmit(handlePasswordSubmit)}>
-          <Stack gap="md">
-            <TextInput
-              label="Current Password"
-              placeholder="Enter your current password"
-              type="password"
-              {...passwordForm.getInputProps("currentPassword")}
-              disabled={passwordLoading}
-            />
-            <TextInput
-              label="New Password"
-              placeholder="Enter your new password"
-              type="password"
-              {...passwordForm.getInputProps("newPassword")}
-              disabled={passwordLoading}
-            />
-            <TextInput
-              label="Confirm New Password"
-              placeholder="Confirm your new password"
-              type="password"
-              {...passwordForm.getInputProps("confirmNewPassword")}
-              disabled={passwordLoading}
-            />
-            <MantineButton
-              type="submit"
-              color="blue"
-              size="md"
-              fullWidth
-              loading={passwordLoading}
-              disabled={passwordLoading}
-            >
-              Change Password
-            </MantineButton>
-          </Stack>
-        </form>
-
-        <Divider label="Two-Factor Authentication" labelPosition="center" />
-
-        {session.user?.twoFactorEnabled ? (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleTwoFactorDisable();
-            }}
-          >
-            <Stack gap="md">
-              <Text size="sm" c="green" ta="center" fw={500}>
-                Two-Factor Authentication is currently enabled.
-              </Text>
-              <TextInput
-                label="Password"
-                placeholder="Enter your password to disable"
-                type="password"
-                {...twoFactorForm.getInputProps("password")}
-                disabled={twoFactorLoading}
-              />
               <MantineButton
                 type="submit"
-                color="red"
+                color="blue"
                 size="md"
                 fullWidth
-                loading={twoFactorLoading}
-                disabled={twoFactorLoading}
+                loading={profileLoading}
+                disabled={profileLoading}
               >
-                Disable Two-Factor Authentication
+                Update Profile
               </MantineButton>
             </Stack>
           </form>
-        ) : (
-          <form onSubmit={twoFactorForm.onSubmit(handleTwoFactorSubmit)}>
+
+          <Divider label="Change Password" labelPosition="center" />
+
+          <form onSubmit={passwordForm.onSubmit(handlePasswordSubmit)}>
             <Stack gap="md">
               <TextInput
-                label="Password"
-                placeholder="Enter your password"
+                label="Current Password"
+                placeholder="Enter your current password"
                 type="password"
-                {...twoFactorForm.getInputProps("password")}
-                disabled={twoFactorLoading}
+                {...passwordForm.getInputProps("currentPassword")}
+                disabled={passwordLoading}
+              />
+              <TextInput
+                label="New Password"
+                placeholder="Enter your new password"
+                type="password"
+                {...passwordForm.getInputProps("newPassword")}
+                disabled={passwordLoading}
+              />
+              <TextInput
+                label="Confirm New Password"
+                placeholder="Confirm your new password"
+                type="password"
+                {...passwordForm.getInputProps("confirmNewPassword")}
+                disabled={passwordLoading}
               />
               <MantineButton
                 type="submit"
                 color="blue"
                 size="md"
                 fullWidth
-                loading={twoFactorLoading}
-                disabled={twoFactorLoading}
+                loading={passwordLoading}
+                disabled={passwordLoading}
               >
-                Enable Two-Factor Authentication
+                Change Password
               </MantineButton>
             </Stack>
           </form>
-        )}
-      </Stack>
-    </Paper>
+
+          <Divider label="Two-Factor Authentication" labelPosition="center" />
+
+          {session.user?.twoFactorEnabled ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleTwoFactorDisable();
+              }}
+            >
+              <Stack gap="md">
+                <Text size="sm" c="green" ta="center" fw={500}>
+                  Two-Factor Authentication is currently enabled.
+                </Text>
+                <TextInput
+                  label="Password"
+                  placeholder="Enter your password to disable"
+                  type="password"
+                  {...twoFactorForm.getInputProps("password")}
+                  disabled={twoFactorLoading}
+                />
+                <MantineButton
+                  type="submit"
+                  color="red"
+                  size="md"
+                  fullWidth
+                  loading={twoFactorLoading}
+                  disabled={twoFactorLoading}
+                >
+                  Disable Two-Factor Authentication
+                </MantineButton>
+              </Stack>
+            </form>
+          ) : (
+            <form onSubmit={twoFactorForm.onSubmit(handleTwoFactorSubmit)}>
+              <Stack gap="md">
+                <TextInput
+                  label="Password"
+                  placeholder="Enter your password"
+                  type="password"
+                  {...twoFactorForm.getInputProps("password")}
+                  disabled={twoFactorLoading}
+                />
+                <MantineButton
+                  type="submit"
+                  color="blue"
+                  size="md"
+                  fullWidth
+                  loading={twoFactorLoading}
+                  disabled={twoFactorLoading}
+                >
+                  Enable Two-Factor Authentication
+                </MantineButton>
+              </Stack>
+            </form>
+          )}
+        </Stack>
+      </Paper>
+    </Container>
   );
 };
 
