@@ -8,6 +8,9 @@ import { admin as adminPlugin, twoFactor } from "better-auth/plugins";
 const resend = getResend();
 // asd
 export const auth = betterAuth({
+  baseURL: process.env.NODE_ENV === "production"
+    ? process.env.NEXT_PUBLIC_URL!
+    : process.env.BETTER_AUTH_URL!,
   user: {
     additionalFields: {
       address: {
