@@ -105,7 +105,7 @@ const ServicePaymentSuccessPage = () => {
           "Service payment completed successfully! Your request is now fully processed."
         );
         setTimeout(() => {
-          router.push("/services-requests");
+          router.push("/service-requests");
         }, 3000);
       } catch (error) {
         console.error("Error processing service payment success:", error);
