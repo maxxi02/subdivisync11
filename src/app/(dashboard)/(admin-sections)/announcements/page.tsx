@@ -271,38 +271,38 @@ const AnnouncementCard = ({
                 </Text>
                 {(announcement.property.type === "house-and-lot" ||
                   announcement.property.type === "condo") && (
-                  <>
-                    {announcement.property.bedrooms &&
-                      announcement.property.bedrooms > 0 && (
-                        <Group gap="xs">
-                          <IconBed size={14} />
-                          <Text size="sm">
-                            {announcement.property.bedrooms} Bedroom
-                            {announcement.property.bedrooms > 1 ? "s" : ""}
-                          </Text>
-                        </Group>
-                      )}
-                    {announcement.property.bathrooms &&
-                      announcement.property.bathrooms > 0 && (
-                        <Group gap="xs">
-                          <IconBath size={14} />
-                          <Text size="sm">
-                            {announcement.property.bathrooms} Bathroom
-                            {announcement.property.bathrooms > 1 ? "s" : ""}
-                          </Text>
-                        </Group>
-                      )}
-                    {announcement.property.sqft &&
-                      announcement.property.sqft > 0 && (
-                        <Group gap="xs">
-                          <IconFileText size={14} />
-                          <Text size="sm">
-                            {announcement.property.sqft} sq ft
-                          </Text>
-                        </Group>
-                      )}
-                  </>
-                )}
+                    <>
+                      {announcement.property.bedrooms &&
+                        announcement.property.bedrooms > 0 && (
+                          <Group gap="xs">
+                            <IconBed size={14} />
+                            <Text size="sm">
+                              {announcement.property.bedrooms} Bedroom
+                              {announcement.property.bedrooms > 1 ? "s" : ""}
+                            </Text>
+                          </Group>
+                        )}
+                      {announcement.property.bathrooms &&
+                        announcement.property.bathrooms > 0 && (
+                          <Group gap="xs">
+                            <IconBath size={14} />
+                            <Text size="sm">
+                              {announcement.property.bathrooms} Bathroom
+                              {announcement.property.bathrooms > 1 ? "s" : ""}
+                            </Text>
+                          </Group>
+                        )}
+                      {announcement.property.sqft &&
+                        announcement.property.sqft > 0 && (
+                          <Group gap="xs">
+                            <IconFileText size={14} />
+                            <Text size="sm">
+                              {announcement.property.sqft} sq ft
+                            </Text>
+                          </Group>
+                        )}
+                    </>
+                  )}
               </Stack>
             </Card>
           )}
@@ -793,27 +793,32 @@ const ManageAnnouncementSection = () => {
               placeholder="Enter announcement content"
               minRows={4}
             />
-            <TextInput
+            {/* <TextInput
               label="Category"
               name="category"
               value={formData.category}
               onChange={handleInputChange}
               required
               placeholder="Enter category (e.g., Property Update)"
-            />
+            /> */}
             <CustomSelect
-              label="Priority"
-              value={formData.priority}
+              label="Category"
+              value={formData.category}
               onChange={(value) =>
                 setFormData((prev) => ({
                   ...prev,
-                  priority: value as "low" | "medium" | "high",
+                  category: value,
                 }))
               }
               options={[
-                { value: "low", label: "Low" },
-                { value: "medium", label: "Medium" },
-                { value: "high", label: "High" },
+                { value: "", label: "Select a category" },
+                { value: "Security & Safety", label: "Security & Safety" },
+                { value: "Maintenance & Utilities", label: "Maintenance & Utilities" },
+                { value: "Community Rules & Policies", label: "Community Rules & Policies" },
+                { value: "Events & Activities", label: "Events & Activities" },
+                { value: "Administrative Announcements", label: "Administrative Announcements" },
+                { value: "Construction & Development", label: "Construction & Development" },
+                { value: "General Community Information", label: "General Community Information" },
               ]}
               required
             />
