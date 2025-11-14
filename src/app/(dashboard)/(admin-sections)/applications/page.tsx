@@ -49,7 +49,6 @@ import {
 } from "@tabler/icons-react";
 import { getServerSession } from "@/better-auth/action";
 import { Session } from "@/better-auth/auth-types";
-import { DollarSign } from "lucide-react";
 
 interface Inquiry {
   fullName: string;
@@ -934,7 +933,6 @@ const ApplicationsPage = () => {
                             </Text>
                           </Group>
                           <Group gap="xs">
-                            <DollarSign size={14} />
                             <Text size="sm" fw={500} c="green.6">
                               {formatCurrency(inquiry.propertyPrice)}
                             </Text>
@@ -958,7 +956,7 @@ const ApplicationsPage = () => {
                             {inquiry.propertyStatus === "LEASED"
                               ? "Leased"
                               : inquiry.status.charAt(0).toUpperCase() +
-                                inquiry.status.slice(1)}
+                              inquiry.status.slice(1)}
                           </Badge>
                           {inquiry.status === "rejected" &&
                             inquiry.rejectionReason && (
@@ -1078,7 +1076,7 @@ const ApplicationsPage = () => {
                 {selectedInquiry.propertyStatus === "LEASED"
                   ? "Leased"
                   : selectedInquiry.status.charAt(0).toUpperCase() +
-                    selectedInquiry.status.slice(1)}
+                  selectedInquiry.status.slice(1)}
               </Badge>
 
               <Card withBorder radius="md" p="md">
@@ -1148,41 +1146,41 @@ const ApplicationsPage = () => {
                   </Grid.Col>
                   {(selectedInquiry.propertyType === "house-and-lot" ||
                     selectedInquiry.propertyType === "condo") && (
-                    <>
-                      {selectedInquiry.bedrooms &&
-                        selectedInquiry.bedrooms > 0 && (
+                      <>
+                        {selectedInquiry.bedrooms &&
+                          selectedInquiry.bedrooms > 0 && (
+                            <Grid.Col span={6}>
+                              <Text size="sm" c="dimmed">
+                                Bedrooms
+                              </Text>
+                              <Text fw={500}>
+                                {selectedInquiry.bedrooms} Bedroom
+                                {selectedInquiry.bedrooms > 1 ? "s" : ""}
+                              </Text>
+                            </Grid.Col>
+                          )}
+                        {selectedInquiry.bathrooms &&
+                          selectedInquiry.bathrooms > 0 && (
+                            <Grid.Col span={6}>
+                              <Text size="sm" c="dimmed">
+                                Bathrooms
+                              </Text>
+                              <Text fw={500}>
+                                {selectedInquiry.bathrooms} Bathroom
+                                {selectedInquiry.bathrooms > 1 ? "s" : ""}
+                              </Text>
+                            </Grid.Col>
+                          )}
+                        {selectedInquiry.sqft && selectedInquiry.sqft > 0 && (
                           <Grid.Col span={6}>
                             <Text size="sm" c="dimmed">
-                              Bedrooms
+                              Square Footage
                             </Text>
-                            <Text fw={500}>
-                              {selectedInquiry.bedrooms} Bedroom
-                              {selectedInquiry.bedrooms > 1 ? "s" : ""}
-                            </Text>
+                            <Text fw={500}>{selectedInquiry.sqft} sq ft</Text>
                           </Grid.Col>
                         )}
-                      {selectedInquiry.bathrooms &&
-                        selectedInquiry.bathrooms > 0 && (
-                          <Grid.Col span={6}>
-                            <Text size="sm" c="dimmed">
-                              Bathrooms
-                            </Text>
-                            <Text fw={500}>
-                              {selectedInquiry.bathrooms} Bathroom
-                              {selectedInquiry.bathrooms > 1 ? "s" : ""}
-                            </Text>
-                          </Grid.Col>
-                        )}
-                      {selectedInquiry.sqft && selectedInquiry.sqft > 0 && (
-                        <Grid.Col span={6}>
-                          <Text size="sm" c="dimmed">
-                            Square Footage
-                          </Text>
-                          <Text fw={500}>{selectedInquiry.sqft} sq ft</Text>
-                        </Grid.Col>
-                      )}
-                    </>
-                  )}
+                      </>
+                    )}
                 </Grid>
               </Card>
 
@@ -1297,9 +1295,9 @@ const ApplicationsPage = () => {
                             <Text size="lg" fw={700} c="orange.9">
                               {formatCurrency(
                                 paymentPlanData.monthlyPayment +
-                                  (paymentPlanData.guardFee || 0) +
-                                  (paymentPlanData.garbageFee || 0) +
-                                  (paymentPlanData.maintenanceFee || 0)
+                                (paymentPlanData.guardFee || 0) +
+                                (paymentPlanData.garbageFee || 0) +
+                                (paymentPlanData.maintenanceFee || 0)
                               )}
                             </Text>
                           </Group>
@@ -1384,7 +1382,7 @@ const ApplicationsPage = () => {
                         <Text fw={500} c="orange.6">
                           {formatCurrency(
                             paymentPlanData.totalAmount -
-                              paymentPlanData.propertyPrice
+                            paymentPlanData.propertyPrice
                           )}
                         </Text>
                       </Grid.Col>
@@ -1430,41 +1428,41 @@ const ApplicationsPage = () => {
                     </Text>
                     {(selectedInquiry.propertyType === "house-and-lot" ||
                       selectedInquiry.propertyType === "condo") && (
-                      <>
-                        {selectedInquiry.bedrooms &&
-                          selectedInquiry.bedrooms > 0 && (
+                        <>
+                          {selectedInquiry.bedrooms &&
+                            selectedInquiry.bedrooms > 0 && (
+                              <>
+                                <Text size="sm" c="dimmed">
+                                  Bedrooms
+                                </Text>
+                                <Text fw={500}>
+                                  {selectedInquiry.bedrooms} Bedroom
+                                  {selectedInquiry.bedrooms > 1 ? "s" : ""}
+                                </Text>
+                              </>
+                            )}
+                          {selectedInquiry.bathrooms &&
+                            selectedInquiry.bathrooms > 0 && (
+                              <>
+                                <Text size="sm" c="dimmed">
+                                  Bathrooms
+                                </Text>
+                                <Text fw={500}>
+                                  {selectedInquiry.bathrooms} Bathroom
+                                  {selectedInquiry.bathrooms > 1 ? "s" : ""}
+                                </Text>
+                              </>
+                            )}
+                          {selectedInquiry.sqft && selectedInquiry.sqft > 0 && (
                             <>
                               <Text size="sm" c="dimmed">
-                                Bedrooms
+                                Square Footage
                               </Text>
-                              <Text fw={500}>
-                                {selectedInquiry.bedrooms} Bedroom
-                                {selectedInquiry.bedrooms > 1 ? "s" : ""}
-                              </Text>
+                              <Text fw={500}>{selectedInquiry.sqft} sq ft</Text>
                             </>
                           )}
-                        {selectedInquiry.bathrooms &&
-                          selectedInquiry.bathrooms > 0 && (
-                            <>
-                              <Text size="sm" c="dimmed">
-                                Bathrooms
-                              </Text>
-                              <Text fw={500}>
-                                {selectedInquiry.bathrooms} Bathroom
-                                {selectedInquiry.bathrooms > 1 ? "s" : ""}
-                              </Text>
-                            </>
-                          )}
-                        {selectedInquiry.sqft && selectedInquiry.sqft > 0 && (
-                          <>
-                            <Text size="sm" c="dimmed">
-                              Square Footage
-                            </Text>
-                            <Text fw={500}>{selectedInquiry.sqft} sq ft</Text>
-                          </>
-                        )}
-                      </>
-                    )}
+                        </>
+                      )}
                   </Grid.Col>
                   <Grid.Col span={6}>
                     <Text size="sm" c="dimmed">
@@ -1611,7 +1609,7 @@ const ApplicationsPage = () => {
                           <Text size="sm" fw={500}>
                             {formatCurrency(
                               selectedInquiry.propertyPrice -
-                                (parseFloat(downPayment) || 0)
+                              (parseFloat(downPayment) || 0)
                             )}
                           </Text>
                         </Group>
@@ -1659,8 +1657,8 @@ const ApplicationsPage = () => {
                           <Text size="sm" fw={500} c="orange.6">
                             {formatCurrency(
                               (parseFloat(guardFee) || 0) +
-                                (parseFloat(garbageFee) || 0) +
-                                (parseFloat(maintenanceFee) || 0)
+                              (parseFloat(garbageFee) || 0) +
+                              (parseFloat(maintenanceFee) || 0)
                             )}
                           </Text>
                         </Group>
@@ -1680,9 +1678,9 @@ const ApplicationsPage = () => {
                           <Text size="lg" fw={700} c="blue.6">
                             {formatCurrency(
                               (parseFloat(monthlyPayment) || 0) +
-                                (parseFloat(guardFee) || 0) +
-                                (parseFloat(garbageFee) || 0) +
-                                (parseFloat(maintenanceFee) || 0)
+                              (parseFloat(guardFee) || 0) +
+                              (parseFloat(garbageFee) || 0) +
+                              (parseFloat(maintenanceFee) || 0)
                             )}
                           </Text>
                         </Group>
@@ -1801,11 +1799,11 @@ const ApplicationsPage = () => {
                     !monthlyPayment ||
                     leaseDuration === 0 ||
                     processingId ===
-                      `${selectedInquiry.propertyId}-${selectedInquiry.email}`
+                    `${selectedInquiry.propertyId}-${selectedInquiry.email}`
                   }
                 >
                   {processingId ===
-                  `${selectedInquiry.propertyId}-${selectedInquiry.email}`
+                    `${selectedInquiry.propertyId}-${selectedInquiry.email}`
                     ? "Processing..."
                     : "Approve & Create Payment Plan"}
                 </MantineButton>
@@ -1888,7 +1886,7 @@ const ApplicationsPage = () => {
                   }
                 >
                   {processingId ===
-                  `${selectedInquiry.propertyId}-${selectedInquiry.email}`
+                    `${selectedInquiry.propertyId}-${selectedInquiry.email}`
                     ? "Processing..."
                     : confirmReject
                       ? "Confirm Rejection"
