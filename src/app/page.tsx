@@ -48,7 +48,7 @@ const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
   const theme = useMantineTheme();
   const { colorScheme } = useMantineColorScheme();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const images = announcement.images;
+  const images = announcement.images || [];
 
   const prev = useCallback(
     () => setCurrentIndex((i) => (i === 0 ? images.length - 1 : i - 1)),
@@ -80,7 +80,7 @@ const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
     >
       <CardSection>
         <div style={{ position: "relative" }}>
-          {images.length === 0 ? (
+          {!images || images.length === 0 ? (
             <div
               style={{
                 width: "100%",
@@ -101,7 +101,7 @@ const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
                     transform: `translateX(-${currentIndex * 100}%)`,
                   }}
                 >
-                  {images.map((img) => (
+                  {images.map((img, idx) => (
                     <Image
                       width={500}
                       height={320}
@@ -269,19 +269,30 @@ export default function HomePage() {
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
-        const response = await fetch("/api/announcements");
+        const response = await fetch("/api/announcements?limit=6");
         const data = await response.json();
+        console.log("API Response:", data); // Debug log
         if (data.success) {
-          const currentDate = new Date(); // Use current date (October 3, 2025)
+          const currentDate = new Date();
+          console.log("Current Date:", currentDate); // Debug log
           const filtered = data.announcements.filter(
-            (ann: Announcement) => new Date(ann.scheduledDate) <= currentDate
+            (ann: Announcement) => {
+              const schedDate = new Date(ann.scheduledDate);
+              // Compare only the date part (ignoring time)
+              schedDate.setHours(0, 0, 0, 0);
+              const today = new Date(currentDate);
+              today.setHours(0, 0, 0, 0);
+              console.log(`Announcement: ${ann.title}, Date: ${schedDate}, Today: ${today}`);
+              return schedDate <= today;
+            }
           );
+          console.log("Filtered Announcements:", filtered); // Debug log
           filtered.sort(
             (a: Announcement, b: Announcement) =>
               new Date(b.scheduledDate).getTime() -
               new Date(a.scheduledDate).getTime()
           );
-          setAnnouncements(filtered);
+          setAnnouncements(filtered.slice(0, 6));
         }
       } catch (err) {
         console.error("Failed to fetch announcements", (err as Error).message);
@@ -349,9 +360,8 @@ export default function HomePage() {
       {/* Header */}
       <header
         style={{
-          borderBottom: `1px solid ${
-            colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[2]
-          }`,
+          borderBottom: `1px solid ${colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[2]
+            }`,
           backgroundColor:
             colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
           position: "sticky",
@@ -465,11 +475,10 @@ export default function HomePage() {
                         colorScheme === "dark"
                           ? theme.colors.dark[6]
                           : theme.white,
-                      border: `1px solid ${
-                        colorScheme === "dark"
-                          ? theme.colors.dark[4]
-                          : theme.colors.gray[2]
-                      }`,
+                      border: `1px solid ${colorScheme === "dark"
+                        ? theme.colors.dark[4]
+                        : theme.colors.gray[2]
+                        }`,
                     }}
                   >
                     <Paper
@@ -1042,11 +1051,10 @@ export default function HomePage() {
           </Group>
           <div
             style={{
-              borderTop: `1px solid ${
-                colorScheme === "dark"
-                  ? theme.colors.dark[4]
-                  : theme.colors.gray[8]
-              }`,
+              borderTop: `1px solid ${colorScheme === "dark"
+                ? theme.colors.dark[4]
+                : theme.colors.gray[8]
+                }`,
               marginTop: 32,
               paddingTop: 32,
               textAlign: "center",
