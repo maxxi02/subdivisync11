@@ -494,23 +494,14 @@ const ManageAnnouncementSection = () => {
   };
 
   const handleFileChange = (files: File[] | null) => {
-    if (!files) return;
+    if (!files || files.length === 0) return;
 
-    // Validate file sizes (max 5MB per file)
-    const validFiles = files.filter((file) => {
-      if (file.size > 5 * 1024 * 1024) {
-        showNotification("error", `${file.name} is too large (max 5MB)`);
-        return false;
-      }
-      return true;
-    });
+    const filesArray = Array.from(files);
 
-    if (validFiles.length > 0) {
-      setFormData((prev) => ({
-        ...prev,
-        images: [...prev.images, ...validFiles],
-      }));
-    }
+    setFormData((prev) => ({
+      ...prev,
+      images: [...prev.images, ...filesArray],
+    }));
   };
 
   // Handle image deletion
@@ -835,9 +826,14 @@ const ManageAnnouncementSection = () => {
               placeholder="Upload images"
               accept="image/jpeg,image/png,image/webp,image/jpg"
               multiple
-              onChange={handleFileChange}
+              onChange={(files) => {
+                if (files) {
+                  handleFileChange(Array.isArray(files) ? files : [files]);
+                }
+              }}
+              value={undefined}
               clearable
-              description="Max 5MB per image"
+              description="Select multiple images"
             />
             <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
               {formData.images.map((file, index) => {
