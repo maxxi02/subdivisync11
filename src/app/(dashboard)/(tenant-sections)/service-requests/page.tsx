@@ -238,10 +238,7 @@ const ServiceRequestsSection = () => {
   };
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
-    const category = categories.find((c) => c.id === categoryId);
-    if (category) {
-      setIssueDescription(category.defaultDescription);
-    }
+    setIssueDescription("");
   };
   const uploadImages = async (files: File[]): Promise<string[]> => {
     if (files.length === 0) return [];

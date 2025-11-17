@@ -68,7 +68,7 @@ interface ServiceRequest {
   description: string;
   status: string;
   created_at: Date;
-  priority: "low" | "medium" | "high"; 
+  priority: "low" | "medium" | "high";
 }
 
 interface MonthlyPayment {
