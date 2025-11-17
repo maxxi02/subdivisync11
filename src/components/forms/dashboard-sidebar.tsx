@@ -2,7 +2,7 @@
 import type React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   AppShell,
   NavLink,
@@ -41,16 +41,66 @@ import {
 } from "@tabler/icons-react";
 import { signOut } from "@/lib/auth-client";
 import type { Session } from "@/better-auth/auth-types";
+import axios from "axios";
+
+// Add these interfaces at the top of your sidebar component file
+
+interface ServiceRequest {
+  status: "pending" | "in-progress" | "completed" | "cancelled";
+  id: string;
+  category: string;
+  description: string;
+  priority: string;
+  user_id: string;
+  user_email: string;
+  user_name: string;
+  payment_status: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+interface PropertyInquiry {
+  fullName: string;
+  email: string;
+  phone: string;
+  reason: string;
+  submittedAt: string;
+  status: "pending" | "approved" | "rejected";
+  rejectionReason?: string;
+}
+
+interface Property {
+  _id: string;
+  title: string;
+  location: string;
+  size: string;
+  price: number;
+  type: "single-attached" | "duplex" | "two-storey-house";
+  status: "CREATED" | "UNDER_INQUIRY" | "APPROVED" | "REJECTED" | "LEASED";
+  inquiries?: PropertyInquiry[];
+}
 
 interface DashboardSidebarProps {
   children: React.ReactNode;
   session: Session;
 }
-
+interface NotificationCounts {
+  serviceRequests: number;
+  applications: number;
+  // Add tenant-specific counts
+  myServiceRequests: number; // For tenant's service requests with updates
+  myApplications: number; // For tenant's applications with status changes
+}
 export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
   const [opened, setOpened] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationCounts>({
+    serviceRequests: 0,
+    applications: 0,
+    myServiceRequests: 0,
+    myApplications: 0,
+  });
   const pathname = usePathname();
   const router = useRouter();
 
@@ -71,6 +121,90 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
   const userEmail = session.user.email || "";
   const userImage = session.user.image;
 
+  // Fetch notification counts
+  const fetchNotifications = async () => {
+    try {
+      if (userRole === "admin") {
+        // Admin notifications (existing code)
+        const serviceResponse = await axios.get("/api/service-requests");
+        const pendingServices = serviceResponse.data.success
+          ? serviceResponse.data.serviceRequests.filter(
+              (req: ServiceRequest) => req.status === "pending"
+            ).length
+          : 0;
+
+        const propertiesResponse = await axios.get("/api/properties");
+        let pendingApplications = 0;
+
+        if (propertiesResponse.data.success) {
+          propertiesResponse.data.properties.forEach((property: Property) => {
+            if (property.inquiries && Array.isArray(property.inquiries)) {
+              pendingApplications += property.inquiries.filter(
+                (inquiry: PropertyInquiry) => inquiry.status === "pending"
+              ).length;
+            }
+          });
+        }
+
+        setNotifications({
+          serviceRequests: pendingServices,
+          applications: pendingApplications,
+          myServiceRequests: 0,
+          myApplications: 0,
+        });
+      } else if (userRole === "tenant") {
+        // Tenant notifications
+
+        // Count service requests with status updates (in-progress or completed)
+        const serviceResponse = await axios.get("/api/service-requests");
+        const updatedServiceRequests = serviceResponse.data.success
+          ? serviceResponse.data.serviceRequests.filter(
+              (req: ServiceRequest) =>
+                req.status === "in-progress" || req.status === "completed"
+            ).length
+          : 0;
+
+        // Count applications with status changes (approved or rejected)
+        const propertiesResponse = await axios.get(
+          "/api/properties?myInquiries=true"
+        );
+        let updatedApplications = 0;
+
+        if (propertiesResponse.data.success) {
+          propertiesResponse.data.properties.forEach((property: Property) => {
+            if (property.inquiries && Array.isArray(property.inquiries)) {
+              updatedApplications += property.inquiries.filter(
+                (inquiry: PropertyInquiry) =>
+                  inquiry.email === userEmail &&
+                  (inquiry.status === "approved" ||
+                    inquiry.status === "rejected")
+              ).length;
+            }
+          });
+        }
+
+        setNotifications({
+          serviceRequests: 0,
+          applications: 0,
+          myServiceRequests: updatedServiceRequests,
+          myApplications: updatedApplications,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    }
+  };
+
+  // Fetch notifications on mount and when pathname changes
+  useEffect(() => {
+    fetchNotifications();
+
+    // Optional: Poll for updates every 30 seconds
+    const interval = setInterval(fetchNotifications, 30000);
+
+    return () => clearInterval(interval);
+  }, [pathname, userRole]);
+
   const handleLogout = async () => {
     try {
       await signOut();
@@ -82,55 +216,63 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
     }
   };
 
-  // Admin navigation items
+  // Admin navigation items with notification badges
   const adminNavItems = [
     {
       icon: IconDashboard,
       label: "Dashboard",
       href: "/dashboard",
       description: "Overview & Statistics",
+      notificationCount: 0,
     },
     {
       icon: IconBuildingStore,
       label: "Properties",
       href: "/properties",
       description: "Manage Properties",
+      notificationCount: 0,
     },
     {
       icon: IconClipboardList,
       label: "Applications",
       href: "/applications",
       description: "Tenant Applications",
+      notificationCount: notifications.applications,
     },
     {
       icon: IconToolsKitchen,
       label: "Service",
       href: "/services",
-      description: "Tenant Applications",
+      description: "Service Requests",
+      notificationCount: notifications.serviceRequests,
     },
     {
       icon: IconUsers,
       label: "Tenants",
       href: "/tenants",
       description: "Manage Tenants",
+      notificationCount: 0,
     },
     {
       icon: IconSpeakerphone,
       label: "Announcements",
       href: "/announcements",
       description: "Post Updates",
+      notificationCount: 0,
     },
     {
       icon: IconCreditCard,
       label: "Payments",
       href: "/payments",
       description: "Payment Management",
+      notificationCount: 0,
     },
     {
       icon: IconUser,
       label: "Profile",
       href: "/admin-profile",
       description: "Admin Account",
+      notificationCount: 0,
     },
   ];
 
@@ -141,36 +283,42 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
       label: "Dashboard",
       href: "/tenant-dashboard",
       description: "Home & Updates",
+      notificationCount: 0,
     },
     {
       icon: IconBuildingStore,
       label: "Browse Properties",
       href: "/browse-properties",
       description: "Available Properties",
+      notificationCount: 0,
     },
     {
       icon: IconFileText,
       label: "My Applications",
       href: "/my-applications",
       description: "Application Status",
+      notificationCount: notifications.myApplications, // Add notification count
     },
     {
       icon: IconTool,
       label: "Service Requests",
       href: "/service-requests",
       description: "Maintenance Requests",
+      notificationCount: notifications.myServiceRequests, // Add notification count
     },
     {
       icon: IconReceipt,
       label: "Transactions",
       href: "/transactions",
       description: "Payment History",
+      notificationCount: 0,
     },
     {
       icon: IconUser,
       label: "Profile",
       href: "/tenant-profile",
       description: "My Account",
+      notificationCount: 0,
     },
   ];
 
@@ -296,7 +444,27 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
                   leftSection={<item.icon size="1.2rem" stroke={1.5} />}
                   rightSection={
                     !collapsed && (
-                      <IconChevronRight size="0.8rem" stroke={1.5} />
+                      <Group gap={4}>
+                        {item.notificationCount > 0 && (
+                          <Badge
+                            color="red"
+                            variant="filled"
+                            size="sm"
+                            circle
+                            style={{
+                              minWidth: 20,
+                              height: 20,
+                              padding: 0,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            {item.notificationCount}
+                          </Badge>
+                        )}
+                        <IconChevronRight size="0.8rem" stroke={1.5} />
+                      </Group>
                     )
                   }
                   variant="filled"
@@ -319,9 +487,30 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
                             ? theme.colors.dark[5]
                             : theme.colors.gray[0],
                       },
+                      position: "relative",
                     },
                   }}
-                />
+                >
+                  {collapsed && item.notificationCount > 0 && (
+                    <Badge
+                      color="red"
+                      variant="filled"
+                      size="xs"
+                      circle
+                      style={{
+                        position: "absolute",
+                        top: 8,
+                        right: 8,
+                        minWidth: 16,
+                        height: 16,
+                        padding: 0,
+                        fontSize: 10,
+                      }}
+                    >
+                      {item.notificationCount}
+                    </Badge>
+                  )}
+                </NavLink>
               </Tooltip>
             ))}
           </Stack>
