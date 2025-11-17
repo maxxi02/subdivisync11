@@ -123,6 +123,7 @@ const TenantsSection = () => {
 
   useEffect(() => {
     fetchTenants();
+    toast.success("Tenants fetched successfully");
   }, []);
 
   const fetchTenants = async () => {
@@ -156,7 +157,6 @@ const TenantsSection = () => {
       }));
 
       setTenants(mappedTenants);
-      toast.success("Tenants fetched successfully");
     } catch (error) {
       console.error("Error fetching tenants:", error);
       toast.error("Failed to fetch tenants. Please try again.");
