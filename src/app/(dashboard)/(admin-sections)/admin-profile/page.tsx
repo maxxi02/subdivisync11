@@ -259,17 +259,20 @@ const AdminProfilePage = () => {
             imageData = await convertFileToBase64(values.image);
           }
 
+          // Combine the name fields
+          const fullName = `${values.firstName.trim()} ${values.middleName.trim() ? values.middleName.trim() + " " : ""}${values.lastName.trim()}`;
+
           const response = await fetch("/api/auth/update-user", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              name: values.firstName.trim(),
+              name: fullName,
               image: imageData,
               address: values.address.trim() || "n/a",
               gender: values.gender,
-              dateOfBirth: values.dateOfBirth, // Changed from age
+              dateOfBirth: values.dateOfBirth,
               phoneNumber: values.phoneNumber.trim() || "n/a",
             }),
           });
