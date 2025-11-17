@@ -245,6 +245,35 @@ export default function HomePage() {
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
 
+  // === Hero carousel images & state (NEW) ===
+  const heroImages = [
+    "https://lynville.com.ph/wp-content/uploads/2019/01/SOFIA-DELUXE-ACTUAL-LIPA-2-SAN-NICOLAS-2-1920x1280.jpg",
+    "https://lynville.com.ph/wp-content/uploads/2018/11/Sofia_Deluxe_SuggestedInterior1-934x700.jpg",
+    "https://lynville.com.ph/wp-content/uploads/2018/11/Sofia_Deluxe_SuggestedInterior2-934x700.jpg",
+    "https://lynville.com.ph/wp-content/uploads/2018/11/Sofia_Deluxe_SuggestedInterior3-934x700.jpg",
+    "https://lynville.com.ph/wp-content/uploads/2020/02/Lynville-Cabuyao_Moment2-1920x1080.jpg",
+  ];
+
+  const [heroIndex, setHeroIndex] = useState(0);
+
+  // Autoplay for hero carousel
+  useEffect(() => {
+    const id = setInterval(() => {
+      setHeroIndex((i) => (i === heroImages.length - 1 ? 0 : i + 1));
+    }, 5000);
+    return () => clearInterval(id);
+  }, [heroImages.length]);
+
+  const prevHero = useCallback(
+    () => setHeroIndex((i) => (i === 0 ? heroImages.length - 1 : i - 1)),
+    [heroImages.length]
+  );
+  const nextHero = useCallback(
+    () => setHeroIndex((i) => (i === heroImages.length - 1 ? 0 : i + 1)),
+    [heroImages.length]
+  );
+  // === End hero carousel additions ===
+
   const getDefaultShadow = () => {
     const baseShadow = "0 1px 3px";
     const opacity = colorScheme === "dark" ? 0.2 : 0.12;
@@ -275,17 +304,17 @@ export default function HomePage() {
         if (data.success) {
           const currentDate = new Date();
           console.log("Current Date:", currentDate); // Debug log
-          const filtered = data.announcements.filter(
-            (ann: Announcement) => {
-              const schedDate = new Date(ann.scheduledDate);
-              // Compare only the date part (ignoring time)
-              schedDate.setHours(0, 0, 0, 0);
-              const today = new Date(currentDate);
-              today.setHours(0, 0, 0, 0);
-              console.log(`Announcement: ${ann.title}, Date: ${schedDate}, Today: ${today}`);
-              return schedDate <= today;
-            }
-          );
+          const filtered = data.announcements.filter((ann: Announcement) => {
+            const schedDate = new Date(ann.scheduledDate);
+            // Compare only the date part (ignoring time)
+            schedDate.setHours(0, 0, 0, 0);
+            const today = new Date(currentDate);
+            today.setHours(0, 0, 0, 0);
+            console.log(
+              `Announcement: ${ann.title}, Date: ${schedDate}, Today: ${today}`
+            );
+            return schedDate <= today;
+          });
           console.log("Filtered Announcements:", filtered); // Debug log
           filtered.sort(
             (a: Announcement, b: Announcement) =>
@@ -302,29 +331,26 @@ export default function HomePage() {
   }, []);
 
   const propertyTypes = [
-    { icon: Home, label: "House", count: "2340 PROPERTIES" },
-    { icon: Building2, label: "Villa", count: "2145 PROPERTIES" },
-    { icon: Building2, label: "Condo", count: "924 PROPERTIES" },
+    { icon: Home, label: "Total Units", count: "737" },
+    { icon: Building2, label: "Project Area", count: "11.7 hectares" },
   ];
 
   const differentiators = [
     {
       icon: Users,
       title: "Expert Advice",
-      description:
-        "Our property has been designed with attention to every detail, both commercial and client.",
+      description: "Guidance to financing and reservation..",
     },
     {
       icon: Shield,
-      title: "Exclusive Property",
-      description:
-        "All our properties have been designed to be exclusive to every client, both commercial and client.",
+      title: "Secure Community",
+      description: "Gated and planned for long-term value.",
     },
     {
       icon: Globe,
-      title: "Global Network",
+      title: "Accessible Location",
       description:
-        "Access to our extensive network of properties worldwide with local expertise.",
+        "Near key transport and commercial hubs in Malvar / Lipa area",
     },
   ];
 
@@ -360,8 +386,9 @@ export default function HomePage() {
       {/* Header */}
       <header
         style={{
-          borderBottom: `1px solid ${colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[2]
-            }`,
+          borderBottom: `1px solid ${
+            colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[2]
+          }`,
           backgroundColor:
             colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
           position: "sticky",
@@ -443,7 +470,7 @@ export default function HomePage() {
                     lineHeight: 1.2,
                   }}
                 >
-                  Find a Perfect Property to Suit Your Lifestyle
+                  Lynville Residences Malvar 2 Sonera
                 </Title>
                 <Text
                   size="lg"
@@ -455,9 +482,8 @@ export default function HomePage() {
                     lineHeight: 1.6,
                   }}
                 >
-                  Seamlessly blend life and living. Discover a property that
-                  complements your rhythm, turning every moment into a
-                  reflection of your lifestyle.
+                  A Beautiful and Modern Community in Brgy San Fernando and
+                  Santiago, Malvar, Batangas.
                 </Text>
               </Stack>
               <Group gap="md" wrap="wrap">
@@ -475,10 +501,11 @@ export default function HomePage() {
                         colorScheme === "dark"
                           ? theme.colors.dark[6]
                           : theme.white,
-                      border: `1px solid ${colorScheme === "dark"
-                        ? theme.colors.dark[4]
-                        : theme.colors.gray[2]
-                        }`,
+                      border: `1px solid ${
+                        colorScheme === "dark"
+                          ? theme.colors.dark[4]
+                          : theme.colors.gray[2]
+                      }`,
                     }}
                   >
                     <Paper
@@ -563,20 +590,145 @@ export default function HomePage() {
                 </Stack>
               </Center>
             </Stack>
-            <div style={{ flex: 1, maxWidth: 500 }}>
-              <Image
-                width={500}
-                height={500}
-                src="/modern-house.jpg"
-                alt="Modern luxury property"
+
+            {/* === Hero Carousel (NEW) === */}
+            <div style={{ flex: 1, maxWidth: 500, position: "relative" }}>
+              <div
                 style={{
+                  overflow: "hidden",
                   width: "100%",
-                  height: "auto",
                   borderRadius: theme.radius.xl,
                   boxShadow: getDefaultShadow(),
                 }}
-              />
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    width: `${heroImages.length * 100}%`,
+                    transform: `translateX(-${heroIndex * (100 / heroImages.length)}%)`,
+                    transition: "transform 0.6s ease",
+                  }}
+                >
+                  {heroImages.map((src, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        width: `${100 / heroImages.length}%`,
+                        flexShrink: 0,
+                        height: isMobile ? 240 : 360,
+                        display: "block",
+                        position: "relative",
+                      }}
+                    >
+                      <Image
+                        src={src}
+                        alt={`Lynville ${idx + 1}`}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          borderRadius: theme.radius.xl,
+                          display: "block",
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Left / Right controls */}
+              <MantineButton
+                variant="filled"
+                size="xs"
+                onClick={prevHero}
+                style={{
+                  position: "absolute",
+                  left: 8,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background:
+                    colorScheme === "dark"
+                      ? "rgba(0,0,0,0.5)"
+                      : "rgba(255,255,255,0.85)",
+                  padding: 6,
+                  minWidth: 36,
+                  height: 36,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <ArrowLeft
+                  size={16}
+                  color={
+                    colorScheme === "dark" ? theme.white : theme.colors.gray[8]
+                  }
+                />
+              </MantineButton>
+
+              <MantineButton
+                variant="filled"
+                size="xs"
+                onClick={nextHero}
+                style={{
+                  position: "absolute",
+                  right: 8,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background:
+                    colorScheme === "dark"
+                      ? "rgba(0,0,0,0.5)"
+                      : "rgba(255,255,255,0.85)",
+                  padding: 6,
+                  minWidth: 36,
+                  height: 36,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <ArrowRight
+                  size={16}
+                  color={
+                    colorScheme === "dark" ? theme.white : theme.colors.gray[8]
+                  }
+                />
+              </MantineButton>
+
+              {/* Indicators */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: 8,
+                  marginTop: 12,
+                  position: "relative",
+                  zIndex: 2,
+                }}
+              >
+                {heroImages.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setHeroIndex(i)}
+                    aria-label={`Go to slide ${i + 1}`}
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      border: "none",
+                      background:
+                        i === heroIndex
+                          ? theme.colors.blue[6]
+                          : colorScheme === "dark"
+                            ? theme.colors.dark[4]
+                            : theme.colors.gray[4],
+                      cursor: "pointer",
+                    }}
+                  />
+                ))}
+              </div>
             </div>
+            {/* === End Hero Carousel === */}
           </Group>
         </Container>
       </section>
@@ -655,7 +807,7 @@ export default function HomePage() {
                     colorScheme === "dark" ? theme.white : theme.colors.gray[9],
                 }}
               >
-                Take a big step into the future of living
+                Your New Home in Malvar, Batangas
               </Title>
               <Text
                 size="md"
@@ -667,19 +819,13 @@ export default function HomePage() {
                   lineHeight: 1.6,
                 }}
               >
-                Our approach goes beyond transactions through transparent
-                dealings, ethical practices, and a genuine commitment to client
-                satisfaction. We prioritize building lasting relationships over
-                quick sales ventures. With a rich legacy of excellence, we have
-                consistently surpassed industry standards to redefine the art of
-                property acquisition and sales.
+                Located in Barangay San Fernando and Santiago, Malvar, Batangas.
+                Lynville Residences Sonerra is the 2nd Phase of Lynville
+                Residences Primera in Malvar. It is a secure, gated community,
+                with modern designed and durable homes that is very affordable
+                with Pagibig Fund to the working filipino.
               </Text>
-              <MantineButton
-                color="blue"
-                rightSection={<ArrowRight size={16} />}
-              >
-                Learn More
-              </MantineButton>
+              {/* Learn More button removed as requested */}
             </Stack>
             <div
               style={{
@@ -700,10 +846,10 @@ export default function HomePage() {
               >
                 <CardSection p="lg">
                   <Text size="xl" fw={700} style={{ marginBottom: 8 }}>
-                    3500+
+                    737
                   </Text>
                   <Text size="sm" style={{ color: theme.colors.blue[1] }}>
-                    Happy Customer
+                    Total Units
                   </Text>
                 </CardSection>
               </Card>
@@ -721,10 +867,10 @@ export default function HomePage() {
               >
                 <CardSection p="lg">
                   <Text size="xl" fw={700} style={{ marginBottom: 8 }}>
-                    15+
+                    11.7 Hectares
                   </Text>
                   <Text size="sm" style={{ color: theme.colors.gray[3] }}>
-                    Years Experience
+                    Project Area
                   </Text>
                 </CardSection>
               </Card>
@@ -750,7 +896,7 @@ export default function HomePage() {
                           : theme.colors.gray[9],
                     }}
                   >
-                    10,000+
+                    Php 1,766,000 - Php 2,200,000
                   </Text>
                   <Text
                     size="sm"
@@ -761,7 +907,7 @@ export default function HomePage() {
                           : theme.colors.gray[6],
                     }}
                   >
-                    Property Ready
+                    Price Range
                   </Text>
                 </CardSection>
               </Card>
@@ -787,7 +933,7 @@ export default function HomePage() {
                           : theme.colors.gray[9],
                     }}
                   >
-                    500+
+                    Parks, Playground, Clubhouse
                   </Text>
                   <Text
                     size="sm"
@@ -798,7 +944,7 @@ export default function HomePage() {
                           : theme.colors.gray[6],
                     }}
                   >
-                    Financing Assistance
+                    Amenities
                   </Text>
                 </CardSection>
               </Card>
@@ -820,7 +966,7 @@ export default function HomePage() {
         <Container size="lg">
           <Stack align="center" gap="md" mb="xl">
             <Title order={2} style={{ color: theme.white }}>
-              What are Our Differentiation?
+              Why Lynville
             </Title>
             <Text
               size="md"
@@ -830,8 +976,8 @@ export default function HomePage() {
                 textAlign: "center",
               }}
             >
-              Our properties have been designed with attention to every detail,
-              both commercial and client. oh yeah!
+              Secure gated community, modern durable homes, affordable financing
+              options design for Filipino families
             </Text>
           </Stack>
           <Group
@@ -905,13 +1051,12 @@ export default function HomePage() {
       >
         <Container size="lg">
           <Group
-            gap="xl"
+            wrap="nowrap"
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              width: "100%",
             }}
           >
-            <Stack gap="md">
+            <Stack gap="md" style={{ minWidth: "200px", flex: 1 }}>
               <Group gap="xs">
                 <Paper
                   radius="md"
@@ -927,7 +1072,7 @@ export default function HomePage() {
                   <Home size={20} color={theme.white} />
                 </Paper>
                 <Title order={4} style={{ color: theme.white }}>
-                  Subdivisync
+                  Lynville Residences Malvar 2 Sonera
                 </Title>
               </Group>
               <Text size="sm" style={{ color: theme.colors.gray[4] }}>
@@ -935,133 +1080,38 @@ export default function HomePage() {
                 your lifestyle.
               </Text>
             </Stack>
-            <Stack gap="md">
-              <Title order={4} style={{ color: theme.white }}>
-                Quick Links
-              </Title>
-              <Stack gap="xs">
-                <Text
-                  component="a"
-                  href="#"
-                  style={{
-                    color: theme.colors.gray[4],
-                    "&:hover": { color: theme.white },
-                  }}
-                >
-                  Home
-                </Text>
-                <Text
-                  component="a"
-                  href="#"
-                  style={{
-                    color: theme.colors.gray[4],
-                    "&:hover": { color: theme.white },
-                  }}
-                >
-                  Properties
-                </Text>
-                <Text
-                  component="a"
-                  href="#"
-                  style={{
-                    color: theme.colors.gray[4],
-                    "&:hover": { color: theme.white },
-                  }}
-                >
-                  Services
-                </Text>
-                <Text
-                  component="a"
-                  href="#"
-                  style={{
-                    color: theme.colors.gray[4],
-                    "&:hover": { color: theme.white },
-                  }}
-                >
-                  About Us
-                </Text>
-              </Stack>
-            </Stack>
-            <Stack gap="md">
-              <Title order={4} style={{ color: theme.white }}>
-                Services
-              </Title>
-              <Stack gap="xs">
-                <Text
-                  component="a"
-                  href="#"
-                  style={{
-                    color: theme.colors.gray[4],
-                    "&:hover": { color: theme.white },
-                  }}
-                >
-                  Buy Property
-                </Text>
-                <Text
-                  component="a"
-                  href="#"
-                  style={{
-                    color: theme.colors.gray[4],
-                    "&:hover": { color: theme.white },
-                  }}
-                >
-                  Rent Property
-                </Text>
-                <Text
-                  component="a"
-                  href="#"
-                  style={{
-                    color: theme.colors.gray[4],
-                    "&:hover": { color: theme.white },
-                  }}
-                >
-                  Property Management
-                </Text>
-                <Text
-                  component="a"
-                  href="#"
-                  style={{
-                    color: theme.colors.gray[4],
-                    "&:hover": { color: theme.white },
-                  }}
-                >
-                  Investment
-                </Text>
-              </Stack>
-            </Stack>
-            <Stack gap="md">
+            <Stack gap="md" style={{ minWidth: "200px", flex: 1 }}>
               <Title order={4} style={{ color: theme.white }}>
                 Contact
               </Title>
               <Stack gap="xs">
                 <Text size="sm" style={{ color: theme.colors.gray[4] }}>
-                  123 Real Estate St.
+                  Barangay San Fernando & Santiago, Malvar
                 </Text>
                 <Text size="sm" style={{ color: theme.colors.gray[4] }}>
-                  City, State 12345
+                  Phone: 09178039073
                 </Text>
                 <Text size="sm" style={{ color: theme.colors.gray[4] }}>
-                  Phone: (555) 123-4567
-                </Text>
-                <Text size="sm" style={{ color: theme.colors.gray[4] }}>
-                  Email: info@Subdivisync.com
+                  Email: customercare@lynvilleland.com.ph
                 </Text>
               </Stack>
             </Stack>
           </Group>
           <div
             style={{
-              borderTop: `1px solid ${colorScheme === "dark"
-                ? theme.colors.dark[4]
-                : theme.colors.gray[8]
-                }`,
+              borderTop: `1px solid ${
+                colorScheme === "dark"
+                  ? theme.colors.dark[4]
+                  : theme.colors.gray[8]
+              }`,
               marginTop: 32,
               paddingTop: 32,
               textAlign: "center",
             }}
           >
             <Text size="sm" style={{ color: theme.colors.gray[4] }}>
-              &copy; 2025 Subdivisync. All rights reserved.
+              &copy; 2025 Lynville Residences Malvar 2 Sonera. All rights
+              reserved.
             </Text>
           </div>
         </Container>
