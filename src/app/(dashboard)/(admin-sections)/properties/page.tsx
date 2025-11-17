@@ -725,8 +725,6 @@ export default function PropertyManagement() {
         return <IconCar size={16} />;
       case "gym":
         return <IconBell size={16} />;
-      case "security":
-        return <IconShield size={16} />;
       case "internet-ready":
         return <IconWifi size={16} />;
       case "garden":

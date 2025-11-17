@@ -271,38 +271,38 @@ const AnnouncementCard = ({
                 </Text>
                 {(announcement.property.type === "house-and-lot" ||
                   announcement.property.type === "condo") && (
-                  <>
-                    {announcement.property.bedrooms &&
-                      announcement.property.bedrooms > 0 && (
-                        <Group gap="xs">
-                          <IconBed size={14} />
-                          <Text size="sm">
-                            {announcement.property.bedrooms} Bedroom
-                            {announcement.property.bedrooms > 1 ? "s" : ""}
-                          </Text>
-                        </Group>
-                      )}
-                    {announcement.property.bathrooms &&
-                      announcement.property.bathrooms > 0 && (
-                        <Group gap="xs">
-                          <IconBath size={14} />
-                          <Text size="sm">
-                            {announcement.property.bathrooms} Bathroom
-                            {announcement.property.bathrooms > 1 ? "s" : ""}
-                          </Text>
-                        </Group>
-                      )}
-                    {announcement.property.sqft &&
-                      announcement.property.sqft > 0 && (
-                        <Group gap="xs">
-                          <IconFileText size={14} />
-                          <Text size="sm">
-                            {announcement.property.sqft} sq ft
-                          </Text>
-                        </Group>
-                      )}
-                  </>
-                )}
+                    <>
+                      {announcement.property.bedrooms &&
+                        announcement.property.bedrooms > 0 && (
+                          <Group gap="xs">
+                            <IconBed size={14} />
+                            <Text size="sm">
+                              {announcement.property.bedrooms} Bedroom
+                              {announcement.property.bedrooms > 1 ? "s" : ""}
+                            </Text>
+                          </Group>
+                        )}
+                      {announcement.property.bathrooms &&
+                        announcement.property.bathrooms > 0 && (
+                          <Group gap="xs">
+                            <IconBath size={14} />
+                            <Text size="sm">
+                              {announcement.property.bathrooms} Bathroom
+                              {announcement.property.bathrooms > 1 ? "s" : ""}
+                            </Text>
+                          </Group>
+                        )}
+                      {announcement.property.sqft &&
+                        announcement.property.sqft > 0 && (
+                          <Group gap="xs">
+                            <IconFileText size={14} />
+                            <Text size="sm">
+                              {announcement.property.sqft} sq ft
+                            </Text>
+                          </Group>
+                        )}
+                    </>
+                  )}
               </Stack>
             </Card>
           )}
@@ -494,23 +494,14 @@ const ManageAnnouncementSection = () => {
   };
 
   const handleFileChange = (files: File[] | null) => {
-    if (!files) return;
+    if (!files || files.length === 0) return;
 
-    // Validate file sizes (max 5MB per file)
-    const validFiles = files.filter((file) => {
-      if (file.size > 5 * 1024 * 1024) {
-        showNotification("error", `${file.name} is too large (max 5MB)`);
-        return false;
-      }
-      return true;
-    });
+    const filesArray = Array.from(files);
 
-    if (validFiles.length > 0) {
-      setFormData((prev) => ({
-        ...prev,
-        images: [...prev.images, ...validFiles],
-      }));
-    }
+    setFormData((prev) => ({
+      ...prev,
+      images: [...prev.images, ...filesArray],
+    }));
   };
 
   // Handle image deletion
@@ -793,27 +784,32 @@ const ManageAnnouncementSection = () => {
               placeholder="Enter announcement content"
               minRows={4}
             />
-            <TextInput
+            {/* <TextInput
               label="Category"
               name="category"
               value={formData.category}
               onChange={handleInputChange}
               required
               placeholder="Enter category (e.g., Property Update)"
-            />
+            /> */}
             <CustomSelect
-              label="Priority"
-              value={formData.priority}
+              label="Category"
+              value={formData.category}
               onChange={(value) =>
                 setFormData((prev) => ({
                   ...prev,
-                  priority: value as "low" | "medium" | "high",
+                  category: value,
                 }))
               }
               options={[
-                { value: "low", label: "Low" },
-                { value: "medium", label: "Medium" },
-                { value: "high", label: "High" },
+                { value: "", label: "Select a category" },
+                { value: "Security & Safety", label: "Security & Safety" },
+                { value: "Maintenance & Utilities", label: "Maintenance & Utilities" },
+                { value: "Community Rules & Policies", label: "Community Rules & Policies" },
+                { value: "Events & Activities", label: "Events & Activities" },
+                { value: "Administrative Announcements", label: "Administrative Announcements" },
+                { value: "Construction & Development", label: "Construction & Development" },
+                { value: "General Community Information", label: "General Community Information" },
               ]}
               required
             />
@@ -830,9 +826,14 @@ const ManageAnnouncementSection = () => {
               placeholder="Upload images"
               accept="image/jpeg,image/png,image/webp,image/jpg"
               multiple
-              onChange={handleFileChange}
+              onChange={(files) => {
+                if (files) {
+                  handleFileChange(Array.isArray(files) ? files : [files]);
+                }
+              }}
+              value={undefined}
               clearable
-              description="Max 5MB per image"
+              description="Select multiple images"
             />
             <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
               {formData.images.map((file, index) => {
