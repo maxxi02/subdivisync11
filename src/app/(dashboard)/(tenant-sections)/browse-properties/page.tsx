@@ -29,11 +29,7 @@ import {
   IconSquare,
   IconBed,
   IconBath,
-  IconParkingCircle,
-  IconWifi,
-  IconBarbell,
-  IconShield,
-  IconTrees,
+  
   IconSearch,
   IconCheck,
   IconX,
@@ -279,30 +275,6 @@ const PropertyListingPage = () => {
         phone: "",
         reason: "",
       });
-
-      const params = new URLSearchParams({
-        public: "true",
-        limit: "50",
-        page: "1",
-      });
-
-      const refreshResponse = await fetch(
-        `/api/properties?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (refreshResponse.ok) {
-        const refreshData = await refreshResponse.json();
-        if (refreshData.success) {
-          setProperties(refreshData.properties || []);
-          setFilteredProperties(refreshData.properties || []);
-        }
-      }
     } catch (err) {
       console.error("Error submitting inquiry:", err);
       showNotification(
@@ -347,24 +319,6 @@ const PropertyListingPage = () => {
         return status;
     }
   };
-
-  const getAmenityIcon = (amenity: string) => {
-    switch (amenity) {
-      case "parking":
-        return <IconParkingCircle size={16} />;
-      case "gym":
-        return <IconBarbell size={16} />;
-      case "security":
-        return <IconShield size={16} />;
-      case "internet-ready":
-        return <IconWifi size={16} />;
-      case "garden":
-        return <IconTrees size={16} />;
-      default:
-        return <IconBuilding size={16} />;
-    }
-  };
-
   if (loading) {
     return (
       <Container size="100%" py="xl">
@@ -538,7 +492,6 @@ const PropertyListingPage = () => {
                         key={index}
                         variant="light"
                         color="gray"
-                        leftSection={getAmenityIcon(amenity)}
                       >
                         {amenity.replace("-", " ")}
                       </Badge>
@@ -690,7 +643,6 @@ const PropertyListingPage = () => {
                     <SimpleGrid cols={2}>
                       {selectedProperty.amenities.map((amenity, index) => (
                         <Group key={index} gap="xs">
-                          {getAmenityIcon(amenity)}
                           <Text size="sm" c="dimmed">
                             {amenity.replace("-", " ")}
                           </Text>

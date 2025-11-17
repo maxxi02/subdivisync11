@@ -9,10 +9,10 @@ export interface CreatePropertyRequest {
   location: string;
   size: string;
   price: string;
-  type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
+  type: "single-attached" | "duplex" | "two-storey-house"; // Match frontend
   status: "CREATED" | "UNDER_INQUIRY" | "APPROVED" | "REJECTED" | "LEASED";
+  features?: string[];
   images?: string[];
-  amenities?: string[];
   description?: string;
   bedrooms?: number;
   bathrooms?: number;
@@ -25,10 +25,10 @@ export interface Property {
   location: string;
   size: string;
   price: number;
-  type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
+  type: "single-attached" | "duplex" | "two-storey-house"; // Match frontend
   status: "CREATED" | "UNDER_INQUIRY" | "APPROVED" | "REJECTED" | "LEASED";
   images?: string[];
-  amenities: string[];
+  features: string[];
   description?: string;
   bedrooms?: number;
   bathrooms?: number;
@@ -62,10 +62,10 @@ interface DBProperty {
   location: string;
   size: string;
   price: string;
-  type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
+  type: "single-attached" | "duplex" | "two-storey-house"; // Match frontend
   status: "CREATED" | "UNDER_INQUIRY" | "APPROVED" | "REJECTED" | "LEASED";
   images?: string[];
-  amenities: string[];
+  features: string[];
   description?: string;
   sqft?: number;
   bedrooms?: number;
@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
         ...property,
         _id: property._id!.toString(),
         price: parseFloat(property.price),
-        amenities: property.amenities || [],
+        features: property.features || [], // Changed from amenities
         images: property.images || [],
         inquiries: property.inquiries || [],
         created_at: property.created_at,
@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
           ...property,
           _id: property._id!.toString(),
           price: parseFloat(property.price),
-          amenities: property.amenities || [],
+          features: property.features || [], // Changed from amenities
           images: property.images || [],
           inquiries: property.inquiries || [],
           created_at: property.created_at,
@@ -193,12 +193,10 @@ export async function GET(request: NextRequest) {
       "LEASED",
     ] as const;
     type Status = (typeof validStatuses)[number];
-
     const validTypes = [
-      "residential-lot",
-      "commercial",
-      "house-and-lot",
-      "condo",
+      "single-attached",
+      "duplex",
+      "two-storey-house",
     ] as const;
     type PropertyType = (typeof validTypes)[number];
 
@@ -261,13 +259,12 @@ export async function GET(request: NextRequest) {
       .toArray();
 
     const totalCount = await propertiesCollection.countDocuments(query);
-
     const enrichedProperties = properties.map(
       (property): Property => ({
         ...property,
         _id: property._id!.toString(),
         price: parseFloat(property.price),
-        amenities: property.amenities || [],
+        features: property.features || [], // Changed from amenities
         images: property.images || [],
         inquiries: property.inquiries || [],
         created_at: property.created_at,
@@ -335,10 +332,9 @@ export async function POST(request: NextRequest) {
 
     // Validate property type
     const validTypes = [
-      "residential-lot",
-      "commercial",
-      "house-and-lot",
-      "condo",
+      "single-attached",
+      "duplex",
+      "two-storey-house",
     ] as const;
     if (!validTypes.includes(body.type)) {
       return NextResponse.json(
@@ -379,7 +375,7 @@ export async function POST(request: NextRequest) {
       type: body.type,
       status: body.status,
       images: Array.isArray(body.images) ? body.images : [],
-      amenities: Array.isArray(body.amenities) ? body.amenities : [],
+      features: Array.isArray(body.features) ? body.features : [],
       description: body.description?.trim() || "",
       sqft: body.sqft || 0,
       bedrooms: body.bedrooms,
@@ -407,13 +403,12 @@ export async function POST(request: NextRequest) {
       ...createdProperty!,
       _id: createdProperty!._id!.toString(),
       price: parseFloat(createdProperty!.price),
-      amenities: createdProperty!.amenities || [],
+      features: createdProperty!.features || [],
       images: createdProperty!.images || [],
       inquiries: createdProperty!.inquiries || [],
       created_at: createdProperty!.created_at,
       updated_at: createdProperty!.updated_at,
     };
-
     return NextResponse.json(
       {
         success: true,
@@ -472,10 +467,9 @@ export async function PUT(request: NextRequest) {
 
     // Validate property type
     const validTypes = [
-      "residential-lot",
-      "commercial",
-      "house-and-lot",
-      "condo",
+      "single-attached",
+      "duplex",
+      "two-storey-house",
     ] as const;
     if (!validTypes.includes(body.type)) {
       return NextResponse.json(
@@ -541,7 +535,7 @@ export async function PUT(request: NextRequest) {
       type: body.type,
       status: body.status,
       images: Array.isArray(body.images) ? body.images : [],
-      amenities: Array.isArray(body.amenities) ? body.amenities : [],
+      features: Array.isArray(body.features) ? body.features : [], // Changed from amenities
       description: body.description?.trim() || "",
       sqft: body.sqft || 0,
       bedrooms: body.bedrooms,
@@ -565,12 +559,11 @@ export async function PUT(request: NextRequest) {
     const updatedProperty = await propertiesCollection.findOne({
       _id: new ObjectId(body._id),
     });
-
     const enrichedProperty: Property = {
       ...updatedProperty!,
       _id: updatedProperty!._id!.toString(),
       price: parseFloat(updatedProperty!.price),
-      amenities: updatedProperty!.amenities || [],
+      features: updatedProperty!.features || [], // Changed from amenities
       images: updatedProperty!.images || [],
       inquiries: updatedProperty!.inquiries || [],
       created_at: updatedProperty!.created_at,
@@ -578,7 +571,6 @@ export async function PUT(request: NextRequest) {
       bedrooms: updatedProperty!.bedrooms,
       bathrooms: updatedProperty!.bathrooms,
     };
-
     return NextResponse.json(
       {
         success: true,

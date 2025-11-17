@@ -1,5 +1,4 @@
 "use client";
-
 import {
   Title,
   Text,
@@ -53,14 +52,12 @@ import { useEffect, useState, useRef } from "react";
 import { uploadImageToServer, validateImageFile } from "@/lib/upload";
 import CustomCarousel from "./_components/carousel";
 import { toast } from "react-hot-toast"; // Keep for now, but can migrate to Mantine notifications later
-
 // Types (unchanged)
 interface PropertyOwner {
   fullName?: string;
   email?: string;
   phone?: string;
 }
-
 interface Inquiry {
   _id: string;
   propertyId: string;
@@ -71,7 +68,6 @@ interface Inquiry {
   rejectionReason?: string;
   created_at: string;
 }
-
 interface Property {
   _id: string;
   title: string;
@@ -81,7 +77,7 @@ interface Property {
   type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
   status: "CREATED" | "UNDER_INQUIRY" | "APPROVED" | "REJECTED" | "LEASED";
   images?: string[];
-  amenities: string[];
+  features: string[];
   description?: string;
   bedrooms?: number;
   bathrooms?: number;
@@ -92,7 +88,6 @@ interface Property {
   owner?: PropertyOwner;
   inquiry?: Inquiry;
 }
-
 interface CreatePropertyRequest {
   title: string;
   location: string;
@@ -101,13 +96,12 @@ interface CreatePropertyRequest {
   type: string;
   status: "CREATED" | "UNDER_INQUIRY" | "APPROVED" | "REJECTED" | "LEASED";
   images?: string[];
-  amenities?: string[];
+  features?: string[];
   description?: string;
   bedrooms?: number;
   bathrooms?: number;
   sqft?: number;
 }
-
 interface UpdatePropertyRequest extends CreatePropertyRequest {
   owner_details?: {
     fullName: string;
@@ -115,14 +109,12 @@ interface UpdatePropertyRequest extends CreatePropertyRequest {
     phone: string;
   };
 }
-
 interface Pagination {
   total: number;
   page: number;
   limit: number;
   pages: number;
 }
-
 interface ImageUploadPreviewProps {
   images: string[] | undefined;
   selectedImages: File[];
@@ -130,14 +122,11 @@ interface ImageUploadPreviewProps {
   onRemoveImage: (index: number, type: "existing" | "new") => void;
   isEdit?: boolean;
 }
-
 type ImageType = "existing" | "new";
-
 interface NotificationType {
   type: "success" | "error";
   message: string;
 }
-
 // Image Upload Preview Component (Updated to Mantine)
 const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
   images,
@@ -149,7 +138,6 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
   const theme = useMantineTheme();
   const { colorScheme } = useMantineColorScheme();
   const inputRef = useRef<HTMLInputElement>(null);
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
@@ -166,14 +154,11 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
       );
     }
   };
-
   const handleRemoveClick = (index: number, type: ImageType): void => {
     onRemoveImage(index, type);
     toast.success("Image removed");
   };
-
   const inputId = isEdit ? "edit-images" : "images";
-
   return (
     <Stack gap="md">
       <Text size="sm" fw={500} c="dimmed">
@@ -200,7 +185,6 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
           {selectedImages.length} new images selected
         </Text>
       </Group>
-
       {images && images.length > 0 && (
         <Box>
           <Text size="sm" fw={500} mb="xs" c="dimmed">
@@ -236,7 +220,6 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
           </SimpleGrid>
         </Box>
       )}
-
       {selectedImages.length > 0 && (
         <Box>
           <Text size="sm" fw={500} mb="xs" c="dimmed">
@@ -275,7 +258,6 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
     </Stack>
   );
 };
-
 // Main Component
 export default function PropertyManagement() {
   const theme = useMantineTheme();
@@ -301,7 +283,6 @@ export default function PropertyManagement() {
     null
   );
   const [dataFetched, setDataFetched] = useState(false);
-
   const [formData, setFormData] = useState<CreatePropertyRequest>({
     title: "",
     location: "",
@@ -310,13 +291,12 @@ export default function PropertyManagement() {
     type: "residential-lot",
     status: "CREATED",
     images: [],
-    amenities: [],
+    features: [],
     description: "",
     bedrooms: 0,
     bathrooms: 0,
     sqft: 0,
   });
-
   const [editFormData, setEditFormData] = useState<
     CreatePropertyRequest & { _id?: string }
   >({
@@ -327,34 +307,29 @@ export default function PropertyManagement() {
     type: "residential-lot",
     status: "CREATED",
     images: [],
-    amenities: [],
+    features: [],
     description: "",
     bedrooms: 0,
     bathrooms: 0,
     sqft: 0,
   });
-
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [ownerDetails, setOwnerDetails] = useState({
     fullName: "",
     email: "",
     phone: "",
   });
-
   // Theme-aware helpers (from dashboard)
   const primaryTextColor = colorScheme === "dark" ? "white" : "dark.9";
-
   const getDefaultShadow = () => {
     const baseShadow = "0 1px 3px";
     const opacity = colorScheme === "dark" ? 0.2 : 0.12;
     return `${baseShadow} ${rgba(theme.black, opacity)}`;
   };
-
   const showNotification = (type: "success" | "error", message: string) => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 5000);
   };
-
   const fetchProperties = async (page: number = 1) => {
     try {
       setLoading(true);
@@ -366,7 +341,6 @@ export default function PropertyManagement() {
       if (searchQuery) {
         params.append("search", searchQuery);
       }
-
       const response = await fetch(`/api/properties?${params.toString()}`, {
         method: "GET",
         headers: {
@@ -389,7 +363,6 @@ export default function PropertyManagement() {
       setLoading(false);
     }
   };
-
   // Fixed refresh bug - only fetch data once and when searchQuery changes
   useEffect(() => {
     if (!dataFetched) {
@@ -397,7 +370,6 @@ export default function PropertyManagement() {
       setDataFetched(true);
     }
   }, [dataFetched]);
-
   // Fetch when search query changes (with debounce)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -405,10 +377,8 @@ export default function PropertyManagement() {
         fetchProperties(1); // Reset to page 1 when searching
       }
     }, 500);
-
     return () => clearTimeout(timeoutId);
   }, [searchQuery, dataFetched]);
-
   // useEffect(() => {
   //   if (formData.type !== "house-and-lot" && formData.type !== "condo") {
   //     setFormData({
@@ -418,7 +388,6 @@ export default function PropertyManagement() {
   //     });
   //   }
   // }, [formData.type]);
-
   // useEffect(() => {
   //   if (
   //     editFormData.type !== "house-and-lot" &&
@@ -431,7 +400,6 @@ export default function PropertyManagement() {
   //     });
   //   }
   // }, [editFormData.type]);
-
   const validateForm = (data: CreatePropertyRequest): string | null => {
     if (!data.title.trim()) return "Property title is required";
     if (!data.location.trim()) return "Location is required";
@@ -441,11 +409,9 @@ export default function PropertyManagement() {
       return "Price must be a valid number";
     return null;
   };
-
   const handleImageChange = (files: File[], isEdit: boolean): void => {
     setSelectedImages((prevImages) => [...prevImages, ...files]);
   };
-
   const handleRemoveImage = (index: number, type: ImageType): void => {
     if (type === "existing") {
       const currentFormData = editModalOpen ? editFormData : formData;
@@ -462,7 +428,6 @@ export default function PropertyManagement() {
       );
     }
   };
-
   const handleCreateProperty = async (): Promise<void> => {
     try {
       const validationError = validateForm(formData);
@@ -471,10 +436,8 @@ export default function PropertyManagement() {
         showNotification("error", validationError);
         return;
       }
-
       setCreateLoading(true);
       setError(null);
-
       let imageUrls: string[] = [];
       if (selectedImages.length > 0) {
         const uploadPromises = selectedImages.map(
@@ -497,10 +460,8 @@ export default function PropertyManagement() {
             }
           }
         );
-
         imageUrls = await Promise.all(uploadPromises);
       }
-
       const requestBody: CreatePropertyRequest = {
         ...formData,
         images: [...(formData.images || []), ...imageUrls],
@@ -511,7 +472,6 @@ export default function PropertyManagement() {
           | "REJECTED"
           | "LEASED",
       };
-
       const response = await fetch("/api/properties", {
         method: "POST",
         headers: {
@@ -519,14 +479,11 @@ export default function PropertyManagement() {
         },
         body: JSON.stringify(requestBody),
       });
-
       const data: { success: boolean; property?: Property; error?: string } =
         await response.json();
-
       if (!data.success || !data.property) {
         throw new Error(data.error || "Failed to create property");
       }
-
       setProperties([...properties, data.property]);
       setCreateModalOpen(false);
       setFormData({
@@ -537,7 +494,7 @@ export default function PropertyManagement() {
         type: "residential-lot",
         status: "CREATED",
         images: [],
-        amenities: [],
+        features: [],
         description: "",
         bedrooms: 0,
         bathrooms: 0,
@@ -555,7 +512,6 @@ export default function PropertyManagement() {
       setCreateLoading(false);
     }
   };
-
   const handleEditProperty = async (): Promise<void> => {
     try {
       const validationError = validateForm(editFormData);
@@ -564,10 +520,8 @@ export default function PropertyManagement() {
         showNotification("error", validationError);
         return;
       }
-
       setError(null);
       let newImageUrls: string[] = [];
-
       if (selectedImages.length > 0) {
         const uploadPromises = selectedImages.map(
           async (file: File): Promise<string> => {
@@ -591,7 +545,6 @@ export default function PropertyManagement() {
         );
         newImageUrls = await Promise.all(uploadPromises);
       }
-
       const requestBody: UpdatePropertyRequest = {
         title: editFormData.title,
         location: editFormData.location,
@@ -600,13 +553,12 @@ export default function PropertyManagement() {
         type: editFormData.type,
         status: editFormData.status,
         images: [...(editFormData.images || []), ...newImageUrls],
-        amenities: editFormData.amenities || [],
+        features: editFormData.features || [],
         description: editFormData.description || "",
         bedrooms: editFormData.bedrooms || 0,
         bathrooms: editFormData.bathrooms || 0,
         sqft: editFormData.sqft || 0,
       };
-
       if (editFormData.status === "LEASED") {
         if (!ownerDetails.fullName.trim() || !ownerDetails.email.trim()) {
           const errorMessage =
@@ -621,7 +573,6 @@ export default function PropertyManagement() {
           phone: ownerDetails.phone,
         };
       }
-
       const response = await fetch(`/api/properties/${editFormData._id}`, {
         method: "PUT",
         headers: {
@@ -629,13 +580,11 @@ export default function PropertyManagement() {
         },
         body: JSON.stringify(requestBody),
       });
-
       const data: { success: boolean; property?: Property; error?: string } =
         await response.json();
       if (!data.success || !data.property) {
         throw new Error(data.error || "Failed to update property");
       }
-
       setProperties(
         properties.map((p) =>
           p._id === data.property!._id ? data.property! : p
@@ -650,7 +599,7 @@ export default function PropertyManagement() {
         type: "residential-lot",
         status: "CREATED",
         images: [],
-        amenities: [],
+        features: [],
         description: "",
         bedrooms: 0,
         bathrooms: 0,
@@ -667,25 +616,20 @@ export default function PropertyManagement() {
       showNotification("error", errorMessage);
     }
   };
-
   const handleDeleteProperty = async (id: string) => {
     if (!confirm("Are you sure you want to delete this property?")) return;
-
     try {
       setError(null);
-
       const response = await fetch(`/api/properties/${id}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
         },
       });
-
       const data = await response.json();
       if (!data.success) {
         throw new Error(data.error || "Failed to delete property");
       }
-
       setProperties(properties.filter((p) => p._id !== id));
       showNotification("success", "Property deleted successfully");
     } catch (error) {
@@ -696,7 +640,6 @@ export default function PropertyManagement() {
       showNotification("error", errorMessage);
     }
   };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case "CREATED":
@@ -713,50 +656,46 @@ export default function PropertyManagement() {
         return "gray";
     }
   };
-
   const filteredProperties = properties.filter((property) => {
     const matchesSearch =
       property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       property.location.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
   });
-
   const stats = {
     total: pagination.total,
     created: properties.filter((p) => p.status === "CREATED").length,
     leased: properties.filter((p) => p.status === "LEASED").length,
     underInquiry: properties.filter((p) => p.status === "UNDER_INQUIRY").length,
   };
-
-  const handleAmenitiesChange = (value: string, isEdit: boolean = false) => {
-    const currentAmenities = isEdit
-      ? editFormData.amenities || []
-      : formData.amenities || [];
-    if (currentAmenities.includes(value)) {
-      const newAmenities = currentAmenities.filter((a) => a !== value);
+  const handleFeaturesChange = (value: string, isEdit: boolean = false) => {
+    const currentFeatures = isEdit
+      ? editFormData.features || []
+      : formData.features || [];
+    if (currentFeatures.includes(value)) {
+      const newFeatures = currentFeatures.filter((a) => a !== value);
       if (isEdit) {
-        setEditFormData({ ...editFormData, amenities: newAmenities });
+        setEditFormData({ ...editFormData, features: newFeatures });
       } else {
-        setFormData({ ...formData, amenities: newAmenities });
+        setFormData({ ...formData, features: newFeatures });
       }
       showNotification(
         "success",
-        `${value.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())} removed from amenities`
+        `${value.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())} removed from features`
       );
     } else {
-      const newAmenities = [...currentAmenities, value];
+      const newFeatures = [...currentFeatures, value];
       if (isEdit) {
-        setEditFormData({ ...editFormData, amenities: newAmenities });
+        setEditFormData({ ...editFormData, features: newFeatures });
       } else {
-        setFormData({ ...formData, amenities: newAmenities });
+        setFormData({ ...formData, features: newFeatures });
       }
       showNotification(
         "success",
-        `${value.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())} added to amenities`
+        `${value.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())} added to features`
       );
     }
   };
-
   const openEditModal = (property: Property) => {
     setEditFormData({
       _id: property._id,
@@ -767,7 +706,7 @@ export default function PropertyManagement() {
       type: property.type,
       status: property.status,
       images: property.images || [],
-      amenities: property.amenities || [],
+      features: property.features || [],
       description: property.description || "",
       bedrooms: property.bedrooms,
       bathrooms: property.bathrooms,
@@ -781,14 +720,12 @@ export default function PropertyManagement() {
     setSelectedImages([]);
     setEditModalOpen(true);
   };
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-PH", {
       style: "currency",
       currency: "PHP",
     }).format(amount);
   };
-
   if (loading) {
     return (
       <Container size="xl" py="xl">
@@ -798,7 +735,6 @@ export default function PropertyManagement() {
       </Container>
     );
   }
-
   return (
     <Container size="xl" px="md">
       {notification && (
@@ -828,7 +764,6 @@ export default function PropertyManagement() {
             Manage your property listings and inquiries
           </Text>
         </Box>
-
         {/* Stats Cards (Updated to match dashboard) */}
         <SimpleGrid
           cols={{ base: 1, md: 3 }}
@@ -861,7 +796,6 @@ export default function PropertyManagement() {
               </ThemeIcon>
             </Flex>
           </Card>
-
           <Card
             padding="xl"
             radius="lg"
@@ -888,7 +822,6 @@ export default function PropertyManagement() {
               </ThemeIcon>
             </Flex>
           </Card>
-
           <Card
             padding="xl"
             radius="lg"
@@ -916,7 +849,6 @@ export default function PropertyManagement() {
             </Flex>
           </Card>
         </SimpleGrid>
-
         {/* Error Alert (Updated to Mantine Notification style) */}
         {error && (
           <Notification
@@ -929,7 +861,6 @@ export default function PropertyManagement() {
             {error}
           </Notification>
         )}
-
         {/* Properties List */}
         <Card padding="xl" radius="lg" withBorder shadow="sm">
           <Group justify="space-between" mb="md">
@@ -952,7 +883,6 @@ export default function PropertyManagement() {
               </MantineButton>
             </Group>
           </Group>
-
           {/* Added ScrollArea for horizontal overflow */}
           <ScrollArea type="auto">
             <Table striped highlightOnHover miw={800}>
@@ -1057,7 +987,6 @@ export default function PropertyManagement() {
               </Table.Tbody>
             </Table>
           </ScrollArea>
-
           {pagination.pages > 1 && (
             <Group justify="apart" mt="md">
               <MantineButton
@@ -1080,7 +1009,6 @@ export default function PropertyManagement() {
             </Group>
           )}
         </Card>
-
         {/* Create Modal (Updated to Mantine Modal) */}
         <Modal
           opened={createModalOpen}
@@ -1181,7 +1109,7 @@ export default function PropertyManagement() {
             <Select
               label="Features"
               placeholder="Select features"
-              onChange={(value) => value && handleAmenitiesChange(value)}
+              onChange={(value) => value && handleFeaturesChange(value)}
               data={[
                 {
                   group: "Structural & Interior Features",
@@ -1247,9 +1175,9 @@ export default function PropertyManagement() {
               ]}
             />
             <Group gap="md">
-              {formData.amenities?.map((amenity) => (
-                <Badge key={amenity} variant="light">
-                  {amenity
+              {formData.features?.map((feature) => (
+                <Badge key={feature} variant="light">
+                  {feature
                     .replace("-", " ")
                     .replace(/\b\w/g, (l) => l.toUpperCase())}
                 </Badge>
@@ -1294,7 +1222,6 @@ export default function PropertyManagement() {
             </MantineButton>
           </Stack>
         </Modal>
-
         {/* View Modal (Updated to Mantine Modal) */}
         <Modal
           opened={viewModalOpen}
@@ -1448,7 +1375,6 @@ export default function PropertyManagement() {
             </Stack>
           )}
         </Modal>
-
         {/* Edit Modal (Updated to Mantine Modal) */}
         <Modal
           opened={editModalOpen}
@@ -1600,21 +1526,77 @@ export default function PropertyManagement() {
               }
             />
             <Select
-              label="Amenities"
-              placeholder="Select amenities"
-              onChange={(value) => value && handleAmenitiesChange(value, true)}
+              label="Features"
+              placeholder="Select features"
+              onChange={(value) => value && handleFeaturesChange(value, true)}
               data={[
-                { value: "parking", label: "Parking" },
-                { value: "gym", label: "Gym" },
-                { value: "security", label: "Security" },
-                { value: "internet-ready", label: "Internet Ready" },
-                { value: "garden", label: "Garden" },
+                {
+                  group: "Structural & Interior Features",
+                  items: [
+                    {
+                      value: "tiled-flooring-1st",
+                      label: "Tiled Flooring (1st Floor)",
+                    },
+                    {
+                      value: "tiled-flooring-2nd",
+                      label: "Tiled Flooring (2nd Floor)",
+                    },
+                    {
+                      value: "painted-interior",
+                      label: "Painted Interior Walls",
+                    },
+                    {
+                      value: "painted-exterior",
+                      label: "Painted Exterior Walls",
+                    },
+                    {
+                      value: "ceiling-2nd",
+                      label: "Ceiling Installed (2nd Floor)",
+                    },
+                    { value: "main-steel-door", label: "Main Steel Door" },
+                    { value: "standard-windows", label: "Standard Windows" },
+                  ],
+                },
+                {
+                  group: "Toilet & Bath Features",
+                  items: [
+                    {
+                      value: "complete-toilet",
+                      label: "Complete Toilet Fixtures",
+                    },
+                    { value: "tiled-bathroom", label: "Tiled Bathroom" },
+                    { value: "shower-faucet", label: "Shower with Faucet" },
+                    { value: "installed-sink", label: "Installed Sink" },
+                  ],
+                },
+                {
+                  group: "Kitchen Features",
+                  items: [
+                    { value: "kitchen-counter", label: "Kitchen Counter" },
+                    { value: "kitchen-sink", label: "Kitchen Sink" },
+                  ],
+                },
+                {
+                  group: "Outdoor & Lot Features",
+                  items: [
+                    { value: "parking-space", label: "With Parking Space" },
+                    { value: "corner-lot", label: "Corner Lot" },
+                    { value: "end-unit", label: "End Unit" },
+                  ],
+                },
+                {
+                  group: "Utility Provisions",
+                  items: [
+                    { value: "electricity-ready", label: "Electricity Ready" },
+                    { value: "water-line-ready", label: "Water Line Ready" },
+                  ],
+                },
               ]}
             />
             <Group gap="md">
-              {editFormData.amenities?.map((amenity) => (
-                <Badge key={amenity} variant="light">
-                  {amenity
+              {editFormData.features?.map((feature) => (
+                <Badge key={feature} variant="light">
+                  {feature
                     .replace("-", " ")
                     .replace(/\b\w/g, (l) => l.toUpperCase())}
                 </Badge>
