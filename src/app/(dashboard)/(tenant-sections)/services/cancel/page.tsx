@@ -1,64 +1,44 @@
-// src/app/(dashboard)/(tenant-sections)/services/cancel/page.tsx
 "use client";
 
-import React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { XCircle, ArrowLeft } from "lucide-react";
+import { Container, Card, Text, Stack, Button } from "@mantine/core";
+import { IconX } from "@tabler/icons-react";
+import { useRouter } from "next/navigation";
 
-const ServicePaymentCancelPage = () => {
+export default function PaymentCancel() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const requestId = searchParams.get("request_id");
-
-  const handleRetry = () => {
-    if (requestId) {
-      router.push(`/services?payment_retry=${requestId}`);
-    } else {
-      router.push("/services");
-    }
-  };
-
-  const handleBackToServices = () => {
-    router.push("/services");
-  };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-        <XCircle className="h-16 w-16 text-yellow-600 mx-auto mb-4" />
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Payment Cancelled
-        </h1>
-        <p className="text-gray-600 mb-6">
-          Your service payment was cancelled. Don&#39;t worry - you can try
-          again anytime. Your service request remains active.
-        </p>
+    <Container size="sm" py="xl">
+      <Card shadow="md" padding="xl" radius="lg" withBorder>
+        <Stack gap="xl" align="center">
+          <div style={{
+            width: 80,
+            height: 80,
+            borderRadius: "50%",
+            backgroundColor: "#ef4444",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}>
+            <IconX size={48} color="white" stroke={3} />
+          </div>
 
-        <div className="space-y-3">
-          {requestId && (
-            <button
-              onClick={handleRetry}
-              className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              Retry Payment
-            </button>
-          )}
+          <Stack gap="xs" align="center">
+            <Text size="xl" fw={700}>Payment Cancelled</Text>
+            <Text size="sm" c="dimmed" ta="center">
+              Your payment was cancelled. No charges were made.
+            </Text>
+          </Stack>
 
-          <button
-            onClick={handleBackToServices}
-            className="w-full bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center justify-center gap-2"
+          <Button
+            onClick={() => router.push("/transactions")}
+            variant="filled"
+            fullWidth
           >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Services
-          </button>
-        </div>
-
-        {requestId && (
-          <p className="text-sm text-gray-500 mt-4">Request ID: {requestId}</p>
-        )}
-      </div>
-    </div>
+            Back to Transactions
+          </Button>
+        </Stack>
+      </Card>
+    </Container>
   );
-};
-
-export default ServicePaymentCancelPage;
+}

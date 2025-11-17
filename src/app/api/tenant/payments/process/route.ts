@@ -70,9 +70,7 @@ export async function POST(request: NextRequest) {
         headers: {
           accept: "application/json",
           "content-type": "application/json",
-          authorization: `Basic ${Buffer.from(secretKey + ":").toString(
-            "base64"
-          )}`,
+          authorization: `Basic ${Buffer.from(secretKey + ":").toString("base64")}`,
         },
         body: JSON.stringify({
           data: {

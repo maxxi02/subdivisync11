@@ -99,9 +99,7 @@ async function createPayMongoCheckout(params: {
     {
       method: "POST",
       headers: {
-        Authorization: `Basic ${Buffer.from(PAYMONGO_SECRET_KEY).toString(
-          "base64"
-        )}`,
+        Authorization: `Basic ${Buffer.from(PAYMONGO_SECRET_KEY + ":").toString("base64")}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

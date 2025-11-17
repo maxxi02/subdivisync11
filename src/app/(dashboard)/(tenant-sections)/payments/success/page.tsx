@@ -103,28 +103,26 @@ const PaymentSuccessPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+    <div className="min-h-screen  flex items-center justify-center p-4">
+      <div className=" rounded-lg shadow-lg p-8 max-w-md w-full text-center">
         {status === "processing" && (
           <>
-            <Loader2 className="h-16 w-16 text-blue-600 mx-auto mb-4 animate-spin" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Processing Payment
-            </h1>
+            <Loader2 className="h-16 w-16 mx-auto mb-4 animate-spin" />
+            <h1 className="text-2xl font-bold  mb-2">Processing Payment</h1>
             <p className="text-gray-600">{message}</p>
           </>
         )}
 
         {status === "success" && (
           <>
-            <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            <CheckCircle className="h-16 w-16  mx-auto mb-4" />
+            <h1 className="text-2xl font-bold mb-2">
               Payment Successful!
             </h1>
             <p className="text-gray-600 mb-6">{message}</p>
             <button
               onClick={handleContinue}
-              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              className="  px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
             >
               Continue to Payments
             </button>
