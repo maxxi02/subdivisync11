@@ -68,6 +68,7 @@ interface ServiceRequest {
   description: string;
   status: string;
   created_at: Date;
+  priority: "low" | "medium" | "high"; 
 }
 
 interface MonthlyPayment {
@@ -194,14 +195,12 @@ const TenantDashboard = () => {
 
     fetchData();
   }, []);
-
   const stats = [
     {
       title: "Announcements",
       value: announcements.length.toString(),
       icon: IconAlertCircle,
       color: "teal",
-      change: "+0%",
     },
     {
       title: "Pending Requests",
@@ -210,7 +209,6 @@ const TenantDashboard = () => {
         .length.toString(),
       icon: IconClipboardCheck,
       color: "yellow",
-      change: "+0%",
     },
     {
       title: "In Progress",
@@ -219,7 +217,6 @@ const TenantDashboard = () => {
         .length.toString(),
       icon: IconClipboardCheck,
       color: "blue",
-      change: "+0%",
     },
     {
       title: "Completed",
@@ -228,16 +225,14 @@ const TenantDashboard = () => {
         .length.toString(),
       icon: IconCheck,
       color: "green",
-      change: "+0%",
     },
     {
       title: "High Priority",
-      value: announcements
-        .filter((a) => a.priority === "high")
+      value: serviceRequests // Changed from announcements
+        .filter((s) => s.priority === "high") // Changed from a.priority
         .length.toString(),
       icon: IconAlertCircle,
       color: "red",
-      change: "+0%",
     },
   ];
 
@@ -313,15 +308,6 @@ const TenantDashboard = () => {
                   <Text fw={700} size="xl" c={primaryTextColor} lh={1.2}>
                     {stat.value}
                   </Text>
-                  <Badge
-                    color={stat.color}
-                    variant="light"
-                    size="sm"
-                    radius="md"
-                    aria-label={`Change: ${stat.change}`}
-                  >
-                    {stat.change}
-                  </Badge>
                 </Stack>
                 <ThemeIcon
                   variant="light"
