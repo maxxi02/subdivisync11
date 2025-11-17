@@ -57,16 +57,24 @@ const AdminProfilePage = () => {
 
   const profileForm = useForm({
     initialValues: {
-      name: "",
+      firstName: "",
+      middleName: "",
+      lastName: "",
       image: null as File | null,
       address: "",
       gender: "",
-      age: "",
+      dateOfBirth: "",
       phoneNumber: "",
     },
     validate: {
-      name: (value) =>
-        value.trim().length < 2 ? "Name must be at least 2 characters" : null,
+      firstName: (value) =>
+        value.trim().length < 2
+          ? "First name must be at least 2 characters"
+          : null,
+      lastName: (value) =>
+        value.trim().length < 2
+          ? "Last name must be at least 2 characters"
+          : null,
       image: (value) =>
         value && value.size > 5 * 1024 * 1024
           ? "Image must be less than 5MB"
@@ -85,16 +93,35 @@ const AdminProfilePage = () => {
           ? "Address must be at least 5 characters if provided"
           : null,
       gender: (value) => (!value ? "Gender is required" : null),
-      age: (value) =>
-        !value
-          ? "Age is required"
-          : parseInt(value) < 18 || parseInt(value) > 120
-            ? "Age must be between 18 and 120"
-            : null,
-      phoneNumber: (value) =>
-        value.trim().length > 0 && value.trim().length < 10
-          ? "Phone number must be at least 10 characters if provided"
-          : null,
+      dateOfBirth: (value) => {
+        if (!value) return "Date of birth is required";
+
+        const birthDate = new Date(value);
+        const today = new Date();
+        const age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        const dayDiff = today.getDate() - birthDate.getDate();
+
+        const actualAge =
+          monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age;
+
+        if (actualAge < 18) {
+          return "You must be at least 18 years old";
+        }
+        if (actualAge > 120) {
+          return "Please enter a valid date of birth";
+        }
+        return null;
+      },
+      phoneNumber: (value) => {
+        if (value.trim().length > 0) {
+          const phoneRegex = /^(09|\+639)\d{9}$/;
+          if (!phoneRegex.test(value.trim())) {
+            return "Invalid phone number format. Use 09XXXXXXXXX or +639XXXXXXXXX";
+          }
+        }
+        return null;
+      },
     },
   });
 
@@ -109,8 +136,24 @@ const AdminProfilePage = () => {
         value.length < 8
           ? "Current password must be at least 8 characters"
           : null,
-      newPassword: (value) =>
-        value.length < 8 ? "New password must be at least 8 characters" : null,
+      newPassword: (value) => {
+        if (value.length < 8) {
+          return "New password must be at least 8 characters long";
+        }
+        if (!/[A-Z]/.test(value)) {
+          return "Password must contain at least one uppercase letter";
+        }
+        if (!/[a-z]/.test(value)) {
+          return "Password must contain at least one lowercase letter";
+        }
+        if (!/[0-9]/.test(value)) {
+          return "Password must contain at least one number";
+        }
+        if (!/[!@#$%^&*(),.?":{}|<>]/.test(value)) {
+          return 'Password must contain at least one special character (!@#$%^&*(),.?":{}|<>)';
+        }
+        return null;
+      },
       confirmNewPassword: (value, values) =>
         value !== values.newPassword ? "Passwords do not match" : null,
     },
@@ -131,11 +174,26 @@ const AdminProfilePage = () => {
       try {
         const session = await getServerSession();
         setSession(session);
+
+        // Split the full name into parts
+        const nameParts = (session?.user?.name || "").split(" ");
+        const firstName = nameParts[0] || "";
+        const lastName =
+          nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+        const middleName =
+          nameParts.length > 2 ? nameParts.slice(1, -1).join(" ") : "";
+
         profileForm.setValues({
-          name: session?.user?.name || "",
+          firstName: firstName,
+          middleName: middleName,
+          lastName: lastName,
           address: session?.user?.address || "",
           gender: session?.user?.gender || "",
-          age: session?.user?.age?.toString() || "",
+          dateOfBirth: session?.user?.dateOfBirth
+            ? session.user.dateOfBirth instanceof Date
+              ? session.user.dateOfBirth.toISOString().split("T")[0]
+              : new Date(session.user.dateOfBirth).toISOString().split("T")[0]
+            : "",
           phoneNumber: session?.user?.phoneNumber || "",
         });
         setImagePreview(session?.user?.image || "");
@@ -207,11 +265,11 @@ const AdminProfilePage = () => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              name: values.name.trim(),
+              name: values.firstName.trim(),
               image: imageData,
               address: values.address.trim() || "n/a",
               gender: values.gender,
-              age: parseInt(values.age),
+              dateOfBirth: values.dateOfBirth, // Changed from age
               phoneNumber: values.phoneNumber.trim() || "n/a",
             }),
           });
@@ -427,7 +485,7 @@ const AdminProfilePage = () => {
   }
 
   return (
-    <Container size="md" px="md" py="xl">
+    <Container size="xl" px="md" py="xl">
       <Paper
         p={{ base: "md", sm: "xl" }}
         radius="lg"
@@ -497,10 +555,26 @@ const AdminProfilePage = () => {
               </Center>
 
               <TextInput
-                label="Name"
-                placeholder="Enter your name"
-                {...profileForm.getInputProps("name")}
+                label="First Name"
+                placeholder="Enter your first name"
+                {...profileForm.getInputProps("firstName")}
                 disabled={profileLoading}
+                required
+              />
+
+              <TextInput
+                label="Middle Name (Optional)"
+                placeholder="Enter your middle name"
+                {...profileForm.getInputProps("middleName")}
+                disabled={profileLoading}
+              />
+
+              <TextInput
+                label="Last Name"
+                placeholder="Enter your last name"
+                {...profileForm.getInputProps("lastName")}
+                disabled={profileLoading}
+                required
               />
 
               <TextInput
@@ -531,10 +605,24 @@ const AdminProfilePage = () => {
               />
 
               <TextInput
-                label="Age"
-                placeholder="Enter your age"
-                type="number"
-                {...profileForm.getInputProps("age")}
+                label="Date of Birth"
+                type="date"
+                placeholder="Select your date of birth"
+                {...profileForm.getInputProps("dateOfBirth")}
+                max={
+                  new Date(
+                    new Date().setFullYear(new Date().getFullYear() - 18)
+                  )
+                    .toISOString()
+                    .split("T")[0]
+                }
+                min={
+                  new Date(
+                    new Date().setFullYear(new Date().getFullYear() - 120)
+                  )
+                    .toISOString()
+                    .split("T")[0]
+                }
                 disabled={profileLoading}
               />
 
@@ -559,7 +647,13 @@ const AdminProfilePage = () => {
                     : "Not provided"}
                 </Text>
                 <Text size="sm" c="dimmed">
-                  Age: {session.user?.age || "Not provided"}
+                  Age: {session.user?.age || "Not provided"} years old
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Date of Birth:{" "}
+                  {session.user?.dateOfBirth
+                    ? new Date(session.user.dateOfBirth).toLocaleDateString()
+                    : "Not provided"}
                 </Text>
                 <Text size="sm" c="dimmed">
                   Two-Factor Authentication:{" "}

@@ -21,8 +21,16 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const body = await request.json();
-    const { userId, name, email, status, address, gender, age, phoneNumber } =
-      body;
+    const {
+      userId,
+      name,
+      email,
+      status,
+      address,
+      gender,
+      dateOfBirth,
+      phoneNumber,
+    } = body;
 
     console.log("Update request received:", { userId, name, email });
 
@@ -54,11 +62,31 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    if (age && (age < 0 || age > 120)) {
-      return NextResponse.json(
-        { success: false, error: "Valid age is required (0-120)" },
-        { status: 400 }
-      );
+
+    // Validate date of birth if provided
+    if (dateOfBirth) {
+      const birthDate = new Date(dateOfBirth);
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      const dayDiff = today.getDate() - birthDate.getDate();
+
+      const actualAge =
+        monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age;
+
+      if (actualAge < 18) {
+        return NextResponse.json(
+          { success: false, error: "Tenant must be at least 18 years old" },
+          { status: 400 }
+        );
+      }
+
+      if (actualAge > 120) {
+        return NextResponse.json(
+          { success: false, error: "Please enter a valid date of birth" },
+          { status: 400 }
+        );
+      }
     }
 
     // Use _id with ObjectId
@@ -100,9 +128,23 @@ export async function POST(request: NextRequest) {
     if (status !== undefined) updateFields.status = status;
     if (address !== undefined) updateFields.address = address.trim();
     if (gender !== undefined) updateFields.gender = gender;
-    if (age !== undefined) updateFields.age = parseInt(age.toString()) || 0;
     if (phoneNumber !== undefined)
       updateFields.phoneNumber = phoneNumber.trim();
+
+    // Handle date of birth and calculate age
+    if (dateOfBirth !== undefined) {
+      const birthDate = new Date(dateOfBirth);
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      const dayDiff = today.getDate() - birthDate.getDate();
+
+      const actualAge =
+        monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age;
+
+      updateFields.dateOfBirth = birthDate;
+      updateFields.age = actualAge;
+    }
 
     console.log("Updating user with id:", userId);
 

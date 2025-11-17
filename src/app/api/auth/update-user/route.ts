@@ -1,6 +1,7 @@
 import { getServerSession } from "@/better-auth/action";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB, db } from "@/database/mongodb";
+import { ObjectId } from "mongodb";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,126 +15,104 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
+
     const body = await request.json();
-    const { name, image, address, gender, age, phoneNumber } = body;
-    const finalAddress = address?.trim() || "n/a";
-    const finalPhoneNumber = phoneNumber?.trim() || "n/a";
+    const { name, image, address, gender, dateOfBirth, phoneNumber } = body;
 
-    console.log("Update user request:", {
-      userId: session.user.id,
-      name,
-      address,
-      sessionUser: session.user,
-    });
-
-    if (!gender) {
+    // Validate required fields
+    if (!name?.trim()) {
       return NextResponse.json(
-        { success: false, error: "Gender is required" },
+        { success: false, error: "Name is required" },
         { status: 400 }
       );
     }
 
-    if (!age || age < 18 || age > 120) {
-      return NextResponse.json(
-        { success: false, error: "Valid age is required (18-120)" },
-        { status: 400 }
-      );
-    }
+    // Validate date of birth if provided
+    if (dateOfBirth) {
+      const birthDate = new Date(dateOfBirth);
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      const dayDiff = today.getDate() - birthDate.getDate();
 
-    if (!phoneNumber?.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Phone number is required" },
-        { status: 400 }
-      );
-    }
+      const actualAge =
+        monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age;
 
-    // Check if user exists - Better-Auth uses 'id' field (UUID string)
-    const existingUser = await db.collection("user").findOne({
-      id: session.user.id,
-    });
-
-    console.log("User lookup:", {
-      searchingFor: session.user.id,
-      found: existingUser ? "Yes" : "No",
-      existingUserId: existingUser?.id,
-      existingUserObjectId: existingUser?._id,
-    });
-
-    if (!existingUser) {
-      // Try alternate query in case the field name is different
-      const altUser = await db.collection("user").findOne({
-        email: session.user.email,
-      });
-
-      console.log("Alternate user lookup by email:", {
-        email: session.user.email,
-        found: altUser ? "Yes" : "No",
-      });
-
-      if (altUser) {
-        console.log("User found by email, updating...");
-        // Use the email to update instead
-        const result = await db.collection("user").updateOne(
-          { email: session.user.email },
-          {
-            $set: {
-              name: name.trim(),
-              image,
-              address: finalAddress,
-              gender,
-              age: parseInt(age.toString()),
-              phoneNumber: finalPhoneNumber,
-              updatedAt: new Date(),
-            },
-          }
+      if (actualAge < 18) {
+        return NextResponse.json(
+          { success: false, error: "You must be at least 18 years old" },
+          { status: 400 }
         );
+      }
 
-        if (result.matchedCount === 0) {
-          return NextResponse.json(
-            { success: false, error: "Failed to update user" },
-            { status: 404 }
-          );
-        }
+      if (actualAge > 120) {
+        return NextResponse.json(
+          { success: false, error: "Please enter a valid date of birth" },
+          { status: 400 }
+        );
+      }
+    }
 
+    // Validate phone number if provided
+    if (phoneNumber && phoneNumber.trim() !== "n/a") {
+      const phoneRegex = /^(09|\+639)\d{9}$/;
+      if (!phoneRegex.test(phoneNumber.trim())) {
         return NextResponse.json(
           {
-            success: true,
-            message: "Profile updated successfully",
+            success: false,
+            error:
+              "Invalid phone number format. Use 09XXXXXXXXX or +639XXXXXXXXX",
           },
-          { status: 200 }
+          { status: 400 }
         );
       }
+    }
 
+    // Get user from database using session user id
+    const userId = session.user.id;
+
+    if (!ObjectId.isValid(userId)) {
       return NextResponse.json(
-        { success: false, error: "User not found" },
-        { status: 404 }
+        { success: false, error: "Invalid user ID" },
+        { status: 400 }
       );
     }
 
-    // Update user in database using 'id' field (Better-Auth standard)
-    const result = await db.collection("user").updateOne(
-      { id: session.user.id },
-      {
-        $set: {
-          name: name.trim(),
-          image,
-          address: finalAddress,
-          gender,
-          age: parseInt(age.toString()),
-          phoneNumber: finalPhoneNumber,
-          updatedAt: new Date(),
-        },
-      }
-    );
+    // Build update object
+    const updateFields: Record<string, unknown> = {
+      name: name.trim(),
+      updatedAt: new Date(),
+    };
 
-    console.log("Update result:", {
-      matchedCount: result.matchedCount,
-      modifiedCount: result.modifiedCount,
-    });
+    if (image !== undefined) updateFields.image = image;
+    if (address !== undefined) updateFields.address = address.trim();
+    if (gender !== undefined) updateFields.gender = gender;
+    if (phoneNumber !== undefined)
+      updateFields.phoneNumber = phoneNumber.trim();
+
+    // Handle date of birth and calculate age
+    if (dateOfBirth !== undefined) {
+      const birthDate = new Date(dateOfBirth);
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      const dayDiff = today.getDate() - birthDate.getDate();
+
+      const actualAge =
+        monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age;
+
+      updateFields.dateOfBirth = birthDate;
+      updateFields.age = actualAge;
+    }
+
+    // Update user
+    const result = await db
+      .collection("user")
+      .updateOne({ _id: new ObjectId(userId) }, { $set: updateFields });
 
     if (result.matchedCount === 0) {
       return NextResponse.json(
-        { success: false, error: "User not found during update" },
+        { success: false, error: "User not found" },
         { status: 404 }
       );
     }
@@ -146,7 +125,7 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error("Error updating user:", error);
+    console.error("Error updating profile:", error);
     return NextResponse.json(
       { success: false, error: "Failed to update profile" },
       { status: 500 }

@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     await connectDB();
 
     const body = await request.json();
-    const { email, password, name, status, address, gender, age, phoneNumber } =
+    const { email, password, name, status, address, gender, dateOfBirth, phoneNumber } =
       body;
 
     // Validate required fields
@@ -35,9 +35,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!age || age < 18 || age > 120) {
+    // Validate date of birth
+    if (!dateOfBirth) {
       return NextResponse.json(
-        { success: false, error: "Valid age is required (18-120)" },
+        { success: false, error: "Date of birth is required" },
+        { status: 400 }
+      );
+    }
+
+    const birthDate = new Date(dateOfBirth);
+    const today = new Date();
+    const age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    const dayDiff = today.getDate() - birthDate.getDate();
+    
+    // Adjust age if birthday hasn't occurred this year
+    const actualAge = (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) ? age - 1 : age;
+
+    if (actualAge < 18) {
+      return NextResponse.json(
+        { success: false, error: "Tenant must be at least 18 years old" },
+        { status: 400 }
+      );
+    }
+
+    if (actualAge > 120) {
+      return NextResponse.json(
+        { success: false, error: "Please enter a valid date of birth" },
         { status: 400 }
       );
     }
@@ -94,12 +118,14 @@ export async function POST(request: NextRequest) {
           status: status || "Active",
           address: address?.trim() || "n/a",
           gender,
-          age: parseInt(age.toString()),
+          dateOfBirth: birthDate, // Store as Date object
+          age: actualAge, // Store calculated age
           phoneNumber: phoneNumber?.trim() || "n/a",
           updatedAt: new Date(),
         },
       }
     );
+    
     const completeUser = await db
       .collection("user")
       .findOne({ _id: createdUser._id });
@@ -122,6 +148,7 @@ export async function POST(request: NextRequest) {
           status: completeUser.status,
           address: completeUser.address,
           gender: completeUser.gender,
+          dateOfBirth: completeUser.dateOfBirth,
           age: completeUser.age,
           phoneNumber: completeUser.phoneNumber,
           createdAt: completeUser.createdAt,

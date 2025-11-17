@@ -6,7 +6,7 @@ import { nextCookies } from "better-auth/next-js";
 import { admin as adminPlugin, twoFactor } from "better-auth/plugins";
 
 const resend = getResend();
-// asd
+
 export const auth = betterAuth({
   baseURL: process.env.NODE_ENV === "production"
     ? process.env.NEXT_PUBLIC_URL!
@@ -23,6 +23,10 @@ export const auth = betterAuth({
       },
       age: {
         type: "number",
+        required: false,
+      },
+      dateOfBirth: {
+        type: "date", // Add this field
         required: false,
       },
       phoneNumber: {

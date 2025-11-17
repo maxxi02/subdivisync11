@@ -24,6 +24,7 @@ import {
 import { IconEdit, IconUsers, IconSearch, IconEye } from "@tabler/icons-react";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "react-hot-toast";
+import { DateInput } from "@mantine/dates";
 
 interface Tenant {
   _id: string;
@@ -67,7 +68,9 @@ interface UserWithData {
 }
 
 const defaultForm = {
-  full_name: "",
+  first_name: "",
+  middle_name: "",
+  last_name: "",
   email: "",
   password: "",
   confirmPassword: "",
@@ -86,7 +89,9 @@ const TenantsSection = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [editForm, setEditForm] = useState(defaultForm);
   const [formErrors, setFormErrors] = useState<{
-    full_name?: string;
+    first_name?: string;
+    middle_name?: string;
+    last_name?: string;
     email?: string;
     password?: string;
     confirmPassword?: string;
@@ -162,9 +167,18 @@ const TenantsSection = () => {
   };
 
   const handleEditTenant = (tenant: Tenant) => {
+    const nameParts = (tenant.user_name || "").split(" ");
+    const firstName = nameParts[0] || "";
+    const lastName =
+      nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+    const middleName =
+      nameParts.length > 2 ? nameParts.slice(1, -1).join(" ") : "";
+
     setEditingTenant(tenant);
     setEditForm({
-      full_name: tenant.user_name || "",
+      first_name: firstName,
+      middle_name: middleName,
+      last_name: lastName,
       email: tenant.user_email || "",
       password: "",
       confirmPassword: "",
@@ -181,11 +195,25 @@ const TenantsSection = () => {
     const errors: typeof formErrors = {};
     let isValid = true;
 
-    if (!editForm.full_name.trim()) {
-      errors.full_name = "Full name is required";
+    // First Name validation
+    if (!editForm.first_name.trim()) {
+      errors.first_name = "First name is required";
+      isValid = false;
+    } else if (editForm.first_name.trim().length < 2) {
+      errors.first_name = "First name must be at least 2 characters";
       isValid = false;
     }
 
+    // Last Name validation
+    if (!editForm.last_name.trim()) {
+      errors.last_name = "Last name is required";
+      isValid = false;
+    } else if (editForm.last_name.trim().length < 2) {
+      errors.last_name = "Last name must be at least 2 characters";
+      isValid = false;
+    }
+
+    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!editForm.email.trim()) {
       errors.email = "Email is required";
@@ -196,13 +224,30 @@ const TenantsSection = () => {
     }
 
     if (!editingTenant) {
-      // Only validate these for NEW tenants
+      // Password validation with special characters
       if (!editForm.password) {
         errors.password = "Password is required";
         isValid = false;
-      } else if (editForm.password.length < 8) {
-        errors.password = "Password must be at least 8 characters long";
-        isValid = false;
+      } else {
+        if (editForm.password.length < 8) {
+          errors.password = "Password must be at least 8 characters long";
+          isValid = false;
+        } else if (!/[A-Z]/.test(editForm.password)) {
+          errors.password =
+            "Password must contain at least one uppercase letter";
+          isValid = false;
+        } else if (!/[a-z]/.test(editForm.password)) {
+          errors.password =
+            "Password must contain at least one lowercase letter";
+          isValid = false;
+        } else if (!/[0-9]/.test(editForm.password)) {
+          errors.password = "Password must contain at least one number";
+          isValid = false;
+        } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(editForm.password)) {
+          errors.password =
+            'Password must contain at least one special character (!@#$%^&*(),.?":{}|<>)';
+          isValid = false;
+        }
       }
 
       if (!editForm.confirmPassword) {
@@ -213,22 +258,17 @@ const TenantsSection = () => {
         isValid = false;
       }
 
-      // For NEW tenants, validate address and phone if provided
-      if (
-        editForm.address.trim().length > 0 &&
-        editForm.address.trim().length < 5
-      ) {
-        errors.address = "Address must be at least 5 characters if provided";
+      // Phone number validation - must be exactly 11 digits for PH
+      if (!editForm.phoneNumber.trim()) {
+        errors.phoneNumber = "Phone number is required";
         isValid = false;
-      }
-
-      if (
-        editForm.phoneNumber.trim().length > 0 &&
-        editForm.phoneNumber.trim().length < 10
-      ) {
-        errors.phoneNumber =
-          "Phone number must be at least 10 characters if provided";
-        isValid = false;
+      } else {
+        const phoneRegex = /^(09|\+639)\d{9}$/;
+        if (!phoneRegex.test(editForm.phoneNumber.trim())) {
+          errors.phoneNumber =
+            "Invalid phone number format. Use 09XXXXXXXXX or +639XXXXXXXXX";
+          isValid = false;
+        }
       }
 
       if (!editForm.gender) {
@@ -236,35 +276,56 @@ const TenantsSection = () => {
         isValid = false;
       }
 
+      // Date of birth validation
       if (!editForm.age.trim()) {
-        errors.age = "Age is required";
+        errors.age = "Date of birth is required";
         isValid = false;
-      } else if (parseInt(editForm.age) < 18 || parseInt(editForm.age) > 120) {
-        errors.age = "Please enter a valid age (18-120)";
-        isValid = false;
+      } else {
+        const birthDate = new Date(editForm.age);
+        const today = new Date();
+        const age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        const dayDiff = today.getDate() - birthDate.getDate();
+
+        // Adjust age if birthday hasn't occurred this year
+        const actualAge =
+          monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age;
+
+        if (actualAge < 18) {
+          errors.age = "Tenant must be at least 18 years old";
+          isValid = false;
+        } else if (actualAge > 120) {
+          errors.age = "Please enter a valid date of birth";
+          isValid = false;
+        }
       }
     } else {
-      // For EXISTING tenants, only validate if they've entered something
-      if (
-        editForm.address.trim().length > 0 &&
-        editForm.address.trim().length < 5
-      ) {
-        errors.address = "Address must be at least 5 characters if provided";
-        isValid = false;
+      // For existing tenants
+      if (editForm.phoneNumber.trim().length > 0) {
+        const phoneRegex = /^(09|\+639)\d{9}$/;
+        if (!phoneRegex.test(editForm.phoneNumber.trim())) {
+          errors.phoneNumber =
+            "Invalid phone number format. Use 09XXXXXXXXX or +639XXXXXXXXX";
+          isValid = false;
+        }
       }
 
-      if (
-        editForm.phoneNumber.trim().length > 0 &&
-        editForm.phoneNumber.trim().length < 10
-      ) {
-        errors.phoneNumber =
-          "Phone number must be at least 10 characters if provided";
-        isValid = false;
-      }
-
+      // Validate date of birth if provided for existing tenant
       if (editForm.age.trim() !== "") {
-        if (parseInt(editForm.age) < 18 || parseInt(editForm.age) > 120) {
-          errors.age = "Please enter a valid age (18-120)";
+        const birthDate = new Date(editForm.age);
+        const today = new Date();
+        const age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        const dayDiff = today.getDate() - birthDate.getDate();
+
+        const actualAge =
+          monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age;
+
+        if (actualAge < 18) {
+          errors.age = "Tenant must be at least 18 years old";
+          isValid = false;
+        } else if (actualAge > 120) {
+          errors.age = "Please enter a valid date of birth";
           isValid = false;
         }
       }
@@ -293,15 +354,14 @@ const TenantsSection = () => {
         body: JSON.stringify({
           email: editForm.email,
           password: editForm.password,
-          name: editForm.full_name,
+          name: `${editForm.first_name.trim()} ${editForm.middle_name.trim() ? editForm.middle_name.trim() + " " : ""}${editForm.last_name.trim()}`,
           status: editForm.status,
           address: editForm.address.trim() || "n/a",
           gender: editForm.gender,
-          age: parseInt(editForm.age),
-          phoneNumber: editForm.phoneNumber.trim() || "n/a",
+          dateOfBirth: editForm.age, // Send as ISO string
+          phoneNumber: editForm.phoneNumber.trim(),
         }),
       });
-
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -334,6 +394,8 @@ const TenantsSection = () => {
     try {
       console.log("Updating tenant:", editingTenant._id);
 
+      const fullName = `${editForm.first_name.trim()} ${editForm.middle_name.trim() ? editForm.middle_name.trim() + " " : ""}${editForm.last_name.trim()}`;
+
       const response = await fetch("/api/admin/update-tenant", {
         method: "POST",
         headers: {
@@ -341,12 +403,12 @@ const TenantsSection = () => {
         },
         body: JSON.stringify({
           userId: editingTenant._id,
-          name: editForm.full_name,
+          name: fullName,
           email: editForm.email,
           status: editForm.status,
           address: editForm.address.trim() || "n/a",
           gender: editForm.gender,
-          age: parseInt(editForm.age) || 0,
+          dateOfBirth: editForm.age, // Send date string
           phoneNumber: editForm.phoneNumber.trim() || "n/a",
         }),
       });
@@ -365,7 +427,7 @@ const TenantsSection = () => {
           t._id === editingTenant._id
             ? {
                 ...t,
-                user_name: editForm.full_name,
+                user_name: fullName,
                 user_email: editForm.email,
                 status: editForm.status,
                 address: editForm.address,
@@ -606,13 +668,30 @@ const TenantsSection = () => {
             </Box>
           )}
           <TextInput
-            label="Full Name"
-            value={editForm.full_name}
+            label="First Name"
+            value={editForm.first_name}
             onChange={(e) =>
-              setEditForm({ ...editForm, full_name: e.currentTarget.value })
+              setEditForm({ ...editForm, first_name: e.currentTarget.value })
             }
             required
-            error={formErrors.full_name}
+            error={formErrors.first_name}
+          />
+          <TextInput
+            label="Middle Name (Optional)"
+            value={editForm.middle_name}
+            onChange={(e) =>
+              setEditForm({ ...editForm, middle_name: e.currentTarget.value })
+            }
+            error={formErrors.middle_name}
+          />
+          <TextInput
+            label="Last Name"
+            value={editForm.last_name}
+            onChange={(e) =>
+              setEditForm({ ...editForm, last_name: e.currentTarget.value })
+            }
+            required
+            error={formErrors.last_name}
           />
           <TextInput
             label="Email"
@@ -658,11 +737,21 @@ const TenantsSection = () => {
               error={formErrors.gender}
             />
             <TextInput
-              label="Age"
-              type="number"
+              label="Date of Birth"
+              type="date"
               value={editForm.age}
               onChange={(e) =>
                 setEditForm({ ...editForm, age: e.currentTarget.value })
+              }
+              max={
+                new Date(new Date().setFullYear(new Date().getFullYear() - 18))
+                  .toISOString()
+                  .split("T")[0]
+              }
+              min={
+                new Date(new Date().setFullYear(new Date().getFullYear() - 120))
+                  .toISOString()
+                  .split("T")[0]
               }
               required
               error={formErrors.age}
