@@ -32,11 +32,25 @@ import {
   IconX,
   IconCheck,
 } from "@tabler/icons-react";
-import { LineChart, BarChart, PieChart } from "@mantine/charts";
 import { useEffect, useState } from "react";
 import { getServerSession } from "@/better-auth/action";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 interface Property {
   _id: string;
@@ -136,28 +150,24 @@ export default function Dashboard() {
       value: "0",
       icon: IconHome,
       color: "blue",
-      change: "+0%",
     },
     {
       title: "Active Tenants",
       value: "0",
       icon: IconUsers,
       color: "green",
-      change: "+0%",
     },
     {
       title: "Monthly Revenue",
       value: "₱0", // Changed to PHP
       icon: IconCurrencyDollar,
       color: "yellow",
-      change: "+0%",
     },
     {
       title: "Occupancy Rate",
       value: "0%",
       icon: IconTrendingUp,
       color: "teal",
-      change: "+0%",
     },
   ]);
   const [tenantData, setTenantData] = useState<
@@ -304,32 +314,27 @@ export default function Dashboard() {
         value: totalProperties.toString(),
         icon: IconHome,
         color: "blue",
-        change: "+0%",
       },
       {
         title: "Active Tenants",
         value: activeTenants.toString(),
         icon: IconUsers,
         color: "green",
-        change: "+0%",
       },
       {
         title: "Monthly Revenue",
         value: `₱${monthlyRevenue.toLocaleString("en-PH")}`, // Changed to PHP
         icon: IconCurrencyDollar,
         color: "yellow",
-        change: "+0%",
       },
       {
         title: "Occupancy Rate",
         value: `${occupancyRate}%`,
         icon: IconTrendingUp,
         color: "teal",
-        change: "+0%",
       },
     ]);
   };
-
   const computeTenantData = () => {
     const months = [
       "Jan",
@@ -345,23 +350,29 @@ export default function Dashboard() {
       "Nov",
       "Dec",
     ];
-    const tenantCounts = Array(6).fill(0);
     const now = new Date();
+    const currentMonth = now.getMonth();
+
+    // Get last 6 months including current
+    const last6Months: { month: string; tenants: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const monthIndex = (currentMonth - i + 12) % 12;
+      last6Months.push({ month: months[monthIndex], tenants: 0 });
+    }
+
     tenants.forEach((t) => {
       const created = new Date(t.created_at);
       const monthDiff =
-        now.getFullYear() * 12 +
-        now.getMonth() -
-        (created.getFullYear() * 12 + created.getMonth());
-      if (monthDiff < 6) {
-        tenantCounts[5 - monthDiff]++;
+        (now.getFullYear() - created.getFullYear()) * 12 +
+        (now.getMonth() - created.getMonth());
+
+      if (monthDiff >= 0 && monthDiff < 6) {
+        last6Months[5 - monthDiff].tenants++;
       }
     });
-    setTenantData(
-      months.slice(-6).map((month, i) => ({ month, tenants: tenantCounts[i] }))
-    );
-  };
 
+    setTenantData(last6Months);
+  };
   const computePaymentData = () => {
     const months = [
       "Jan",
@@ -377,23 +388,30 @@ export default function Dashboard() {
       "Nov",
       "Dec",
     ];
-    const paymentSums = Array(6).fill(0);
     const now = new Date();
+    const currentMonth = now.getMonth();
+
+    // Get last 6 months including current
+    const last6Months: { month: string; payments: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const monthIndex = (currentMonth - i + 12) % 12;
+      last6Months.push({ month: months[monthIndex], payments: 0 });
+    }
+
     payments.forEach((p) => {
-      if (p.status === "paid") {
-        const paidDate = new Date(p.paidDate || p.dueDate);
+      if (p.status === "paid" && p.paidDate) {
+        const paidDate = new Date(p.paidDate);
         const monthDiff =
-          now.getFullYear() * 12 +
-          now.getMonth() -
-          (paidDate.getFullYear() * 12 + paidDate.getMonth());
-        if (monthDiff < 6) {
-          paymentSums[5 - monthDiff] += p.amount;
+          (now.getFullYear() - paidDate.getFullYear()) * 12 +
+          (now.getMonth() - paidDate.getMonth());
+
+        if (monthDiff >= 0 && monthDiff < 6) {
+          last6Months[5 - monthDiff].payments += p.amount;
         }
       }
     });
-    setPaymentData(
-      months.slice(-6).map((month, i) => ({ month, payments: paymentSums[i] }))
-    );
+
+    setPaymentData(last6Months);
   };
 
   const computeOccupancyData = () => {
@@ -547,15 +565,6 @@ export default function Dashboard() {
                   <Text fw={700} size="xl" c={primaryTextColor} lh={1.2}>
                     {stat.value}
                   </Text>
-                  <Badge
-                    color={stat.color}
-                    variant="light"
-                    size="sm"
-                    radius="md"
-                    aria-label={`Change: ${stat.change}`}
-                  >
-                    {stat.change}
-                  </Badge>
                 </Stack>
                 <ThemeIcon
                   variant="light"
@@ -590,23 +599,41 @@ export default function Dashboard() {
                   </Text>
                 </Group>
                 <Box flex={1}>
-                  <LineChart
-                    h={280}
-                    data={tenantData}
-                    dataKey="month"
-                    series={[
-                      {
-                        name: "tenants",
-                        color: "blue.6",
-                        label: "Active Tenants",
-                      },
-                    ]}
-                    curveType="linear"
-                    gridAxis="xy"
-                    withLegend
-                    legendProps={{ verticalAlign: "bottom", height: 50 }}
-                    aria-label="Line chart showing tenant growth over 6 months"
-                  />
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart data={tenantData}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                      <XAxis
+                        dataKey="month"
+                        style={{ fontSize: "12px" }}
+                        stroke={colorScheme === "dark" ? "#868e96" : "#495057"}
+                      />
+                      <YAxis
+                        style={{ fontSize: "12px" }}
+                        stroke={colorScheme === "dark" ? "#868e96" : "#495057"}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor:
+                            colorScheme === "dark" ? "#25262b" : "#fff",
+                          border: `1px solid ${colorScheme === "dark" ? "#373A40" : "#dee2e6"}`,
+                          borderRadius: "8px",
+                        }}
+                        labelStyle={{
+                          color: colorScheme === "dark" ? "#C1C2C5" : "#000",
+                        }}
+                      />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="tenants"
+                        name="Active Tenants"
+                        stroke={theme.colors.blue[6]}
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </Box>
               </Stack>
             </Card>
@@ -630,21 +657,45 @@ export default function Dashboard() {
                   </Text>
                 </Group>
                 <Box flex={1}>
-                  <BarChart
-                    h={280}
-                    data={paymentData}
-                    dataKey="month"
-                    series={[
-                      { name: "payments", color: "teal.6", label: "Revenue" },
-                    ]}
-                    gridAxis="xy"
-                    withLegend
-                    legendProps={{ verticalAlign: "bottom", height: 50 }}
-                    aria-label="Bar chart showing monthly payment revenue"
-                    valueFormatter={(value) =>
-                      `₱${value.toLocaleString("en-PH")}`
-                    } // Format as PHP
-                  />
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={paymentData}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                      <XAxis
+                        dataKey="month"
+                        style={{ fontSize: "12px" }}
+                        stroke={colorScheme === "dark" ? "#868e96" : "#495057"}
+                      />
+                      <YAxis
+                        style={{ fontSize: "12px" }}
+                        stroke={colorScheme === "dark" ? "#868e96" : "#495057"}
+                        tickFormatter={(value) =>
+                          `₱${(value / 1000).toFixed(0)}k`
+                        }
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor:
+                            colorScheme === "dark" ? "#25262b" : "#fff",
+                          border: `1px solid ${colorScheme === "dark" ? "#373A40" : "#dee2e6"}`,
+                          borderRadius: "8px",
+                        }}
+                        labelStyle={{
+                          color: colorScheme === "dark" ? "#C1C2C5" : "#000",
+                        }}
+                        formatter={(value: number) => [
+                          `₱${value.toLocaleString("en-PH")}`,
+                          "Revenue",
+                        ]}
+                      />
+                      <Legend />
+                      <Bar
+                        dataKey="payments"
+                        name="Revenue"
+                        fill={theme.colors.teal[6]}
+                        radius={[8, 8, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </Box>
               </Stack>
             </Card>
@@ -654,48 +705,39 @@ export default function Dashboard() {
         <Grid gutter={{ base: "md", md: "xl" }}>
           <Grid.Col span={{ base: 12, md: 5 }}>
             <Card padding="xl" radius="lg" withBorder shadow="sm">
-              <Stack gap="lg">
-                <Title order={3} size="h4" fw={600} c={primaryTextColor}>
-                  Occupancy Overview
-                </Title>
-                <Box>
-                  <PieChart
-                    h={220}
-                    data={occupancyData}
-                    withLabelsLine
-                    labelsPosition="outside"
-                    labelsType="percent"
-                    withTooltip
-                    aria-label="Pie chart showing house occupancy status"
-                  />
-                </Box>
-                <Flex justify="center" gap="xl" wrap="wrap">
-                  <Group gap="xs">
-                    <Box
-                      w={12}
-                      h={12}
-                      bg="teal.6"
-                      style={{ borderRadius: 3 }}
-                      aria-hidden="true"
+              <Box>
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={occupancyData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={true}
+                      label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {occupancyData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={
+                            entry.name === "Occupied"
+                              ? theme.colors.teal[6]
+                              : theme.colors.red[6]
+                          }
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        border: `1px solid ${colorScheme === "dark" ? "#373A40" : "#dee2e6"}`,
+                        borderRadius: "8px",
+                      }}
                     />
-                    <Text size="sm" c={primaryTextColor} fw={500}>
-                      Occupied ({occupancyData[0].value})
-                    </Text>
-                  </Group>
-                  <Group gap="xs">
-                    <Box
-                      w={12}
-                      h={12}
-                      bg="red.6"
-                      style={{ borderRadius: 3 }}
-                      aria-hidden="true"
-                    />
-                    <Text size="sm" c={primaryTextColor} fw={500}>
-                      Vacant ({occupancyData[1].value})
-                    </Text>
-                  </Group>
-                </Flex>
-              </Stack>
+                  </PieChart>
+                </ResponsiveContainer>
+              </Box>
             </Card>
           </Grid.Col>
 

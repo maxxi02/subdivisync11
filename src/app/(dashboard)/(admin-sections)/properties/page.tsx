@@ -1158,9 +1158,7 @@ export default function PropertyManagement() {
               }
               data={[
                 { value: "residential-lot", label: "Residential Lot" },
-                { value: "commercial", label: "Commercial" },
                 { value: "house-and-lot", label: "House and Lot" },
-                { value: "condo", label: "Condominium" },
               ]}
               required
             />
