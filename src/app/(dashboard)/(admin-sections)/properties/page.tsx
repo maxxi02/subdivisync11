@@ -40,11 +40,6 @@ import {
   IconBed,
   IconDroplet,
   IconSquareRounded,
-  IconCar,
-  IconBell,
-  IconShield,
-  IconWifi,
-  IconTree,
   IconUpload,
   IconFileText,
   IconUsers,
@@ -414,28 +409,28 @@ export default function PropertyManagement() {
     return () => clearTimeout(timeoutId);
   }, [searchQuery, dataFetched]);
 
-  useEffect(() => {
-    if (formData.type !== "house-and-lot" && formData.type !== "condo") {
-      setFormData({
-        ...formData,
-        bedrooms: undefined,
-        bathrooms: undefined,
-      });
-    }
-  }, [formData.type]);
+  // useEffect(() => {
+  //   if (formData.type !== "house-and-lot" && formData.type !== "condo") {
+  //     setFormData({
+  //       ...formData,
+  //       bedrooms: undefined,
+  //       bathrooms: undefined,
+  //     });
+  //   }
+  // }, [formData.type]);
 
-  useEffect(() => {
-    if (
-      editFormData.type !== "house-and-lot" &&
-      editFormData.type !== "condo"
-    ) {
-      setEditFormData({
-        ...editFormData,
-        bedrooms: undefined,
-        bathrooms: undefined,
-      });
-    }
-  }, [editFormData.type]);
+  // useEffect(() => {
+  //   if (
+  //     editFormData.type !== "house-and-lot" &&
+  //     editFormData.type !== "condo"
+  //   ) {
+  //     setEditFormData({
+  //       ...editFormData,
+  //       bedrooms: undefined,
+  //       bathrooms: undefined,
+  //     });
+  //   }
+  // }, [editFormData.type]);
 
   const validateForm = (data: CreatePropertyRequest): string | null => {
     if (!data.title.trim()) return "Property title is required";
@@ -716,21 +711,6 @@ export default function PropertyManagement() {
         return "blue";
       default:
         return "gray";
-    }
-  };
-
-  const getAmenityIcon = (amenity: string) => {
-    switch (amenity) {
-      case "parking":
-        return <IconCar size={16} />;
-      case "gym":
-        return <IconBell size={16} />;
-      case "internet-ready":
-        return <IconWifi size={16} />;
-      case "garden":
-        return <IconTree size={16} />;
-      default:
-        return <IconBuilding size={16} />;
     }
   };
 
@@ -1155,8 +1135,9 @@ export default function PropertyManagement() {
                 setFormData({ ...formData, type: value || "" })
               }
               data={[
-                { value: "residential-lot", label: "Residential Lot" },
-                { value: "house-and-lot", label: "House and Lot" },
+                { value: "single-attached", label: "Single-Attached" },
+                { value: "duplex", label: "Duplex" },
+                { value: "two-storey-house", label: "Two-Storey House" },
               ]}
               required
             />
@@ -1198,15 +1179,71 @@ export default function PropertyManagement() {
               }
             />
             <Select
-              label="Amenities"
-              placeholder="Select amenities"
+              label="Features"
+              placeholder="Select features"
               onChange={(value) => value && handleAmenitiesChange(value)}
               data={[
-                { value: "parking", label: "Parking" },
-                { value: "gym", label: "Gym" },
-                { value: "security", label: "Security" },
-                { value: "internet-ready", label: "Internet Ready" },
-                { value: "garden", label: "Garden" },
+                {
+                  group: "Structural & Interior Features",
+                  items: [
+                    {
+                      value: "tiled-flooring-1st",
+                      label: "Tiled Flooring (1st Floor)",
+                    },
+                    {
+                      value: "tiled-flooring-2nd",
+                      label: "Tiled Flooring (2nd Floor)",
+                    },
+                    {
+                      value: "painted-interior",
+                      label: "Painted Interior Walls",
+                    },
+                    {
+                      value: "painted-exterior",
+                      label: "Painted Exterior Walls",
+                    },
+                    {
+                      value: "ceiling-2nd",
+                      label: "Ceiling Installed (2nd Floor)",
+                    },
+                    { value: "main-steel-door", label: "Main Steel Door" },
+                    { value: "standard-windows", label: "Standard Windows" },
+                  ],
+                },
+                {
+                  group: "Toilet & Bath Features",
+                  items: [
+                    {
+                      value: "complete-toilet",
+                      label: "Complete Toilet Fixtures",
+                    },
+                    { value: "tiled-bathroom", label: "Tiled Bathroom" },
+                    { value: "shower-faucet", label: "Shower with Faucet" },
+                    { value: "installed-sink", label: "Installed Sink" },
+                  ],
+                },
+                {
+                  group: "Kitchen Features",
+                  items: [
+                    { value: "kitchen-counter", label: "Kitchen Counter" },
+                    { value: "kitchen-sink", label: "Kitchen Sink" },
+                  ],
+                },
+                {
+                  group: "Outdoor & Lot Features",
+                  items: [
+                    { value: "parking-space", label: "With Parking Space" },
+                    { value: "corner-lot", label: "Corner Lot" },
+                    { value: "end-unit", label: "End Unit" },
+                  ],
+                },
+                {
+                  group: "Utility Provisions",
+                  items: [
+                    { value: "electricity-ready", label: "Electricity Ready" },
+                    { value: "water-line-ready", label: "Water Line Ready" },
+                  ],
+                },
               ]}
             />
             <Group gap="md">
@@ -1343,27 +1380,6 @@ export default function PropertyManagement() {
                       <Text c="dimmed">{selectedProperty.description}</Text>
                     </Card>
                   )}
-                  {selectedProperty.amenities &&
-                    selectedProperty.amenities.length > 0 && (
-                      <Card withBorder radius="md" p="md" bg="transparent">
-                        <Group gap="xs" mb="md">
-                          <IconBuilding size={16} />
-                          <Text fw={500}>Amenities & Features</Text>
-                        </Group>
-                        <SimpleGrid cols={2} spacing="xs">
-                          {selectedProperty.amenities.map((amenity, index) => (
-                            <Group key={index} gap="xs">
-                              {getAmenityIcon(amenity)}
-                              <Text c="dimmed" size="sm">
-                                {amenity
-                                  .replace("-", " ")
-                                  .replace(/\b\w/g, (l) => l.toUpperCase())}
-                              </Text>
-                            </Group>
-                          ))}
-                        </SimpleGrid>
-                      </Card>
-                    )}
                   {selectedProperty.inquiry && (
                     <Card withBorder radius="md" p="md" bg="blue.0" c="blue.8">
                       <Group gap="xs" mb="md">
@@ -1487,10 +1503,9 @@ export default function PropertyManagement() {
                 setEditFormData({ ...editFormData, type: value || "" })
               }
               data={[
-                { value: "residential-lot", label: "Residential Lot" },
-                { value: "commercial", label: "Commercial" },
-                { value: "house-and-lot", label: "House and Lot" },
-                { value: "condo", label: "Condominium" },
+                { value: "single-attached", label: "Single-Attached" },
+                { value: "duplex", label: "Duplex" },
+                { value: "two-storey-house", label: "Two-Storey House" },
               ]}
               required
             />
