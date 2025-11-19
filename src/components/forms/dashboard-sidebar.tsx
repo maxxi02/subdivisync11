@@ -153,45 +153,28 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
           myApplications: 0,
         });
       } else if (userRole === "tenant") {
-        // Get viewed items from localStorage
-        const viewedServiceRequests = JSON.parse(
-          localStorage.getItem(`viewed_service_requests_${userEmail}`) || "[]"
-        );
-        const viewedApplications = JSON.parse(
-          localStorage.getItem(`viewed_applications_${userEmail}`) || "[]"
-        );
-
-        // Count service requests with status updates that haven't been viewed
+        // Tenant notifications - only show pending items
         const serviceResponse = await axios.get("/api/service-requests");
-        const updatedServiceRequests = serviceResponse.data.success
+        const pendingServiceRequests = serviceResponse.data.success
           ? serviceResponse.data.serviceRequests.filter(
               (req: ServiceRequest) =>
-                req.user_email === userEmail &&
-                (req.status === "in-progress" || req.status === "completed") &&
-                !viewedServiceRequests.includes(req.id)
+                req.user_email === userEmail && req.status === "pending" // Only pending items show notification
             ).length
           : 0;
 
-        // Count applications with status changes that haven't been viewed
+        // Count pending applications only
         const propertiesResponse = await axios.get(
           "/api/properties?myInquiries=true"
         );
-        let updatedApplications = 0;
+        let pendingApplications = 0;
 
         if (propertiesResponse.data.success) {
           propertiesResponse.data.properties.forEach((property: Property) => {
             if (property.inquiries && Array.isArray(property.inquiries)) {
-              property.inquiries.forEach((inquiry: PropertyInquiry) => {
-                const inquiryId = `${property._id}_${inquiry.email}`;
-                if (
-                  inquiry.email === userEmail &&
-                  (inquiry.status === "approved" ||
-                    inquiry.status === "rejected") &&
-                  !viewedApplications.includes(inquiryId)
-                ) {
-                  updatedApplications++;
-                }
-              });
+              pendingApplications += property.inquiries.filter(
+                (inquiry: PropertyInquiry) =>
+                  inquiry.email === userEmail && inquiry.status === "pending" // Only pending applications
+              ).length;
             }
           });
         }
@@ -199,15 +182,15 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
         setNotifications({
           serviceRequests: 0,
           applications: 0,
-          myServiceRequests: updatedServiceRequests,
-          myApplications: updatedApplications,
+          myServiceRequests: pendingServiceRequests,
+          myApplications: pendingApplications,
         });
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);
     }
   };
-  // Fetch notifications on mount and when pathname changes
+
   useEffect(() => {
     fetchNotifications();
 

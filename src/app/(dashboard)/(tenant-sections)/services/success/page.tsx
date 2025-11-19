@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import {
   Container,
@@ -23,6 +22,8 @@ export default function PaymentSuccess() {
   useEffect(() => {
     if (paymentId) {
       checkPaymentStatus();
+    } else {
+      setLoading(false);
     }
   }, [paymentId]);
 
@@ -31,6 +32,7 @@ export default function PaymentSuccess() {
       // Wait a bit for webhook to process
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
+      // FIX: Changed from fetch`...` to fetch(...)
       const response = await fetch(`/api/tenant/monthly-payments/${paymentId}`);
       const data = await response.json();
 
@@ -62,7 +64,6 @@ export default function PaymentSuccess() {
           >
             <IconCheck size={48} color="white" stroke={3} />
           </div>
-
           <Stack gap="xs" align="center">
             <Text size="xl" fw={700}>
               Payment Successful!
@@ -71,7 +72,6 @@ export default function PaymentSuccess() {
               Your payment has been processed successfully.
             </Text>
           </Stack>
-
           <Group gap="md">
             {receiptUrl && (
               <Button
