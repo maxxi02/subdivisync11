@@ -57,23 +57,6 @@ export default function AuthLayout({
             <br />
             Managers
           </h1>
-
-          {/* Play button and description */}
-          <div className="flex items-center gap-4 mt-8">
-            <button className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors">
-              <svg
-                className="w-5 h-5 ml-1"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </button>
-            <div className="text-sm text-blue-100">
-              <p>See how it works and get started in</p>
-              <p>under 2 minutes</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>

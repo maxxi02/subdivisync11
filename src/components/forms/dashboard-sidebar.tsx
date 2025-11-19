@@ -249,8 +249,8 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
     {
       icon: IconUsers,
       label: "Tenants",
-      href: "/tenants",
-      description: "Manage Tenants",
+      href: "/homeonwers",
+      description: "Manage Homeowners",
       notificationCount: 0,
     },
     {
@@ -281,14 +281,14 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
     {
       icon: IconDashboard,
       label: "Dashboard",
-      href: "/tenant-dashboard",
+      href: "/homeowner-dashboard", // Keep this path
       description: "Home & Updates",
       notificationCount: 0,
     },
     {
       icon: IconBuildingStore,
-      label: "Browse Properties",
-      href: "/browse-properties",
+      label: "Browse Property",
+      href: "/browse-property",
       description: "Available Properties",
       notificationCount: 0,
     },
@@ -297,14 +297,14 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
       label: "My Applications",
       href: "/my-applications",
       description: "Application Status",
-      notificationCount: notifications.myApplications, // Add notification count
+      notificationCount: notifications.myApplications,
     },
     {
       icon: IconTool,
       label: "Service Requests",
       href: "/service-requests",
       description: "Maintenance Requests",
-      notificationCount: notifications.myServiceRequests, // Add notification count
+      notificationCount: notifications.myServiceRequests,
     },
     {
       icon: IconReceipt,
@@ -316,7 +316,7 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
     {
       icon: IconUser,
       label: "Profile",
-      href: "/tenant-profile",
+      href: "/homeowner-profile", // Keep this path
       description: "My Account",
       notificationCount: 0,
     },
@@ -324,7 +324,7 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
 
   // Select navigation items based on user role
   const navItems = userRole === "admin" ? adminNavItems : tenantNavItems;
-  const userTitle = userRole === "admin" ? "Property Manager" : "Tenant";
+  const userTitle = userRole === "admin" ? "Property Manager" : "Homeowner";
 
   return (
     <AppShell
@@ -381,7 +381,7 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
                   color={userRole === "admin" ? "red" : "green"}
                   mt="xs"
                 >
-                  {userRole.toUpperCase()}
+                  {userRole === "admin" ? "PROPERTY MANAGER" : "HOMEOWNER"}
                 </Badge>
               </div>
             )}

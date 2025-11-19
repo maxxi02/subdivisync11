@@ -258,11 +258,10 @@ const TenantDashboard = () => {
       <Stack gap="xl">
         <Box py="md">
           <Title order={1} size="h2" fw={600} c={primaryTextColor}>
-            Tenant Dashboard
+            Homeowner&#39;s Dashboard
           </Title>
           <Text c={primaryTextColor} size="md" lh={1.5}>
-            Welcome back! Here&#39;s what&#39;s happening with your tenancy
-            today.
+            Welcome back! Here&#39;s what&#39;s happening with your dashboard today.
           </Text>
         </Box>
 
