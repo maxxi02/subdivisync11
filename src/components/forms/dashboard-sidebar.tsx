@@ -248,8 +248,8 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
     },
     {
       icon: IconUsers,
-      label: "Tenants",
-      href: "/homeonwers",
+      label: "Homeowners",
+      href: "/homeowners",
       description: "Manage Homeowners",
       notificationCount: 0,
     },

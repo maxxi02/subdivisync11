@@ -190,7 +190,7 @@ export default function Dashboard() {
       try {
         const session = await getServerSession();
         if (session?.user?.role !== "admin") {
-          router.push("/tenant-dashboard");
+          router.push("/homeowner-dashboard");
         } else if (!dataFetched) {
           await fetchAllData();
           setDataFetched(true);
