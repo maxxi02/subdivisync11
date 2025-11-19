@@ -1,5 +1,4 @@
 "use client";
-
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Container,
@@ -69,7 +68,7 @@ interface MonthlyPayment {
   monthNumber: number;
   amount: number;
   dueDate: string;
-  status: "pending" | "paid" | "overdue";
+  status: "pending" | "paid" | "overdue" | "pending_verification";
   paymentIntentId?: string;
   paidDate?: string;
   paymentMethod?: string;
@@ -93,6 +92,7 @@ const TransactionPage = () => {
   const [processingPayment, setProcessingPayment] = useState<string | null>(
     null
   );
+  const [showCashPaymentModal, setShowCashPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PaymentPlan | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -105,8 +105,8 @@ const TransactionPage = () => {
   const [notification, setNotification] = useState<NotificationType | null>(
     null
   );
-
   const primaryTextColor = colorScheme === "dark" ? "white" : "dark";
+
   const getDefaultShadow = () => {
     const baseShadow = "0 1px 3px";
     const opacity = colorScheme === "dark" ? 0.2 : 0.12;
@@ -136,6 +136,49 @@ const TransactionPage = () => {
       );
     }
   }, []);
+
+  const processCashPayment = async (payment: MonthlyPayment) => {
+    if (!payment) return;
+    if (
+      !confirm(
+        "Are you sure you want to submit this as a cash payment? An admin will need to verify it."
+      )
+    ) {
+      return;
+    }
+    try {
+      setProcessingPayment(payment._id);
+      const response = await fetch("/api/tenant/payments/cash", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requestId: payment._id,
+          amount: payment.amount,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        showNotification(
+          "success",
+          "Cash payment submitted for verification. Please wait for admin approval."
+        );
+        await fetchMonthlyPayments();
+        setShowCashPaymentModal(false);
+      } else {
+        throw new Error(data.error || "Failed to submit cash payment");
+      }
+    } catch (error) {
+      console.error("Error processing cash payment:", error);
+      showNotification(
+        "error",
+        (error as Error).message || "Failed to submit cash payment"
+      );
+    } finally {
+      setProcessingPayment(null);
+    }
+  };
 
   const fetchMonthlyPayments = useCallback(async () => {
     try {
@@ -204,7 +247,6 @@ const TransactionPage = () => {
           }),
         }
       );
-
       const data = await response.json();
       if (!data.success) {
         throw new Error(data.error || "Failed to update payment plan progress");
@@ -220,7 +262,6 @@ const TransactionPage = () => {
 
   const processPayment = async (payment: MonthlyPayment) => {
     if (!payment) return;
-
     try {
       setProcessingPayment(payment._id);
       const response = await fetch("/api/tenant/payments/process", {
@@ -232,9 +273,7 @@ const TransactionPage = () => {
           paymentId: payment._id,
         }),
       });
-
       const data = await response.json();
-
       if (data.success) {
         if (data.paymentProcessed) {
           await markPaymentAsPaid(payment._id, data.paymentIntentId);
@@ -292,7 +331,6 @@ const TransactionPage = () => {
           }),
         }
       );
-
       const data = await response.json();
       if (data.success) {
         showNotification("success", "Payment marked as paid");
@@ -318,7 +356,6 @@ const TransactionPage = () => {
           const paymentInfo = JSON.parse(pendingPayment);
           const urlParams = new URLSearchParams(window.location.search);
           const paymentStatus = urlParams.get("status");
-
           if (paymentStatus === "success") {
             const success = await markPaymentAsPaid(paymentInfo.paymentId);
             if (success) {
@@ -345,7 +382,6 @@ const TransactionPage = () => {
         }
       }
     };
-
     if (!loading) {
       checkPendingPayment();
     }
@@ -359,6 +395,8 @@ const TransactionPage = () => {
         return { color: "green", text: "Paid" };
       case "overdue":
         return { color: "red", text: "Overdue" };
+      case "pending_verification":
+        return { color: "orange", text: "Pending Verification" };
       case "active":
         return { color: "blue", text: "Active" };
       case "completed":
@@ -443,9 +481,8 @@ const TransactionPage = () => {
             </Group>
           </Group>
         </Card>
-
         {/* Stats Cards */}
-        <SimpleGrid cols={{ base: 1, md: 4 }} spacing="md">
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 5 }} spacing="md">
           <Card
             shadow="sm"
             padding="lg"
@@ -547,8 +584,35 @@ const TransactionPage = () => {
               </Group>
             </Group>
           </Card>
+          <Card
+            shadow="sm"
+            padding="lg"
+            radius="lg"
+            withBorder
+            style={{ boxShadow: getDefaultShadow() }}
+          >
+            <Group justify="space-between" align="center">
+              <Stack gap="xs">
+                <Text size="sm" c={primaryTextColor} fw={500}>
+                  Pending Verification
+                </Text>
+                <Text size="xl" fw={700} c="orange.6">
+                  {
+                    monthlyPayments.filter(
+                      (p) => p.status === "pending_verification"
+                    ).length
+                  }
+                </Text>
+              </Stack>
+              <Group
+                className="h-12 w-12 bg-orange-100 rounded-lg"
+                justify="center"
+              >
+                <IconClock size={24} color="orange" />
+              </Group>
+            </Group>
+          </Card>
         </SimpleGrid>
-
         {/* Payment Plans */}
         <Card
           shadow="sm"
@@ -564,7 +628,7 @@ const TransactionPage = () => {
                 No Payment Plans Found
               </Text>
               <Text size="sm" c={primaryTextColor}>
-                You don&apos;t have any {filter !== "all" ? filter : ""} payment
+                You don&#39;t have any {filter !== "all" ? filter : ""} payment
                 plans at the moment.
               </Text>
             </Stack>
@@ -580,7 +644,6 @@ const TransactionPage = () => {
                     new Date(a.dueDate).getTime() -
                     new Date(b.dueDate).getTime()
                 )[0];
-
                 return (
                   <Card
                     key={plan._id}
@@ -673,7 +736,6 @@ const TransactionPage = () => {
                           </Text>
                         </Stack>
                       </SimpleGrid>
-
                       {nextPayment && (
                         <Card
                           withBorder
@@ -722,7 +784,6 @@ const TransactionPage = () => {
                           </Group>
                         </Card>
                       )}
-
                       <Group gap="md">
                         {nextPayment && (
                           <MantineButton
@@ -761,7 +822,6 @@ const TransactionPage = () => {
             </SimpleGrid>
           )}
         </Card>
-
         {/* Payment Modal */}
         <Modal
           opened={showPaymentModal}
@@ -816,7 +876,6 @@ const TransactionPage = () => {
                       months
                     </Text>
                   </Group>
-
                   {/* Payment Breakdown */}
                   <Stack gap="xs" mt="sm">
                     <Text size="sm" fw={600} c={primaryTextColor}>
@@ -861,7 +920,6 @@ const TransactionPage = () => {
                       </Group>
                     )}
                   </Stack>
-
                   <Group
                     justify="space-between"
                     pt="sm"
@@ -890,7 +948,7 @@ const TransactionPage = () => {
                   be reduced by {formatCurrency(selectedPayment.amount)}.
                 </Text>
               </Card>
-              <Group gap="md">
+              <Stack gap="md">
                 <MantineButton
                   size="md"
                   color="green"
@@ -905,9 +963,138 @@ const TransactionPage = () => {
                 </MantineButton>
                 <MantineButton
                   size="md"
+                  color="blue"
+                  variant="outline"
+                  onClick={() => {
+                    setShowCashPaymentModal(true);
+                    setShowPaymentModal(false);
+                  }}
+                  disabled={processingPayment === selectedPayment._id}
+                  leftSection={<IconCreditCard size={16} />}
+                  fullWidth
+                >
+                  Pay with Cash
+                </MantineButton>
+                <MantineButton
+                  size="md"
                   variant="outline"
                   color="gray"
                   onClick={() => setShowPaymentModal(false)}
+                  fullWidth
+                >
+                  Cancel
+                </MantineButton>
+              </Stack>
+            </Stack>
+          )}
+        </Modal>
+        {/* Cash Payment Modal */}
+        <Modal
+          opened={showCashPaymentModal}
+          onClose={() => setShowCashPaymentModal(false)}
+          title={
+            <Text fw={600} c={primaryTextColor}>
+              Cash Payment Confirmation
+            </Text>
+          }
+          centered
+          size="md"
+        >
+          {selectedPayment && selectedPlan && (
+            <Stack gap="md">
+              <Card
+                withBorder
+                radius="lg"
+                style={{ boxShadow: getDefaultShadow() }}
+              >
+                <Stack gap="sm">
+                  <Group justify="space-between">
+                    <Text size="sm" c={primaryTextColor}>
+                      Property:
+                    </Text>
+                    <Text fw={500} c={primaryTextColor}>
+                      {selectedPlan.propertyTitle}
+                    </Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c={primaryTextColor}>
+                      Payment Month:
+                    </Text>
+                    <Text fw={500} c={primaryTextColor}>
+                      {selectedPayment.monthNumber} of{" "}
+                      {selectedPlan.leaseDuration}
+                    </Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c={primaryTextColor}>
+                      Due Date:
+                    </Text>
+                    <Text fw={500} c={primaryTextColor}>
+                      {formatDate(selectedPayment.dueDate)}
+                    </Text>
+                  </Group>
+                  <Group
+                    justify="space-between"
+                    pt="sm"
+                    style={{
+                      borderTop: "2px solid var(--mantine-color-gray-3)",
+                    }}
+                  >
+                    <Text size="sm" fw={600} c={primaryTextColor}>
+                      Total Amount:
+                    </Text>
+                    <Text fw={700} c="green.6" size="lg">
+                      {formatCurrency(selectedPayment.amount)}
+                    </Text>
+                  </Group>
+                </Stack>
+              </Card>
+              <Card
+                withBorder
+                radius="md"
+                bg={colorScheme === "dark" ? "orange.9" : "orange.1"}
+                p="md"
+              >
+                <Stack gap="xs">
+                  <Group gap="xs">
+                    <IconAlertCircle size={20} color="orange" />
+                    <Text
+                      size="sm"
+                      fw={600}
+                      c={colorScheme === "dark" ? "white" : "orange.8"}
+                    >
+                      Important Notice
+                    </Text>
+                  </Group>
+                  <Text
+                    size="xs"
+                    c={colorScheme === "dark" ? "white" : "orange.8"}
+                  >
+                    By submitting this cash payment, you confirm that you have
+                    paid the amount in cash. Your payment will be marked as
+                    Pending Verification until an administrator verifies and
+                    approves it. This process may take 1-3 business days.
+                  </Text>
+                </Stack>
+              </Card>
+              <Group gap="md">
+                <MantineButton
+                  size="md"
+                  color="blue"
+                  onClick={() => processCashPayment(selectedPayment)}
+                  disabled={processingPayment === selectedPayment._id}
+                  leftSection={<IconCheck size={16} />}
+                  fullWidth
+                >
+                  {processingPayment === selectedPayment._id
+                    ? "Submitting..."
+                    : "Confirm Cash Payment"}
+                </MantineButton>
+                <MantineButton
+                  size="md"
+                  variant="outline"
+                  color="gray"
+                  onClick={() => setShowCashPaymentModal(false)}
                   fullWidth
                 >
                   Cancel
@@ -916,7 +1103,6 @@ const TransactionPage = () => {
             </Stack>
           )}
         </Modal>
-
         {/* Plan Details Modal */}
         <Modal
           opened={showDetailsModal}
@@ -980,7 +1166,6 @@ const TransactionPage = () => {
                         {formatCurrency(selectedPlan.monthlyPayment)}
                       </Text>
                     </Stack>
-
                     {/* HOA Fees Section */}
                     {((selectedPlan.guardFee ?? 0) > 0 ||
                       (selectedPlan.garbageFee ?? 0) > 0 ||
@@ -1039,7 +1224,6 @@ const TransactionPage = () => {
                         </Card>
                       </>
                     )}
-
                     <Stack gap="xs">
                       <Text size="sm" c={primaryTextColor}>
                         Interest Rate:
@@ -1067,7 +1251,6 @@ const TransactionPage = () => {
                   </Stack>
                 </SimpleGrid>
               </Card>
-
               {/* Progress */}
               <Card
                 withBorder
@@ -1106,7 +1289,6 @@ const TransactionPage = () => {
                   </SimpleGrid>
                 </Stack>
               </Card>
-
               {/* Payment History */}
               <Card
                 withBorder
@@ -1203,7 +1385,6 @@ const TransactionPage = () => {
                   )}
                 </Stack>
               </Card>
-
               {/* Tenant Information */}
               <Card
                 withBorder
@@ -1250,7 +1431,6 @@ const TransactionPage = () => {
                   </SimpleGrid>
                 </Stack>
               </Card>
-
               <MantineButton
                 variant="outline"
                 color="gray"

@@ -376,7 +376,7 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
                   color={userRole === "admin" ? "red" : "green"}
                   mt="xs"
                 >
-                  {userRole === "admin" ? "PROPERTY MANAGER" : "HOMEOWNER"}
+                  {userRole === "admin" ? "ADMIN" : "HOMEOWNER"}
                 </Badge>
               </div>
             )}

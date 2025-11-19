@@ -26,6 +26,7 @@ import {
   Table,
   rgba,
   ScrollArea,
+  Button,
 } from "@mantine/core";
 import {
   IconCheck,
@@ -83,7 +84,7 @@ interface MonthlyPayment {
   amount: number;
   dueDate: string;
   paidDate?: string;
-  status: "pending" | "paid" | "overdue" | "partial";
+  status: "pending" | "paid" | "overdue" | "partial" | "pending_verification";
   paymentMethod?: string;
   paymentIntentId?: string;
   receiptUrl?: string;
@@ -114,8 +115,12 @@ const PaymentsTrackingPage = () => {
   const [notification, setNotification] = useState<NotificationType | null>(
     null
   );
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [approvingPayment, setApprovingPayment] = useState(false);
+  const [rejectingPayment, setRejectingPayment] = useState(false);
 
   const primaryTextColor = colorScheme === "dark" ? "white" : "dark";
+
   const getDefaultShadow = () => {
     const baseShadow = "0 1px 3px";
     const opacity = colorScheme === "dark" ? 0.2 : 0.12;
@@ -127,17 +132,64 @@ const PaymentsTrackingPage = () => {
     setTimeout(() => setNotification(null), 5000);
   };
 
-  // Fetch payment plans and monthly payments
+  const handleVerifyPayment = async (
+    payment: PaymentWithPlan,
+    verified: boolean
+  ) => {
+    if (!payment) return;
+
+    try {
+      // Set the appropriate loading state based on the action
+      if (verified) {
+        setApprovingPayment(true);
+      } else {
+        setRejectingPayment(true);
+      }
+
+      const response = await fetch("/api/admin/verify-cash-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          paymentId: payment._id,
+          verified: verified,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showNotification(
+          "success",
+          verified
+            ? "Payment verified successfully"
+            : "Payment rejected and marked as pending"
+        );
+        await fetchPaymentData();
+        setShowVerificationModal(false);
+        setSelectedPayment(null);
+      } else {
+        throw new Error(data.error || "Failed to verify payment");
+      }
+    } catch (error) {
+      console.error("Error verifying payment:", error);
+      showNotification("error", "Failed to verify payment. Please try again.");
+    } finally {
+      // Reset both loading states
+      setApprovingPayment(false);
+      setRejectingPayment(false);
+    }
+  };
+
   const fetchPaymentData = async () => {
     try {
       setLoading(true);
       setRefreshing(true);
 
-      // Fetch payment plans
       const plansResponse = await fetch("/api/payment-plans/all");
       const plansData = await plansResponse.json();
 
-      // Fetch monthly payments
       const paymentsResponse = await fetch("/api/monthly-payments");
       const paymentsData = await paymentsResponse.json();
 
@@ -148,7 +200,6 @@ const PaymentsTrackingPage = () => {
         throw new Error(paymentsData.error || "Failed to fetch payments");
       }
 
-      // Combine payments with their payment plans
       const paymentsWithPlans = paymentsData.payments.map(
         (payment: MonthlyPayment) => {
           const plan = plansData.paymentPlans?.find(
@@ -157,6 +208,7 @@ const PaymentsTrackingPage = () => {
           return { ...payment, paymentPlan: plan };
         }
       );
+
       setPayments(paymentsWithPlans);
       showNotification("success", "Payment data fetched successfully");
     } catch (error) {
@@ -175,10 +227,8 @@ const PaymentsTrackingPage = () => {
     fetchPaymentData();
   }, []);
 
-  // Handle remind action
   const handleRemind = async (payment: PaymentWithPlan) => {
     try {
-      // Placeholder: Implement actual reminder logic (e.g., send email)
       showNotification("success", `Reminder sent to ${payment.tenantEmail}`);
     } catch (error) {
       console.error("Error sending reminder:", error);
@@ -186,7 +236,6 @@ const PaymentsTrackingPage = () => {
     }
   };
 
-  // Calculate overdue payments
   const updateOverduePayments = () => {
     const today = new Date();
     return payments.map((payment) => {
@@ -197,7 +246,6 @@ const PaymentsTrackingPage = () => {
     });
   };
 
-  // Get filtered payments
   const getFilteredPayments = () => {
     let filtered = updateOverduePayments();
 
@@ -219,7 +267,6 @@ const PaymentsTrackingPage = () => {
     );
   };
 
-  // Calculate statistics
   const stats = {
     totalCollected: payments
       .filter((p) => p.status === "paid")
@@ -229,6 +276,9 @@ const PaymentsTrackingPage = () => {
       .reduce((sum, p) => sum + p.amount, 0),
     overdueCount: updateOverduePayments().filter((p) => p.status === "overdue")
       .length,
+    pendingVerification: payments.filter(
+      (p) => p.status === "pending_verification"
+    ).length,
     totalPayments: payments.length,
   };
 
@@ -241,6 +291,8 @@ const PaymentsTrackingPage = () => {
       case "overdue":
         return "red";
       case "partial":
+        return "orange";
+      case "pending_verification":
         return "orange";
       default:
         return "gray";
@@ -293,6 +345,7 @@ const PaymentsTrackingPage = () => {
           {notification.message}
         </Notification>
       )}
+
       <Stack gap="xl">
         {/* Header */}
         <Box py="md">
@@ -306,7 +359,7 @@ const PaymentsTrackingPage = () => {
 
         {/* Stats Cards */}
         <SimpleGrid
-          cols={{ base: 1, md: 4 }}
+          cols={{ base: 1, md: 5 }}
           spacing={{ base: "md", sm: "lg" }}
           verticalSpacing={{ base: "md", sm: "lg" }}
         >
@@ -387,6 +440,33 @@ const PaymentsTrackingPage = () => {
               </Stack>
               <ThemeIcon variant="light" color="red" size="xl" radius="lg">
                 <IconAlertCircle size="1.5rem" />
+              </ThemeIcon>
+            </Flex>
+          </Card>
+
+          <Card
+            padding="xl"
+            radius="lg"
+            withBorder
+            shadow="sm"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--mantine-color-orange-6) 0%, var(--mantine-color-orange-7) 100%)",
+              color: "white",
+              boxShadow: getDefaultShadow(),
+            }}
+          >
+            <Flex justify="space-between" align="flex-start" gap="md">
+              <Stack gap="xs" flex={1}>
+                <Text c="orange.2" size="sm" tt="uppercase" fw={600}>
+                  Pending Verification
+                </Text>
+                <Text fw={700} size="xl" c="white" lh={1.2}>
+                  {stats.pendingVerification}
+                </Text>
+              </Stack>
+              <ThemeIcon variant="light" color="orange" size="xl" radius="lg">
+                <IconClock size="1.5rem" />
               </ThemeIcon>
             </Flex>
           </Card>
@@ -529,7 +609,7 @@ const PaymentsTrackingPage = () => {
                           variant="light"
                         >
                           {payment.status.charAt(0).toUpperCase() +
-                            payment.status.slice(1)}
+                            payment.status.slice(1).replace("_", " ")}
                         </Badge>
                       </Table.Td>
                       <Table.Td>
@@ -553,6 +633,19 @@ const PaymentsTrackingPage = () => {
                               onClick={() => handleRemind(payment)}
                             >
                               <IconSend size={18} />
+                            </ActionIcon>
+                          )}
+                          {payment.status === "pending_verification" && (
+                            <ActionIcon
+                              variant="light"
+                              color="orange"
+                              size="lg"
+                              onClick={() => {
+                                setSelectedPayment(payment);
+                                setShowVerificationModal(true);
+                              }}
+                            >
+                              <IconAlertCircle size={18} />
                             </ActionIcon>
                           )}
                         </Group>
@@ -584,7 +677,7 @@ const PaymentsTrackingPage = () => {
                 variant="light"
               >
                 {selectedPayment.status.charAt(0).toUpperCase() +
-                  selectedPayment.status.slice(1)}
+                  selectedPayment.status.slice(1).replace("_", " ")}
               </Badge>
 
               <Card withBorder radius="md" p="md">
@@ -874,6 +967,94 @@ const PaymentsTrackingPage = () => {
                   </Grid>
                 </Card>
               )}
+            </Stack>
+          )}
+        </Modal>
+
+        {/* Cash Payment Verification Modal */}
+        <Modal
+          opened={showVerificationModal}
+          onClose={() => {
+            setShowVerificationModal(false);
+            setSelectedPayment(null);
+          }}
+          title="Verify Cash Payment"
+          size="md"
+          centered
+        >
+          {selectedPayment && (
+            <Stack gap="lg">
+              <Alert icon={<IconAlertCircle size={16} />} color="orange">
+                Review the cash payment details and verify if the payment has
+                been received.
+              </Alert>
+
+              <Card withBorder radius="md" p="md">
+                <Grid gutter="md">
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">
+                      Tenant
+                    </Text>
+                    <Text fw={500}>
+                      {selectedPayment.paymentPlan?.tenant.fullName ||
+                        "Unknown"}
+                    </Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">
+                      Property
+                    </Text>
+                    <Text fw={500}>
+                      {selectedPayment.paymentPlan?.propertyTitle || "Unknown"}
+                    </Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">
+                      Amount
+                    </Text>
+                    <Text fw={500}>
+                      {formatCurrency(selectedPayment.amount)}
+                    </Text>
+                  </Grid.Col>
+                  <Grid.Col span={6}>
+                    <Text size="sm" c="dimmed">
+                      Month
+                    </Text>
+                    <Text fw={500}>
+                      {selectedPayment.monthNumber} of{" "}
+                      {selectedPayment.paymentPlan?.leaseDuration || "N/A"}
+                    </Text>
+                  </Grid.Col>
+                  <Grid.Col span={12}>
+                    <Text size="sm" c="dimmed">
+                      Due Date
+                    </Text>
+                    <Text fw={500}>{formatDate(selectedPayment.dueDate)}</Text>
+                  </Grid.Col>
+                </Grid>
+              </Card>
+
+              <Group grow>
+                <Button
+                  color="green"
+                  onClick={() => handleVerifyPayment(selectedPayment, true)}
+                  loading={approvingPayment}
+                  disabled={rejectingPayment}
+                  leftSection={<IconCheck size={16} />}
+                >
+                  Verify & Approve
+                </Button>
+                <Button
+                  color="red"
+                  variant="outline"
+                  onClick={() => handleVerifyPayment(selectedPayment, false)}
+                  loading={rejectingPayment}
+                  disabled={approvingPayment}
+                  leftSection={<IconX size={16} />}
+                >
+                  Reject
+                </Button>
+              </Group>
             </Stack>
           )}
         </Modal>
