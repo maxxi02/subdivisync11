@@ -171,6 +171,50 @@ const ServiceRequestsSection = () => {
       imagePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
     };
   }, []);
+
+  const handleCashPayment = async (request: ServiceRequest) => {
+    if (
+      !confirm(
+        "Have you paid in cash? This will notify the admin for verification."
+      )
+    )
+      return;
+
+    try {
+      setPaymentLoading(true);
+      const response = await axios.post("/api/cash-payment-request", {
+        requestId: request._id,
+        amount: request.final_cost,
+        category: request.category,
+      });
+
+      if (response.data.success) {
+        // Update local state to show pending verification
+        setRequests(
+          requests.map((req) =>
+            req.id === request.id
+              ? { ...req, payment_status: "pending_verification" }
+              : req
+          )
+        );
+        showNotification(
+          "success",
+          "Cash payment submitted for admin verification"
+        );
+      } else {
+        showNotification(
+          "error",
+          response.data.error || "Failed to submit cash payment"
+        );
+      }
+    } catch (error) {
+      console.error("Cash payment error:", error);
+      showNotification("error", "Failed to submit cash payment request");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
   const fetchServiceRequests = async () => {
     try {
       setLoading(true);
@@ -1050,14 +1094,26 @@ const ServiceRequestsSection = () => {
                           </Badge>
                         </td>
                         <td style={{ padding: "12px 16px" }}>
-                          <Badge
-                            color={getStatusColor(request.status)}
-                            variant="light"
-                            size="sm"
-                            radius="md"
-                          >
-                            {request.status.toUpperCase()}
-                          </Badge>
+                          <Stack gap={4}>
+                            <Badge
+                              color={getStatusColor(request.status)}
+                              variant="light"
+                              size="sm"
+                              radius="md"
+                            >
+                              {request.status.toUpperCase()}
+                            </Badge>
+                            {request.payment_status === "paid" ? (
+                              <Badge color="green" variant="light" size="sm">
+                                Paid
+                              </Badge>
+                            ) : request.payment_status ===
+                              "pending_verification" ? (
+                              <Badge color="orange" variant="light" size="sm">
+                                Pending Verification
+                              </Badge>
+                            ) : null}
+                          </Stack>
                         </td>
                         <td style={{ padding: "12px 16px" }}>
                           <Text size="sm" c={primaryTextColor}>
@@ -1080,23 +1136,52 @@ const ServiceRequestsSection = () => {
                             </MantineButton>
                             {request.status === "completed" &&
                               request.final_cost &&
-                              (request.payment_status !== "paid" ? (
-                                <MantineButton
-                                  size="xs"
-                                  variant="filled"
-                                  color="blue"
-                                  onClick={() => handlePayment(request)}
-                                  loading={paymentLoading}
-                                  disabled={paymentLoading}
-                                  leftSection={<IconCash size={14} />}
+                              request.payment_status !== "paid" &&
+                              request.payment_status !==
+                                "pending_verification" && (
+                                <Group gap="xs">
+                                  <MantineButton
+                                    size="xs"
+                                    variant="filled"
+                                    color="blue"
+                                    onClick={() => handlePayment(request)}
+                                    loading={paymentLoading}
+                                    disabled={paymentLoading}
+                                    leftSection={<IconCash size={14} />}
+                                  >
+                                    Pay Online
+                                  </MantineButton>
+                                  <MantineButton
+                                    size="xs"
+                                    variant="outline"
+                                    color="green"
+                                    onClick={() => handleCashPayment(request)}
+                                    loading={paymentLoading}
+                                    disabled={paymentLoading}
+                                    leftSection={<IconCash size={14} />}
+                                  >
+                                    Pay Cash
+                                  </MantineButton>
+                                </Group>
+                              )}
+                            {request.status === "completed" &&
+                              (request.payment_status === "paid" ||
+                                request.payment_status ===
+                                  "pending_verification") && (
+                                <Badge
+                                  color={
+                                    request.payment_status === "paid"
+                                      ? "green"
+                                      : "orange"
+                                  }
+                                  variant="light"
+                                  size="sm"
                                 >
-                                  Pay
-                                </MantineButton>
-                              ) : (
-                                <Badge color="green" variant="light" size="sm">
-                                  Paid
+                                  {request.payment_status === "paid"
+                                    ? "Paid"
+                                    : "Pending Verification"}
                                 </Badge>
-                              ))}
+                              )}
                             {request.status === "pending" && (
                               <MantineButton
                                 size="xs"
@@ -1176,25 +1261,30 @@ const ServiceRequestsSection = () => {
                       {request.status === "completed" &&
                         request.final_cost &&
                         (request.payment_status !== "paid" ? (
-                          <MantineButton
-                            size="xs"
-                            variant="filled"
-                            color="blue"
-                            onClick={() => handlePayment(request)}
-                            loading={paymentLoading}
-                            disabled={paymentLoading}
-                            leftSection={<IconCash size={14} />}
-                            fullWidth
-                          >
-                            Pay ({formatCurrency(request.final_cost)})
-                          </MantineButton>
+                          <Group gap="xs">
+                            <MantineButton
+                              size="xs"
+                              variant="filled"
+                              color="blue"
+                              onClick={() => handlePayment(request)}
+                              loading={paymentLoading}
+                              disabled={paymentLoading}
+                              leftSection={<IconCash size={14} />}
+                            >
+                              Pay Online
+                            </MantineButton>
+                            <MantineButton
+                              size="xs"
+                              variant="outline"
+                              color="green"
+                              onClick={() => handleCashPayment(request)}
+                              leftSection={<IconCash size={14} />}
+                            >
+                              Pay Cash
+                            </MantineButton>
+                          </Group>
                         ) : (
-                          <Badge
-                            color="green"
-                            variant="light"
-                            size="sm"
-                            style={{ width: "100%" }}
-                          >
+                          <Badge color="green" variant="light" size="sm">
                             Paid
                           </Badge>
                         ))}

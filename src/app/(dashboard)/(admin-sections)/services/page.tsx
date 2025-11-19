@@ -20,7 +20,6 @@ import {
   Divider,
   useMantineTheme,
   useMantineColorScheme,
-  rem,
   rgba,
   darken,
   ScrollArea,
@@ -33,6 +32,7 @@ import {
   IconSearch,
   IconRefresh,
   IconEye,
+  IconX,
 } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import axios from "axios";
@@ -63,7 +63,7 @@ interface ServiceRequest {
   final_cost?: number;
   scheduled_date?: string;
   assignment_message?: string;
-  payment_status?: "pending" | "paid" | "failed";
+  payment_status?: "pending" | "paid" | "failed" | "pending_verification"; // Add "pending_verification"
   payment_intent_id?: string;
   payment_id?: string;
   paid_at?: string;
@@ -76,7 +76,6 @@ interface ServiceRequest {
     bathrooms?: number;
   };
 }
-
 const ServicesSection = () => {
   const theme = useMantineTheme();
   const { colorScheme } = useMantineColorScheme();
@@ -152,6 +151,55 @@ const ServicesSection = () => {
     fetchServiceRequests();
     toast.success("Service requests fetched successfully");
   }, []);
+
+  const handleVerifyCashPayment = async (
+    requestId: string,
+    verified: boolean
+  ) => {
+    if (
+      !confirm(
+        verified
+          ? "Are you sure you want to verify this cash payment?"
+          : "Are you sure you want to reject this cash payment?"
+      )
+    )
+      return;
+
+    try {
+      setSubmitting(true);
+      const response = await axios.post("/api/verify-cash-payment", {
+        requestId,
+        verified,
+      });
+
+      if (response.data.success) {
+        const updatedRequests = requests.map((request) =>
+          request.id === requestId
+            ? {
+                ...request,
+                payment_status: (verified ? "paid" : "failed") as
+                  | "paid"
+                  | "failed", // Add type assertion here
+                ...(verified && { paid_at: new Date().toISOString() }),
+              }
+            : request
+        );
+        setRequests(updatedRequests);
+        toast.success(
+          verified ? "Payment verified successfully" : "Payment rejected"
+        );
+      } else {
+        throw new Error(response.data.error || "Failed to verify payment");
+      }
+    } catch (err) {
+      const errorMessage = axios.isAxiosError(err)
+        ? err.message
+        : "Failed to verify payment";
+      toast.error(errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const fetchServiceRequests = async () => {
     try {
@@ -759,6 +807,47 @@ const ServicesSection = () => {
                         >
                           View
                         </Button>
+
+                        {/* Add Cash Payment Verification Buttons Here */}
+                        {request.status === "completed" &&
+                          request.payment_status === "pending_verification" && (
+                            <Group gap="xs">
+                              <Button
+                                size="xs"
+                                variant="gradient"
+                                gradient={{
+                                  from: theme.colors.green[5],
+                                  to: theme.colors.green[7],
+                                  deg: 45,
+                                }}
+                                radius="sm"
+                                leftSection={
+                                  <IconCheck size={12} stroke={1.5} />
+                                }
+                                onClick={() =>
+                                  handleVerifyCashPayment(request.id, true)
+                                }
+                                disabled={submitting}
+                              >
+                                Verify
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                color="red"
+                                radius="sm"
+                                leftSection={<IconX size={12} stroke={1.5} />}
+                                onClick={() =>
+                                  handleVerifyCashPayment(request.id, false)
+                                }
+                                disabled={submitting}
+                              >
+                                Reject
+                              </Button>
+                            </Group>
+                          )}
+
+                        {/* Existing action buttons */}
                         {request.status === "pending" && (
                           <>
                             <Button
@@ -1160,15 +1249,19 @@ const ServicesSection = () => {
                 color={
                   selectedRequest.payment_status === "paid"
                     ? theme.colors.green[6]
-                    : selectedRequest.payment_status === "failed"
-                      ? theme.colors.red[6]
-                      : theme.colors.yellow[6]
+                    : selectedRequest.payment_status === "pending_verification"
+                      ? theme.colors.orange[6]
+                      : selectedRequest.payment_status === "failed"
+                        ? theme.colors.red[6]
+                        : theme.colors.yellow[6]
                 }
                 variant="filled"
                 radius="sm"
                 size="sm"
               >
-                {selectedRequest.payment_status.toUpperCase()}
+                {selectedRequest.payment_status === "pending_verification"
+                  ? "Pending Verification"
+                  : selectedRequest.payment_status.toUpperCase()}
               </Badge>
             </Box>
           )}
