@@ -152,7 +152,7 @@ export default function Dashboard() {
       color: "blue",
     },
     {
-      title: "Active Tenants",
+      title: "Active Homeowners",
       value: "0",
       icon: IconUsers,
       color: "green",
@@ -316,7 +316,7 @@ export default function Dashboard() {
         color: "blue",
       },
       {
-        title: "Active Tenants",
+        title: "Active Homeowners",
         value: activeTenants.toString(),
         icon: IconUsers,
         color: "green",
@@ -592,7 +592,7 @@ export default function Dashboard() {
               <Stack gap="lg" h="100%">
                 <Group justify="space-between" align="center">
                   <Title order={3} size="h4" fw={600} c={primaryTextColor}>
-                    Tenant Growth Trend
+                    Homeowners Growth Trend
                   </Title>
                   <Text size="sm" c="dimmed">
                     Last 6 months
@@ -796,7 +796,7 @@ export default function Dashboard() {
             <Table striped highlightOnHover miw={800}>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>Tenant Email</Table.Th>
+                  <Table.Th>Homeowners Email</Table.Th>
                   <Table.Th>Amount</Table.Th>
                   <Table.Th>Due Date</Table.Th>
                   <Table.Th>Status</Table.Th>
@@ -853,7 +853,7 @@ export default function Dashboard() {
 
         <Card padding="xl" radius="lg" withBorder shadow="sm">
           <Title order={3} size="h4" fw={600} c={primaryTextColor} mb="md">
-            Recent Tenants
+            Recent Homeowners
           </Title>
           <ScrollArea type="auto">
             <Table striped highlightOnHover miw={800}>

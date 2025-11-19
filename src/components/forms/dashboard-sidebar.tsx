@@ -227,8 +227,8 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
     },
     {
       icon: IconBuildingStore,
-      label: "Properties",
-      href: "/properties",
+      label: "Property",
+      href: "/property",
       description: "Manage Properties",
       notificationCount: 0,
     },

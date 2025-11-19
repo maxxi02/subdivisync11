@@ -218,7 +218,9 @@ const ServicesSection = () => {
         setRequests(updatedRequests);
         toast.success(
           `Technician assigned successfully. ${
-            response.data.notificationSent ? "Notification sent to tenant." : ""
+            response.data.notificationSent
+              ? "Notification sent to homeowner."
+              : ""
           }`
         );
         closeAssign();
@@ -262,7 +264,9 @@ const ServicesSection = () => {
         setRequests(updatedRequests);
         toast.success(
           `Estimate provided successfully. ${
-            response.data.notificationSent ? "Notification sent to tenant." : ""
+            response.data.notificationSent
+              ? "Notification sent to homeowner."
+              : ""
           }`
         );
         closeEstimate();
@@ -308,7 +312,9 @@ const ServicesSection = () => {
         setRequests(updatedRequests);
         toast.success(
           `Request marked as completed. ${
-            response.data.notificationSent ? "Notification sent to tenant." : ""
+            response.data.notificationSent
+              ? "Notification sent to homeowner."
+              : ""
           }`
         );
         closeComplete();
@@ -375,6 +381,15 @@ const ServicesSection = () => {
         request.user_email?.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a, b) => {
+      // First sort by date (latest first)
+      const dateA = new Date(a.created_at || a.date).getTime();
+      const dateB = new Date(b.created_at || b.date).getTime();
+
+      if (dateB !== dateA) {
+        return dateB - dateA; // Latest first
+      }
+
+      // If dates are equal, sort by priority
       const priorityOrder = { high: 3, medium: 2, low: 1 };
       return priorityOrder[b.priority] - priorityOrder[a.priority];
     });
@@ -576,7 +591,7 @@ const ServicesSection = () => {
             }}
           />
           <TextInput
-            placeholder="Search requests by tenant, category, or email..."
+            placeholder="Search requests by homeowner, category, or email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.currentTarget.value)}
             radius="md"
@@ -621,7 +636,7 @@ const ServicesSection = () => {
             >
               <tr>
                 {[
-                  "Tenant",
+                  "Homeowner",
                   "Category",
                   "Date",
                   "Priority",
@@ -873,7 +888,7 @@ const ServicesSection = () => {
             <Grid>
               <Grid.Col span={{ base: 12, sm: 6 }}>
                 <Text size="xs" c={secondaryTextColor}>
-                  Tenant
+                  Homeowner
                 </Text>
                 <Text size="sm" fw={500} c={primaryTextColor}>
                   {selectedRequest?.user_name}
@@ -1220,7 +1235,7 @@ const ServicesSection = () => {
             <Grid>
               <Grid.Col span={{ base: 12, sm: 6 }}>
                 <Text size="xs" c={secondaryTextColor}>
-                  Tenant
+                  Homeowner
                 </Text>
                 <Text size="sm" c={primaryTextColor}>
                   {selectedRequest?.user_name}
@@ -1390,7 +1405,7 @@ const ServicesSection = () => {
             <Grid>
               <Grid.Col span={{ base: 12, sm: 6 }}>
                 <Text size="xs" c={secondaryTextColor}>
-                  Tenant
+                  Homeowner
                 </Text>
                 <Text size="sm" c={primaryTextColor}>
                   {selectedRequest?.user_name}
@@ -1536,7 +1551,7 @@ const ServicesSection = () => {
             <Grid>
               <Grid.Col span={{ base: 12, sm: 6 }}>
                 <Text size="xs" c={secondaryTextColor}>
-                  Tenant
+                  Homeowner
                 </Text>
                 <Text size="sm" c={primaryTextColor}>
                   {selectedRequest?.user_name}

@@ -24,7 +24,6 @@ import {
 import { IconEdit, IconUsers, IconSearch, IconEye } from "@tabler/icons-react";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "react-hot-toast";
-import { DateInput } from "@mantine/dates";
 
 interface Tenant {
   _id: string;
@@ -104,6 +103,9 @@ const TenantsSection = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewingTenant, setViewingTenant] = useState<Tenant | null>(null);
 
+  const [autoGeneratePassword, setAutoGeneratePassword] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState("");
+
   useEffect(() => {
     if (!dataFetched) {
       fetchTenants();
@@ -123,7 +125,7 @@ const TenantsSection = () => {
 
   useEffect(() => {
     fetchTenants();
-    toast.success("Tenants fetched successfully");
+    toast.success("Homeonwers fetched successfully");
   }, []);
 
   const fetchTenants = async () => {
@@ -164,6 +166,54 @@ const TenantsSection = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (autoGeneratePassword && !editingTenant) {
+      const newPassword = generateRandomPassword();
+      setGeneratedPassword(newPassword);
+      setEditForm((prev) => ({
+        ...prev,
+        password: newPassword,
+        confirmPassword: newPassword,
+      }));
+    } else if (!autoGeneratePassword) {
+      setGeneratedPassword("");
+      if (!editingTenant) {
+        setEditForm((prev) => ({
+          ...prev,
+          password: "",
+          confirmPassword: "",
+        }));
+      }
+    }
+  }, [autoGeneratePassword, editingTenant]);
+
+  const generateRandomPassword = () => {
+    const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const lowercase = "abcdefghijklmnopqrstuvwxyz";
+    const numbers = "0123456789";
+    const specialChars = '!@#$%^&*(),.?":{}|<>';
+    const allChars = uppercase + lowercase + numbers + specialChars;
+
+    let password = "";
+
+    // Ensure at least one of each required character type
+    password += uppercase[Math.floor(Math.random() * uppercase.length)];
+    password += lowercase[Math.floor(Math.random() * lowercase.length)];
+    password += numbers[Math.floor(Math.random() * numbers.length)];
+    password += specialChars[Math.floor(Math.random() * specialChars.length)];
+
+    // Fill the rest randomly (total length: 12 characters)
+    for (let i = 4; i < 12; i++) {
+      password += allChars[Math.floor(Math.random() * allChars.length)];
+    }
+
+    // Shuffle the password
+    return password
+      .split("")
+      .sort(() => Math.random() - 0.5)
+      .join("");
   };
 
   const handleEditTenant = (tenant: Tenant) => {
@@ -250,12 +300,39 @@ const TenantsSection = () => {
         }
       }
 
-      if (!editForm.confirmPassword) {
-        errors.confirmPassword = "Confirm password is required";
-        isValid = false;
-      } else if (editForm.password !== editForm.confirmPassword) {
-        errors.confirmPassword = "Passwords do not match";
-        isValid = false;
+      if (!autoGeneratePassword) {
+        if (!editForm.password) {
+          errors.password = "Password is required";
+          isValid = false;
+        } else {
+          if (editForm.password.length < 8) {
+            errors.password = "Password must be at least 8 characters long";
+            isValid = false;
+          } else if (!/[A-Z]/.test(editForm.password)) {
+            errors.password =
+              "Password must contain at least one uppercase letter";
+            isValid = false;
+          } else if (!/[a-z]/.test(editForm.password)) {
+            errors.password =
+              "Password must contain at least one lowercase letter";
+            isValid = false;
+          } else if (!/[0-9]/.test(editForm.password)) {
+            errors.password = "Password must contain at least one number";
+            isValid = false;
+          } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(editForm.password)) {
+            errors.password =
+              'Password must contain at least one special character (!@#$%^&*(),.?":{}|<>)';
+            isValid = false;
+          }
+        }
+
+        if (!editForm.confirmPassword) {
+          errors.confirmPassword = "Confirm password is required";
+          isValid = false;
+        } else if (editForm.password !== editForm.confirmPassword) {
+          errors.confirmPassword = "Passwords do not match";
+          isValid = false;
+        }
       }
 
       // Phone number validation - must be exactly 11 digits for PH
@@ -368,14 +445,14 @@ const TenantsSection = () => {
         throw new Error(data.error || "Failed to create tenant");
       }
 
-      // Close modal and reset form immediately
       setShowEditModal(false);
       setEditForm(defaultForm);
+      setAutoGeneratePassword(false);
+      setGeneratedPassword("");
 
-      // Refetch all tenants to get the newly created one
       await fetchTenants();
 
-      toast.success("Tenant created successfully!");
+      toast.success("Homeowner created successfully!");
     } catch (error) {
       console.error("Error creating tenant:", error);
       toast.error(
@@ -495,8 +572,8 @@ const TenantsSection = () => {
         <Group>
           <IconUsers size={32} color="blue" />
           <Box>
-            <Title order={1}>Tenants Management</Title>
-            <Text c="dimmed">Manage all your tenants</Text>
+            <Title order={1}>Homeowners Management</Title>
+            <Text c="dimmed">Manage all your homeowners</Text>
           </Box>
         </Group>
         <Group>
@@ -504,10 +581,13 @@ const TenantsSection = () => {
             onClick={() => {
               setEditingTenant(null);
               setEditForm(defaultForm);
+              setFormErrors({});
+              setAutoGeneratePassword(false);
+              setGeneratedPassword("");
               setShowEditModal(true);
             }}
           >
-            Add New Tenant
+            Add New Homeowner
           </Button>
         </Group>
       </Group>
@@ -515,7 +595,7 @@ const TenantsSection = () => {
       {/* Search */}
       <Paper p="md" mb="md" shadow="sm">
         <TextInput
-          placeholder="Search tenants by name or email..."
+          placeholder="Search homeowners by name or email..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.currentTarget.value)}
           leftSection={<IconSearch size={16} />}
@@ -529,7 +609,7 @@ const TenantsSection = () => {
           <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Tenant</Table.Th>
+                <Table.Th>Homeowner</Table.Th>
                 <Table.Th>Email</Table.Th>
                 <Table.Th>Status</Table.Th>
                 <Table.Th>Created At</Table.Th>
@@ -583,12 +663,12 @@ const TenantsSection = () => {
             <Stack align="center">
               <IconUsers size={48} color="gray" />
               <Title order={3} c="dimmed">
-                No tenants found
+                No homeowners found
               </Title>
               <Text c="dimmed">
                 {searchTerm
                   ? "Try adjusting your search terms."
-                  : "No tenants available."}
+                  : "No homeowners available."}
               </Text>
             </Stack>
           </Center>
@@ -601,13 +681,15 @@ const TenantsSection = () => {
         onClose={() => {
           setShowEditModal(false);
           setFormErrors({});
+          setAutoGeneratePassword(false);
+          setGeneratedPassword("");
         }}
-        title={<>{editingTenant ? "Edit Tenant" : "Create Tenant"}</>}
+        title={<>{editingTenant ? "Edit Homeowner" : "Create Homeowner"}</>}
         size="lg"
       >
         <Stack>
           {editingTenant?.property && (
-            <Box className="bg-gray-50 rounded-lg p-4">
+            <Box className=" rounded-lg p-4">
               <Text size="sm" fw={500} mb="sm">
                 Property Information
               </Text>
@@ -759,27 +841,86 @@ const TenantsSection = () => {
           </Group>
           {!editingTenant && (
             <>
-              <PasswordInput
-                label="Password"
-                value={editForm.password}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, password: e.currentTarget.value })
-                }
-                required
-                error={formErrors.password}
-              />
-              <PasswordInput
-                label="Confirm Password"
-                value={editForm.confirmPassword}
-                onChange={(e) =>
-                  setEditForm({
-                    ...editForm,
-                    confirmPassword: e.currentTarget.value,
-                  })
-                }
-                required
-                error={formErrors.confirmPassword}
-              />
+              <Group justify="space-between" align="center">
+                <Text size="sm" fw={500}>
+                  Auto-generate Password
+                </Text>
+                <input
+                  type="checkbox"
+                  checked={autoGeneratePassword}
+                  onChange={(e) => setAutoGeneratePassword(e.target.checked)}
+                  style={{ cursor: "pointer", width: 20, height: 20 }}
+                />
+              </Group>
+
+              {autoGeneratePassword && generatedPassword && (
+                <Box
+                  p="md"
+                  style={{
+                    borderRadius: "8px",
+                    border: "1px solid #bfdbfe",
+                  }}
+                >
+                  <Text size="sm" fw={500} mb="xs">
+                    Generated Password:
+                  </Text>
+                  <Group gap="xs">
+                    <TextInput
+                      value={generatedPassword}
+                      readOnly
+                      style={{ flex: 1 }}
+                      styles={{
+                        input: {
+                          fontFamily: "monospace",
+                          fontSize: "14px",
+                        },
+                      }}
+                    />
+                    <Button
+                      size="xs"
+                      onClick={() => {
+                        navigator.clipboard.writeText(generatedPassword);
+                        toast.success("Password copied to clipboard!");
+                      }}
+                    >
+                      Copy
+                    </Button>
+                  </Group>
+                  <Text size="xs" c="dimmed" mt="xs">
+                    Make sure to save this password. The homeowner will need it
+                    to log in.
+                  </Text>
+                </Box>
+              )}
+
+              {!autoGeneratePassword && (
+                <>
+                  <PasswordInput
+                    label="Password"
+                    value={editForm.password}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        password: e.currentTarget.value,
+                      })
+                    }
+                    required
+                    error={formErrors.password}
+                  />
+                  <PasswordInput
+                    label="Confirm Password"
+                    value={editForm.confirmPassword}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        confirmPassword: e.currentTarget.value,
+                      })
+                    }
+                    required
+                    error={formErrors.confirmPassword}
+                  />
+                </>
+              )}
             </>
           )}
           <Select
@@ -801,6 +942,8 @@ const TenantsSection = () => {
               onClick={() => {
                 setShowEditModal(false);
                 setFormErrors({});
+                setAutoGeneratePassword(false);
+                setGeneratedPassword("");
               }}
             >
               Cancel
@@ -808,7 +951,7 @@ const TenantsSection = () => {
             <Button
               onClick={editingTenant ? handleUpdateTenant : handleCreateTenant}
             >
-              {editingTenant ? "Update Tenant" : "Create Tenant"}
+              {editingTenant ? "Update Homeowner" : "Create Homeowner"}
             </Button>
           </Group>
         </Stack>
@@ -818,7 +961,7 @@ const TenantsSection = () => {
       <Modal
         opened={showViewModal}
         onClose={() => setShowViewModal(false)}
-        title="Tenant Details"
+        title="Homeowner Details"
         size="lg"
       >
         {viewingTenant && (
