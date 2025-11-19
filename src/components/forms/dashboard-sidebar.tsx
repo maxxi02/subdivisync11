@@ -125,7 +125,7 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
   const fetchNotifications = async () => {
     try {
       if (userRole === "admin") {
-        // Admin notifications (existing code)
+        // Admin notifications - only pending items
         const serviceResponse = await axios.get("/api/service-requests");
         const pendingServices = serviceResponse.data.success
           ? serviceResponse.data.serviceRequests.filter(
@@ -153,18 +153,26 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
           myApplications: 0,
         });
       } else if (userRole === "tenant") {
-        // Tenant notifications
+        // Get viewed items from localStorage
+        const viewedServiceRequests = JSON.parse(
+          localStorage.getItem(`viewed_service_requests_${userEmail}`) || "[]"
+        );
+        const viewedApplications = JSON.parse(
+          localStorage.getItem(`viewed_applications_${userEmail}`) || "[]"
+        );
 
-        // Count service requests with status updates (in-progress or completed)
+        // Count service requests with status updates that haven't been viewed
         const serviceResponse = await axios.get("/api/service-requests");
         const updatedServiceRequests = serviceResponse.data.success
           ? serviceResponse.data.serviceRequests.filter(
               (req: ServiceRequest) =>
-                req.status === "in-progress" || req.status === "completed"
+                req.user_email === userEmail &&
+                (req.status === "in-progress" || req.status === "completed") &&
+                !viewedServiceRequests.includes(req.id)
             ).length
           : 0;
 
-        // Count applications with status changes (approved or rejected)
+        // Count applications with status changes that haven't been viewed
         const propertiesResponse = await axios.get(
           "/api/properties?myInquiries=true"
         );
@@ -173,12 +181,17 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
         if (propertiesResponse.data.success) {
           propertiesResponse.data.properties.forEach((property: Property) => {
             if (property.inquiries && Array.isArray(property.inquiries)) {
-              updatedApplications += property.inquiries.filter(
-                (inquiry: PropertyInquiry) =>
+              property.inquiries.forEach((inquiry: PropertyInquiry) => {
+                const inquiryId = `${property._id}_${inquiry.email}`;
+                if (
                   inquiry.email === userEmail &&
                   (inquiry.status === "approved" ||
-                    inquiry.status === "rejected")
-              ).length;
+                    inquiry.status === "rejected") &&
+                  !viewedApplications.includes(inquiryId)
+                ) {
+                  updatedApplications++;
+                }
+              });
             }
           });
         }
@@ -194,7 +207,6 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
       console.error("Error fetching notifications:", error);
     }
   };
-
   // Fetch notifications on mount and when pathname changes
   useEffect(() => {
     fetchNotifications();
