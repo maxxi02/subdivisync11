@@ -319,7 +319,7 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
 
   // Select navigation items based on user role
   const navItems = userRole === "admin" ? adminNavItems : tenantNavItems;
-  const userTitle = userRole === "admin" ? "Property Manager" : "Homeowner";
+  const userTitle = userRole === "admin" ? "ADMIN" : "Homeowner";
 
   return (
     <AppShell
