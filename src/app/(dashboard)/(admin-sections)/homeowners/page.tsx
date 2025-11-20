@@ -932,8 +932,6 @@ const TenantsSection = () => {
             data={[
               { value: "Active", label: "Active" },
               { value: "Inactive", label: "Inactive" },
-              { value: "Evicted", label: "Evicted" },
-              { value: "Moved Out", label: "Moved Out" },
             ]}
           />
           <Group justify="flex-end" mt="md">

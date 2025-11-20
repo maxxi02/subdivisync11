@@ -5,8 +5,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { ServiceRequest } from "@/database/schemas/service-requests";
 
-
 const KEY = process.env.PAYMONGO_SECRET_API_KEY;
+
+async function generateAndSaveReceipt(data: {
+  requestId: string;
+  paymentIntentId: string;
+  amount: number;
+  description: string;
+}): Promise<string> {
+  const receiptsCollection = db.collection("receipts");
+
+  const receipt = {
+    type: "service_payment",
+    amount: data.amount,
+    requestId: data.requestId,
+    transactionId: data.paymentIntentId,
+    paidDate: new Date().toISOString(),
+    description: data.description,
+    created_at: new Date().toISOString(),
+  };
+
+  const result = await receiptsCollection.insertOne(receipt);
+  return result.insertedId.toString();
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,9 +63,7 @@ export async function POST(request: NextRequest) {
         method: "GET",
         headers: {
           accept: "application/json",
-          authorization: `Basic ${Buffer.from(
-            `${KEY}:`
-          ).toString("base64")}`,
+          authorization: `Basic ${Buffer.from(`${KEY}:`).toString("base64")}`,
         },
       }
     );
@@ -99,6 +118,19 @@ export async function POST(request: NextRequest) {
       updateData.payment_id = paymentIntentId;
       updateData.paid_at = new Date();
     }
+
+    const receiptId = await generateAndSaveReceipt({
+      requestId: requestId,
+      paymentIntentId: paymentIntentId,
+      amount: serviceRequest.final_cost || serviceRequest.estimated_cost || 0,
+      description: `Payment for ${serviceRequest.category} service`,
+    });
+
+    updateData.receipt_url = `${
+      process.env.NODE_ENV === "production"
+        ? process.env.NEXT_PUBLIC_URL
+        : process.env.BETTER_AUTH_URL
+    }/receipts/${receiptId}`;
 
     const result = await serviceRequestsCollection.updateOne(
       { _id: new ObjectId(requestId) },

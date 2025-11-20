@@ -24,6 +24,7 @@ export interface ServiceRequest {
   payment_intent_id?: string;
   payment_id?: string;
   paid_at?: Date;
+  receipt_url?: string; // ADD THIS
 }
 
 export interface CreateServiceRequest {
