@@ -29,12 +29,10 @@ import {
   IconSquare,
   IconBed,
   IconBath,
-  
   IconSearch,
   IconCheck,
   IconX,
 } from "@tabler/icons-react";
-import { toast } from "react-hot-toast";
 import { useSession } from "@/lib/auth-client";
 import { CustomCarousel } from "./_components/custom-carousel";
 
@@ -45,7 +43,7 @@ interface Property {
   location: string;
   size: string;
   price: number;
-  type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
+  type: "single-attached" | "duplex" | "two-storey-house";
   status: "CREATED" | "UNDER_INQUIRY" | "APPROVED" | "REJECTED" | "LEASED";
   images?: string[];
   amenities: string[];
@@ -370,10 +368,9 @@ const PropertyListingPage = () => {
             onChange={(value) => setSelectedType(value || "all")}
             data={[
               { value: "all", label: "All Types" },
-              { value: "residential-lot", label: "Residential Lot" },
-              { value: "commercial", label: "Commercial" },
-              { value: "house-and-lot", label: "House and Lot" },
-              { value: "condo", label: "Condo" },
+              { value: "single-attached", label: "Single-Attached" },
+              { value: "duplex", label: "Duplex" },
+              { value: "two-storey-house", label: "Two-Storey House" },
             ]}
           />
         </SimpleGrid>
@@ -446,36 +443,31 @@ const PropertyListingPage = () => {
                       {property.size}
                     </Text>
                   </Group>
-                  {(property.type === "house-and-lot" ||
-                    property.type === "condo") && (
-                    <>
-                      {(property.bedrooms ?? 0) > 0 && (
-                        <Group gap="xs">
-                          <IconBed size={16} color="gray" />
-                          <Text size="sm" c="dimmed">
-                            {property.bedrooms} Bedroom
-                            {property.bedrooms !== 1 ? "s" : ""}
-                          </Text>
-                        </Group>
-                      )}
-                      {(property.bathrooms ?? 0) > 0 && (
-                        <Group gap="xs">
-                          <IconBath size={16} color="gray" />
-                          <Text size="sm" c="dimmed">
-                            {property.bathrooms} Bathroom
-                            {property.bathrooms !== 1 ? "s" : ""}
-                          </Text>
-                        </Group>
-                      )}
-                      {(property.sqft ?? 0) > 0 && (
-                        <Group gap="xs">
-                          <IconSquare size={16} color="gray" />
-                          <Text size="sm" c="dimmed">
-                            {property.sqft} sq ft
-                          </Text>
-                        </Group>
-                      )}
-                    </>
+                  {(property.bedrooms ?? 0) > 0 && (
+                    <Group gap="xs">
+                      <IconBed size={16} color="gray" />
+                      <Text size="sm" c="dimmed">
+                        {property.bedrooms} Bedroom
+                        {property.bedrooms !== 1 ? "s" : ""}
+                      </Text>
+                    </Group>
+                  )}
+                  {(property.bathrooms ?? 0) > 0 && (
+                    <Group gap="xs">
+                      <IconBath size={16} color="gray" />
+                      <Text size="sm" c="dimmed">
+                        {property.bathrooms} Bathroom
+                        {property.bathrooms !== 1 ? "s" : ""}
+                      </Text>
+                    </Group>
+                  )}
+                  {(property.sqft ?? 0) > 0 && (
+                    <Group gap="xs">
+                      <IconSquare size={16} color="gray" />
+                      <Text size="sm" c="dimmed">
+                        {property.sqft} sq ft
+                      </Text>
+                    </Group>
                   )}
                 </SimpleGrid>
 
@@ -488,11 +480,7 @@ const PropertyListingPage = () => {
                 {property.amenities && property.amenities.length > 0 && (
                   <Group gap="xs" grow wrap="wrap">
                     {property.amenities.slice(0, 3).map((amenity, index) => (
-                      <Badge
-                        key={index}
-                        variant="light"
-                        color="gray"
-                      >
+                      <Badge key={index} variant="light" color="gray">
                         {amenity.replace("-", " ")}
                       </Badge>
                     ))}
@@ -590,36 +578,31 @@ const PropertyListingPage = () => {
                     {selectedProperty.size}
                   </Text>
                 </Group>
-                {(selectedProperty.type === "house-and-lot" ||
-                  selectedProperty.type === "condo") && (
-                  <>
-                    {(selectedProperty.bedrooms ?? 0) > 0 && (
-                      <Group gap="xs">
-                        <IconBed size={18} color="gray" />
-                        <Text size="md" c="dimmed">
-                          {selectedProperty.bedrooms} Bedroom
-                          {selectedProperty.bedrooms !== 1 ? "s" : ""}
-                        </Text>
-                      </Group>
-                    )}
-                    {(selectedProperty.bathrooms ?? 0) > 0 && (
-                      <Group gap="xs">
-                        <IconBath size={18} color="gray" />
-                        <Text size="md" c="dimmed">
-                          {selectedProperty.bathrooms} Bathroom
-                          {selectedProperty.bathrooms !== 1 ? "s" : ""}
-                        </Text>
-                      </Group>
-                    )}
-                    {(selectedProperty.sqft ?? 0) > 0 && (
-                      <Group gap="xs">
-                        <IconSquare size={18} color="gray" />
-                        <Text size="md" c="dimmed">
-                          {selectedProperty.sqft} sq ft
-                        </Text>
-                      </Group>
-                    )}
-                  </>
+                {(selectedProperty.bedrooms ?? 0) > 0 && (
+                  <Group gap="xs">
+                    <IconBed size={18} color="gray" />
+                    <Text size="md" c="dimmed">
+                      {selectedProperty.bedrooms} Bedroom
+                      {selectedProperty.bedrooms !== 1 ? "s" : ""}
+                    </Text>
+                  </Group>
+                )}
+                {(selectedProperty.bathrooms ?? 0) > 0 && (
+                  <Group gap="xs">
+                    <IconBath size={18} color="gray" />
+                    <Text size="md" c="dimmed">
+                      {selectedProperty.bathrooms} Bathroom
+                      {selectedProperty.bathrooms !== 1 ? "s" : ""}
+                    </Text>
+                  </Group>
+                )}
+                {(selectedProperty.sqft ?? 0) > 0 && (
+                  <Group gap="xs">
+                    <IconSquare size={18} color="gray" />
+                    <Text size="md" c="dimmed">
+                      {selectedProperty.sqft} sq ft
+                    </Text>
+                  </Group>
                 )}
               </SimpleGrid>
 

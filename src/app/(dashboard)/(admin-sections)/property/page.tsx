@@ -74,7 +74,7 @@ interface Property {
   location: string;
   size: string;
   price: number;
-  type: "residential-lot" | "commercial" | "house-and-lot" | "condo";
+  type: "single-attached" | "duplex" | "two-storey-house";
   status: "CREATED" | "UNDER_INQUIRY" | "APPROVED" | "REJECTED" | "LEASED";
   images?: string[];
   features: string[];
@@ -1183,35 +1183,30 @@ export default function PropertyManagement() {
                 </Badge>
               ))}
             </Group>
-            {(formData.type === "house-and-lot" ||
-              formData.type === "condo") && (
-              <>
-                <NumberInput
-                  label="Bedrooms"
-                  placeholder="e.g., 3"
-                  value={formData.bedrooms || 0}
-                  onChange={(value) =>
-                    setFormData({
-                      ...formData,
-                      bedrooms: value ? Math.floor(Number(value)) : undefined,
-                    })
-                  }
-                  leftSection={<IconBed size={16} />}
-                />
-                <NumberInput
-                  label="Bathrooms"
-                  placeholder="e.g., 2"
-                  value={formData.bathrooms || 0}
-                  onChange={(value) =>
-                    setFormData({
-                      ...formData,
-                      bathrooms: value ? Math.floor(Number(value)) : undefined,
-                    })
-                  }
-                  leftSection={<IconDroplet size={16} />}
-                />
-              </>
-            )}
+            <NumberInput
+              label="Bedrooms"
+              placeholder="e.g., 3"
+              value={formData.bedrooms || 0}
+              onChange={(value) =>
+                setFormData({
+                  ...formData,
+                  bedrooms: value ? Math.floor(Number(value)) : undefined,
+                })
+              }
+              leftSection={<IconBed size={16} />}
+            />
+            <NumberInput
+              label="Bathrooms"
+              placeholder="e.g., 2"
+              value={formData.bathrooms || 0}
+              onChange={(value) =>
+                setFormData({
+                  ...formData,
+                  bathrooms: value ? Math.floor(Number(value)) : undefined,
+                })
+              }
+              leftSection={<IconDroplet size={16} />}
+            />
             <MantineButton
               onClick={handleCreateProperty}
               loading={createLoading}
@@ -1273,31 +1268,28 @@ export default function PropertyManagement() {
                       <Text c="dimmed">{selectedProperty.size}</Text>
                     </Group>
                   </Stack>
-                  {(selectedProperty.type === "house-and-lot" ||
-                    selectedProperty.type === "condo") && (
-                    <Group gap="md" mt="md">
-                      {selectedProperty.bedrooms &&
-                        selectedProperty.bedrooms > 0 && (
-                          <Group gap="xs">
-                            <IconBed size={16} />
-                            <Text c="dimmed">
-                              {selectedProperty.bedrooms} Bedroom
-                              {selectedProperty.bedrooms > 1 ? "s" : ""}
-                            </Text>
-                          </Group>
-                        )}
-                      {selectedProperty.bathrooms &&
-                        selectedProperty.bathrooms > 0 && (
-                          <Group gap="xs">
-                            <IconDroplet size={16} />
-                            <Text c="dimmed">
-                              {selectedProperty.bathrooms} Bathroom
-                              {selectedProperty.bathrooms > 1 ? "s" : ""}
-                            </Text>
-                          </Group>
-                        )}
-                    </Group>
-                  )}
+                  <Group gap="md" mt="md">
+                    {selectedProperty.bedrooms &&
+                      selectedProperty.bedrooms > 0 && (
+                        <Group gap="xs">
+                          <IconBed size={16} />
+                          <Text c="dimmed">
+                            {selectedProperty.bedrooms} Bedroom
+                            {selectedProperty.bedrooms > 1 ? "s" : ""}
+                          </Text>
+                        </Group>
+                      )}
+                    {selectedProperty.bathrooms &&
+                      selectedProperty.bathrooms > 0 && (
+                        <Group gap="xs">
+                          <IconDroplet size={16} />
+                          <Text c="dimmed">
+                            {selectedProperty.bathrooms} Bathroom
+                            {selectedProperty.bathrooms > 1 ? "s" : ""}
+                          </Text>
+                        </Group>
+                      )}
+                  </Group>
                   {selectedProperty.description && (
                     <Card withBorder radius="md" p="md" bg="transparent">
                       <Group gap="xs" mb="xs">
@@ -1602,35 +1594,30 @@ export default function PropertyManagement() {
                 </Badge>
               ))}
             </Group>
-            {(editFormData.type === "house-and-lot" ||
-              editFormData.type === "condo") && (
-              <>
-                <NumberInput
-                  label="Bedrooms"
-                  placeholder="e.g., 3"
-                  value={editFormData.bedrooms || 0}
-                  onChange={(value) =>
-                    setEditFormData({
-                      ...editFormData,
-                      bedrooms: value ? Math.floor(Number(value)) : undefined,
-                    })
-                  }
-                  leftSection={<IconBed size={16} />}
-                />
-                <NumberInput
-                  label="Bathrooms"
-                  placeholder="e.g., 2"
-                  value={editFormData.bathrooms || 0}
-                  onChange={(value) =>
-                    setEditFormData({
-                      ...editFormData,
-                      bathrooms: value ? Math.floor(Number(value)) : undefined,
-                    })
-                  }
-                  leftSection={<IconDroplet size={16} />}
-                />
-              </>
-            )}
+            <NumberInput
+              label="Bedrooms"
+              placeholder="e.g., 3"
+              value={editFormData.bedrooms || 0}
+              onChange={(value) =>
+                setEditFormData({
+                  ...editFormData,
+                  bedrooms: value ? Math.floor(Number(value)) : undefined,
+                })
+              }
+              leftSection={<IconBed size={16} />}
+            />
+            <NumberInput
+              label="Bathrooms"
+              placeholder="e.g., 2"
+              value={editFormData.bathrooms || 0}
+              onChange={(value) =>
+                setEditFormData({
+                  ...editFormData,
+                  bathrooms: value ? Math.floor(Number(value)) : undefined,
+                })
+              }
+              leftSection={<IconDroplet size={16} />}
+            />
             <MantineButton
               onClick={handleEditProperty}
               leftSection={<IconEdit size={16} />}
