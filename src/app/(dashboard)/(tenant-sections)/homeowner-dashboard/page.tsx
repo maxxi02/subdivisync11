@@ -261,7 +261,8 @@ const TenantDashboard = () => {
             Homeowner&#39;s Dashboard
           </Title>
           <Text c={primaryTextColor} size="md" lh={1.5}>
-            Welcome back! Here&#39;s what&#39;s happening with your dashboard today.
+            Welcome back! Here&#39;s what&#39;s happening with your dashboard
+            today.
           </Text>
         </Box>
 
@@ -431,6 +432,10 @@ const TenantDashboard = () => {
                                 size="sm"
                                 c={primaryTextColor}
                                 lineClamp={2}
+                                style={{
+                                  wordBreak: "break-word",
+                                  overflowWrap: "break-word",
+                                }}
                               >
                                 {ann.content}
                               </Text>

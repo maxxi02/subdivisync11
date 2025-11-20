@@ -158,10 +158,13 @@ const ServiceRequestsSection = () => {
     const opacity = colorScheme === "dark" ? 0.2 : 0.12;
     return `${baseShadow} ${rgba(theme.black, opacity)}`;
   };
+  
   const showNotification = (type: "success" | "error", message: string) => {
     setNotification({ type, message });
-    setTimeout(() => setNotification(null), 5000);
+    const timeoutId = setTimeout(() => setNotification(null), 5000);
+    return () => clearTimeout(timeoutId);
   };
+
   useEffect(() => {
     fetchServiceRequests();
   }, []);
@@ -443,9 +446,11 @@ const ServiceRequestsSection = () => {
       setSubmitting(false);
     }
   };
-  const handlePriorityChange = useCallback((value: string | null) => {
+
+  const handlePriorityChange = (value: string | null) => {
     setPriority(value || "medium");
-  }, []);
+  };
+
   const formatCurrency = (amount?: number) => {
     if (!amount) return "Not set";
     return new Intl.NumberFormat("en-PH", {
