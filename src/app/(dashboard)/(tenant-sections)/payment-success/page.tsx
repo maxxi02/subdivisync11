@@ -1,7 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Container, Title, Text, Stack, LoadingOverlay, Button, Card } from "@mantine/core";
+import { 
+  Container, 
+  Title, 
+  Text, 
+  Stack, 
+  LoadingOverlay, 
+  Button, 
+  Card 
+} from "@mantine/core";
 import { IconCheck, IconX } from "@tabler/icons-react";
 import axios from "axios";
 
@@ -12,49 +20,65 @@ export default function PaymentSuccessPage() {
   const [status, setStatus] = useState<"success" | "failed" | null>(null);
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    const verifyPayment = async () => {
-      const paymentIntentId = searchParams.get("payment_intent_id");
-      const requestId = searchParams.get("request_id");
+useEffect(() => {
+  const verifyPayment = async () => {
+    const paymentIntentId = searchParams.get("payment_intent_id");
+    const requestId = searchParams.get("request_id");
 
-      if (!paymentIntentId || !requestId) {
-        setStatus("failed");
-        setLoading(false);
-        return;
-      }
+    if (!paymentIntentId || !requestId) {
+      setStatus("failed");
+      setLoading(false);
+      return;
+    }
 
-      try {
-        const response = await axios.post("/api/create-payment/verify-payment", {
-          paymentIntentId,
-          requestId,
-        });
+    try {
+      // Add delay for webhook processing
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      
+      // Verify payment with PayMongo
+      const response = await axios.post("/api/create-payment/verify-payment", {
+        paymentIntentId,
+        requestId,
+      });
 
-        if (response.data.success && response.data.localStatus === "paid") {
-          setStatus("success");
-          // Fetch the updated request to get receipt URL
-          const requestResponse = await axios.get(`/api/service-requests?id=${requestId}`);
-          if (requestResponse.data.success) {
-            setReceiptUrl(requestResponse.data.serviceRequest.receipt_url);
-          }
+      console.log("Payment verification response:", response.data);
+
+      if (response.data.success && response.data.localStatus === "paid") {
+        setStatus("success");
+        
+        // Set receipt URL from verification response
+        if (response.data.receiptUrl) {
+          setReceiptUrl(response.data.receiptUrl);
+          console.log("Receipt URL set:", response.data.receiptUrl);
         } else {
-          setStatus("failed");
+          console.warn("No receipt URL in verification response");
         }
-      } catch (error) {
-        console.error("Payment verification error:", error);
+      } else {
+        console.error("Payment verification failed:", {
+          success: response.data.success,
+          localStatus: response.data.localStatus,
+          paymentStatus: response.data.status,
+          fullResponse: response.data
+        });
         setStatus("failed");
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (error) {
+      console.error("Payment verification error:", error);
+      setStatus("failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    verifyPayment();
-  }, [searchParams]);
-
+  verifyPayment();
+}, [searchParams]);
   if (loading) {
     return (
       <Container size="sm" py="xl">
         <LoadingOverlay visible />
-        <Text ta="center">Verifying your payment...</Text>
+        <Text ta="center" mt="xl">
+          Verifying your payment...
+        </Text>
       </Container>
     );
   }
