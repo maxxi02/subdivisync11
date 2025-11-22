@@ -3,7 +3,6 @@ import { getServerSession } from "@/better-auth/action";
 import { connectDB, db } from "@/database/mongodb";
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
-import { ServiceRequest } from "@/database/schemas/service-requests";
 
 const KEY = process.env.PAYMONGO_SECRET_API_KEY;
 
@@ -41,6 +40,8 @@ export async function POST(request: NextRequest) {
 
     const { paymentIntentId, requestId } = await request.json();
 
+    console.log("Verifying payment:", { paymentIntentId, requestId });
+
     if (!paymentIntentId || !requestId) {
       return NextResponse.json(
         { success: false, error: "Missing paymentIntentId or requestId" },
@@ -70,6 +71,11 @@ export async function POST(request: NextRequest) {
 
     const paymongoData = await paymongoResponse.json();
 
+    console.log("PayMongo response:", {
+      status: paymongoResponse.status,
+      paymentStatus: paymongoData.data?.attributes?.status,
+    });
+
     if (!paymongoResponse.ok) {
       console.error("PayMongo API error:", paymongoData);
       return NextResponse.json(
@@ -96,29 +102,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log("Service request found:", {
+      id: serviceRequest._id,
+      status: serviceRequest.status,
+      payment_status: serviceRequest.payment_status,
+    });
+
     // Update local payment status based on PayMongo status
-    let localStatus = "pending";
+    let localStatus: "pending" | "paid" | "failed" = "pending";
+    
     if (paymentStatus === "succeeded") {
       localStatus = "paid";
     } else if (
       paymentStatus === "awaiting_payment_method" ||
-      paymentStatus === "awaiting_next_action"
+      paymentStatus === "awaiting_next_action" ||
+      paymentStatus === "processing"
     ) {
       localStatus = "pending";
     } else {
       localStatus = "failed";
     }
 
-    const updateData: Partial<ServiceRequest> = {
-      payment_status: localStatus as "pending" | "paid" | "failed",
+    console.log("Determined local status:", localStatus);
+
+    const updateData: Record<string, unknown> = {
+      payment_status: localStatus,
       updated_at: new Date(),
     };
 
-    if (localStatus === "paid") {
-      updateData.payment_id = paymentIntentId;
-      updateData.paid_at = new Date();
-    }
+  if (localStatus === "paid") {
+  updateData.payment_id = paymentIntentId;
+  updateData.paid_at = new Date();
 
+  // Generate receipt
+  try {
     const receiptId = await generateAndSaveReceipt({
       requestId: requestId,
       paymentIntentId: paymentIntentId,
@@ -126,22 +143,34 @@ export async function POST(request: NextRequest) {
       description: `Payment for ${serviceRequest.category} service`,
     });
 
-    updateData.receipt_url = `${
-      process.env.NODE_ENV === "production"
-        ? process.env.NEXT_PUBLIC_URL
-        : process.env.BETTER_AUTH_URL
-    }/receipts/${receiptId}`;
+    // Fix: Get the correct base URL
+    const baseUrl = process.env.NEXT_PUBLIC_URL || 
+                    process.env.BETTER_AUTH_URL || 
+                    `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`;
+
+    updateData.receipt_url = `${baseUrl}/receipts/${receiptId}`;
+    console.log("Receipt generated with URL:", updateData.receipt_url);
+  } catch (receiptError) {
+    console.error("Error generating receipt:", receiptError);
+    // Continue without receipt if there's an error
+  }
+}
 
     const result = await serviceRequestsCollection.updateOne(
       { _id: new ObjectId(requestId) },
       { $set: updateData }
     );
 
-    if (result.modifiedCount === 0) {
-      console.error("Failed to update service request:", requestId);
+    console.log("Database update result:", {
+      matched: result.matchedCount,
+      modified: result.modifiedCount,
+    });
+
+    if (result.matchedCount === 0) {
+      console.error("Service request not found for update:", requestId);
       return NextResponse.json(
-        { success: false, error: "Failed to update service request" },
-        { status: 500 }
+        { success: false, error: "Service request not found" },
+        { status: 404 }
       );
     }
 
@@ -149,6 +178,7 @@ export async function POST(request: NextRequest) {
       success: true,
       status: paymentStatus,
       localStatus: localStatus,
+      receiptUrl: updateData.receipt_url,
     });
   } catch (error) {
     console.error("Error verifying payment:", error);

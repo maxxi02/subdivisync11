@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
 import { connectDB, db } from "@/database/mongodb";
-import { getResend } from "@/resend/resend";
-;
+import { sendEmail } from "@/resend/resend";
 
 export async function POST() {
   try {
     await connectDB();
-    const resend = getResend();
-
     const monthlyPaymentsCollection = db.collection("monthly_payments");
     const today = new Date();
     const sevenDaysFromNow = new Date(
@@ -32,11 +29,13 @@ export async function POST() {
       );
 
       try {
-        await resend.emails.send({
-          from: "SubdivisSync <onboarding@resend.dev>", // Update with your verified domain
-          to: payment.tenantEmail,
+        await sendEmail({
+          to: [{ 
+            email: payment.tenantEmail, 
+            name: payment.tenantName 
+          }],
           subject: `Payment Reminder: Due in ${daysUntilDue} day${daysUntilDue > 1 ? "s" : ""}`,
-          html: `
+          htmlContent: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #2563eb;">Payment Reminder</h2>
               <p>Dear ${payment.tenantName},</p>
@@ -62,6 +61,29 @@ export async function POST() {
               <p style="margin-top: 30px;">Best regards,<br/>SubdivisSync Management</p>
             </div>
           `,
+          textContent: `
+Payment Reminder
+
+Dear ${payment.tenantName},
+
+This is a friendly reminder that your monthly payment is due soon.
+
+Payment Details:
+- Property: ${payment.propertyTitle}
+- Amount Due: ₱${payment.amount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+- Due Date: ${new Date(payment.dueDate).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })}
+- Days Until Due: ${daysUntilDue} day${daysUntilDue > 1 ? "s" : ""}
+
+Please ensure your payment is made on or before the due date to avoid late fees.
+If you have already made this payment, please disregard this notice.
+
+Best regards,
+SubdivisSync Management
+          `,
+          sender: {
+            email: process.env.BREVO_SENDER_EMAIL!,
+            name: "SubdiviSync"
+          }
         });
 
         // Update last reminder sent date

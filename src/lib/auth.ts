@@ -1,11 +1,9 @@
 import { db } from "@/database/mongodb";
-import { getResend } from "@/resend/resend";
+import {  sendEmail } from "@/resend/resend";
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { nextCookies } from "better-auth/next-js";
 import { admin as adminPlugin, twoFactor } from "better-auth/plugins";
-
-const resend = getResend();
 
 export const auth = betterAuth({
   baseURL:
@@ -49,7 +47,7 @@ export const auth = betterAuth({
         required: false,
       },
       dateOfBirth: {
-        type: "date", // Add this field
+        type: "date",
         required: false,
       },
       phoneNumber: {
@@ -67,29 +65,37 @@ export const auth = betterAuth({
     process.env.NODE_ENV === "production"
       ? (process.env.NEXT_PUBLIC_URL! as string)
       : (process.env.BETTER_AUTH_URL! as string),
-    "https://subdivisync11.vercel.app",
+    "https://www.subdivisync.online",
   ],
   appName: "SubdiviSync",
   emailAndPassword: {
     requireEmailVerification: true,
     enabled: true,
     sendResetPassword: async ({ user, url }) => {
-      await resend.emails.send({
-        from: `SubdiviSync <${process.env.SENDER_EMAIL!}>`,
-        to: user.email,
+      await sendEmail({
+        to: [{ email: user.email, name: user.name }],
         subject: "Reset your password",
-        text: `Click the link to reset your password: ${url}`,
+        htmlContent: `<p>Click the link to reset your password: <a href="${url}">${url}</a></p>`,
+        textContent: `Click the link to reset your password: ${url}`,
+        sender: {
+          email: process.env.BREVO_SENDER_EMAIL!,
+          name: "SubdiviSync"
+        }
       });
     },
   },
   emailVerification: {
     sendOnSignUp: true,
     sendVerificationEmail: async ({ user, url }) => {
-      await resend.emails.send({
-        from: `SubdiviSync <${process.env.SENDER_EMAIL!}>`,
-        to: user.email,
+      await sendEmail({
+        to: [{ email: user.email, name: user.name }],
         subject: "Verify your email address",
-        text: `Click the link to verify your email: ${url}`,
+        htmlContent: `<p>Click the link to verify your email: <a href="${url}">${url}</a></p>`,
+        textContent: `Click the link to verify your email: ${url}`,
+        sender: {
+          email: process.env.BREVO_SENDER_EMAIL!,
+          name: "SubdiviSync"
+        }
       });
     },
   },
@@ -102,16 +108,19 @@ export const auth = betterAuth({
       skipVerificationOnEnable: true,
       otpOptions: {
         async sendOTP({ user, otp }) {
-          await resend.emails.send({
-            from: `SubdiviSync <${process.env.SENDER_EMAIL!}>`,
-            to: user.email,
+          await sendEmail({
+            to: [{ email: user.email, name: user.name }],
             subject: "2FA Verification",
-            text: `Verify your OTP: ${otp}`,
+            htmlContent: `<p>Your verification code is: <strong>${otp}</strong></p>`,
+            textContent: `Verify your OTP: ${otp}`,
+            sender: {
+              email: process.env.BREVO_SENDER_EMAIL!,
+              name: "SubdiviSync"
+            }
           });
         },
       },
     }),
-
     nextCookies(),
   ],
 });

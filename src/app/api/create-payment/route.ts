@@ -93,6 +93,15 @@ async function createPayMongoCheckout(params: {
     throw new Error("PayMongo keys not configured");
   }
 
+  // Get base URL based on environment
+  const baseUrl = process.env.NODE_ENV === "production" 
+    ? process.env.NEXT_PUBLIC_URL 
+    : process.env.BETTER_AUTH_URL;
+
+  if (!baseUrl) {
+    throw new Error("Base URL not configured");
+  }
+
   // Create payment intent
   const paymentIntentResponse = await fetch(
     "https://api.paymongo.com/v1/payment_intents",
@@ -131,15 +140,13 @@ async function createPayMongoCheckout(params: {
 
   const paymentIntentId = paymentIntentData.data.id;
 
-  // Create checkout session
+  // Create checkout session with success/cancel URLs
   const checkoutResponse = await fetch(
     "https://api.paymongo.com/v1/checkout_sessions",
     {
       method: "POST",
       headers: {
-        Authorization: `Basic ${Buffer.from(PAYMONGO_SECRET_KEY).toString(
-          "base64"
-        )}`,
+        Authorization: `Basic ${Buffer.from(PAYMONGO_SECRET_KEY + ":").toString("base64")}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -156,18 +163,11 @@ async function createPayMongoCheckout(params: {
               },
             ],
             payment_method_types: ["card", "gcash", "grab_pay"],
-            success_url: `${
-              process.env.NODE_ENV === "production"
-                ? process.env.NEXT_PUBLIC_URL
-                : process.env.BETTER_AUTH_URL
-            }/services/success?payment_intent_id=${paymentIntentId}&request_id=${
-              params.requestId
-            }`,
-            cancel_url: `${
-              process.env.NODE_ENV === "production"
-                ? process.env.NEXT_PUBLIC_URL
-                : process.env.BETTER_AUTH_URL
-            }/services/cancel?request_id=${params.requestId}`,
+            success_url: `${baseUrl}/payment-success?payment_intent_id=${paymentIntentId}&request_id=${params.requestId}`,
+            cancel_url: `${baseUrl}/service-requests?payment=cancelled`,
+            metadata: {
+              request_id: params.requestId,
+            },
           },
         },
       }),

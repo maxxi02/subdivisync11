@@ -70,6 +70,7 @@ interface ServiceRequest {
   scheduled_date?: string;
   assignment_message?: string;
   payment_status: string;
+    receipt_url?: string; // Add this line
 }
 
 interface NotificationType {
@@ -1098,28 +1099,40 @@ const ServiceRequestsSection = () => {
                             {request.priority.toUpperCase()}
                           </Badge>
                         </td>
-                        <td style={{ padding: "12px 16px" }}>
-                          <Stack gap={4}>
-                            <Badge
-                              color={getStatusColor(request.status)}
-                              variant="light"
-                              size="sm"
-                              radius="md"
-                            >
-                              {request.status.toUpperCase()}
-                            </Badge>
-                            {request.payment_status === "paid" ? (
-                              <Badge color="green" variant="light" size="sm">
-                                Paid
-                              </Badge>
-                            ) : request.payment_status ===
-                              "pending_verification" ? (
-                              <Badge color="orange" variant="light" size="sm">
-                                Pending Verification
-                              </Badge>
-                            ) : null}
-                          </Stack>
-                        </td>
+         <td style={{ padding: "12px 16px" }}>
+  <Stack gap={4}>
+    <Badge
+      color={getStatusColor(request.status)}
+      variant="light"
+      size="sm"
+      radius="md"
+    >
+      {request.status.toUpperCase()}
+    </Badge>
+    {request.payment_status === "paid" ? (
+      <>
+        <Badge color="green" variant="light" size="sm">
+          Paid
+        </Badge>
+        {request.receipt_url && (
+          <MantineButton
+            size="xs"
+            variant="outline"
+            color="blue"
+            onClick={() => window.open(request.receipt_url, '_blank')}
+            leftSection={<IconEye size={12} />}
+          >
+            View Receipt
+          </MantineButton>
+        )}
+      </>
+    ) : request.payment_status === "pending_verification" ? (
+      <Badge color="orange" variant="light" size="sm">
+        Pending Verification
+      </Badge>
+    ) : null}
+  </Stack>
+</td>
                         <td style={{ padding: "12px 16px" }}>
                           <Text size="sm" c={primaryTextColor}>
                             {request.date}
@@ -1263,36 +1276,54 @@ const ServiceRequestsSection = () => {
                       >
                         View
                       </MantineButton>
-                      {request.status === "completed" &&
-                        request.final_cost &&
-                        (request.payment_status !== "paid" ? (
-                          <Group gap="xs">
-                            <MantineButton
-                              size="xs"
-                              variant="filled"
-                              color="blue"
-                              onClick={() => handlePayment(request)}
-                              loading={paymentLoading}
-                              disabled={paymentLoading}
-                              leftSection={<IconCash size={14} />}
-                            >
-                              Pay Online
-                            </MantineButton>
-                            <MantineButton
-                              size="xs"
-                              variant="outline"
-                              color="green"
-                              onClick={() => handleCashPayment(request)}
-                              leftSection={<IconCash size={14} />}
-                            >
-                              Pay Cash
-                            </MantineButton>
-                          </Group>
-                        ) : (
-                          <Badge color="green" variant="light" size="sm">
-                            Paid
-                          </Badge>
-                        ))}
+               {request.status === "completed" &&
+  request.final_cost &&
+  (request.payment_status !== "paid" && request.payment_status !== "pending_verification" ? (
+    <Group gap="xs">
+      <MantineButton
+        size="xs"
+        variant="filled"
+        color="blue"
+        onClick={() => handlePayment(request)}
+        loading={paymentLoading}
+        disabled={paymentLoading}
+        leftSection={<IconCash size={14} />}
+      >
+        Pay Online
+      </MantineButton>
+      <MantineButton
+        size="xs"
+        variant="outline"
+        color="green"
+        onClick={() => handleCashPayment(request)}
+        leftSection={<IconCash size={14} />}
+      >
+        Pay Cash
+      </MantineButton>
+    </Group>
+  ) : (
+    <Stack gap="xs">
+      <Badge 
+        color={request.payment_status === "paid" ? "green" : "orange"} 
+        variant="light" 
+        size="sm"
+      >
+        {request.payment_status === "paid" ? "Paid" : "Pending Verification"}
+      </Badge>
+      {request.payment_status === "paid" && request.receipt_url && (
+        <MantineButton
+          size="xs"
+          variant="outline"
+          color="blue"
+          onClick={() => window.open(request.receipt_url, '_blank')}
+          leftSection={<IconEye size={12} />}
+          fullWidth
+        >
+          View Receipt
+        </MantineButton>
+      )}
+    </Stack>
+  ))}
                       {request.status === "pending" && (
                         <MantineButton
                           size="xs"
@@ -1498,6 +1529,22 @@ const ServiceRequestsSection = () => {
                 </Badge>
               </Box>
             )}
+
+            {selectedRequest?.payment_status === "paid" && selectedRequest?.receipt_url && (
+  <Box>
+    <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
+      Receipt
+    </Text>
+    <MantineButton
+      variant="filled"
+      color="blue"
+      onClick={() => window.open(selectedRequest.receipt_url, '_blank')}
+      leftSection={<IconEye size={16} />}
+    >
+      View Receipt
+    </MantineButton>
+  </Box>
+)}
             <Group justify="right">
               <MantineButton variant="outline" color="gray" onClick={closeView}>
                 Close
