@@ -110,9 +110,7 @@ export function LoginForm() {
 
   const parseErrorMessage = (errorMessage: string) => {
     // Check if it's a lockout message
-    const lockoutMatch = errorMessage.match(
-      /try again in (\d+) minute\(s\)/i
-    );
+    const lockoutMatch = errorMessage.match(/try again in (\d+) minute\(s\)/i);
     if (lockoutMatch) {
       const minutes = parseInt(lockoutMatch[1]);
       const endTime = new Date();
@@ -140,7 +138,9 @@ export function LoginForm() {
 
     // Check if account is locked
     if (lockoutEndTime && new Date() < lockoutEndTime) {
-      toast.error("Account is locked. Please wait for the countdown to finish.");
+      toast.error(
+        "Account is locked. Please wait for the countdown to finish."
+      );
       return;
     }
 
@@ -176,10 +176,10 @@ export function LoginForm() {
             const errorMessage =
               context.error.message ||
               "Sign in failed. Please check your credentials.";
-            
+
             // Parse error message for lockout or attempts info
             parseErrorMessage(errorMessage);
-            
+
             toast.error(errorMessage);
 
             if (context.error.status === 403) {
@@ -217,8 +217,7 @@ export function LoginForm() {
           order={2}
           className="text-xl mb-2"
           style={{
-            color:
-              colorScheme === "dark" ? theme.white : theme.colors.gray[9],
+            color: colorScheme === "dark" ? theme.white : theme.colors.gray[9],
           }}
         >
           Login
