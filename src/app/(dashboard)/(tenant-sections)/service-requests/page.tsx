@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   Container,
   Title,
@@ -158,7 +158,7 @@ const ServiceRequestsSection = () => {
     const opacity = colorScheme === "dark" ? 0.2 : 0.12;
     return `${baseShadow} ${rgba(theme.black, opacity)}`;
   };
-  
+
   const showNotification = (type: "success" | "error", message: string) => {
     setNotification({ type, message });
     const timeoutId = setTimeout(() => setNotification(null), 5000);
