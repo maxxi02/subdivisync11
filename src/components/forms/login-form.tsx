@@ -12,12 +12,14 @@ import {
   Checkbox,
   useMantineTheme,
   useMantineColorScheme,
+  Alert,
 } from "@mantine/core";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { getServerSession } from "@/better-auth/action";
 import { Session } from "@/better-auth/auth-types";
 import { toast } from "react-hot-toast";
+import { IconAlertCircle, IconClock } from "@tabler/icons-react";
 
 interface FormData {
   email: string;
@@ -37,6 +39,14 @@ export function LoginForm() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
+  const [lockoutEndTime, setLockoutEndTime] = useState<Date | null>(null);
+  const [remainingTime, setRemainingTime] = useState<{
+    minutes: number;
+    seconds: number;
+  } | null>(null);
+  const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(
+    null
+  );
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -49,6 +59,36 @@ export function LoginForm() {
       router.replace("/dashboard");
     }
   }, [session, router]);
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (!lockoutEndTime) {
+      setRemainingTime(null);
+      return;
+    }
+
+    const updateCountdown = () => {
+      const now = new Date();
+      const diff = lockoutEndTime.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setLockoutEndTime(null);
+        setRemainingTime(null);
+        setAttemptsRemaining(null);
+        toast.success("Account unlocked! You can try logging in again.");
+        return;
+      }
+
+      const minutes = Math.floor(diff / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      setRemainingTime({ minutes, seconds });
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [lockoutEndTime]);
 
   const handleInputChange = (
     field: keyof FormData,
@@ -68,12 +108,39 @@ export function LoginForm() {
     return null;
   };
 
+  const parseErrorMessage = (errorMessage: string) => {
+    // Check if it's a lockout message
+    const lockoutMatch = errorMessage.match(
+      /try again in (\d+) minute\(s\)/i
+    );
+    if (lockoutMatch) {
+      const minutes = parseInt(lockoutMatch[1]);
+      const endTime = new Date();
+      endTime.setMinutes(endTime.getMinutes() + minutes);
+      setLockoutEndTime(endTime);
+      return;
+    }
+
+    // Check if it's an attempts remaining message
+    const attemptsMatch = errorMessage.match(/(\d+) attempt\(s\) remaining/i);
+    if (attemptsMatch) {
+      const attempts = parseInt(attemptsMatch[1]);
+      setAttemptsRemaining(attempts);
+    }
+  };
+
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const validationError = validateForm();
     if (validationError) {
       toast.error(validationError);
+      return;
+    }
+
+    // Check if account is locked
+    if (lockoutEndTime && new Date() < lockoutEndTime) {
+      toast.error("Account is locked. Please wait for the countdown to finish.");
       return;
     }
 
@@ -88,6 +155,11 @@ export function LoginForm() {
         },
         {
           async onSuccess(context) {
+            // Clear lockout state on success
+            setLockoutEndTime(null);
+            setRemainingTime(null);
+            setAttemptsRemaining(null);
+
             if (context.data.twoFactorRedirect) {
               await authClient.twoFactor.sendOtp();
               toast.success(
@@ -104,6 +176,10 @@ export function LoginForm() {
             const errorMessage =
               context.error.message ||
               "Sign in failed. Please check your credentials.";
+            
+            // Parse error message for lockout or attempts info
+            parseErrorMessage(errorMessage);
+            
             toast.error(errorMessage);
 
             if (context.error.status === 403) {
@@ -125,33 +201,89 @@ export function LoginForm() {
     }
   };
 
+  const isLocked = lockoutEndTime && new Date() < lockoutEndTime;
+
   return (
-    <Paper 
-      className="w-full max-w-sm" 
+    <Paper
+      className="w-full max-w-sm"
       p="xl"
       style={{
-        backgroundColor: colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+        backgroundColor:
+          colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
       }}
     >
       <div className="text-center mb-6">
-        <Title 
-          order={2} 
+        <Title
+          order={2}
           className="text-xl mb-2"
           style={{
-            color: colorScheme === "dark" ? theme.white : theme.colors.gray[9],
+            color:
+              colorScheme === "dark" ? theme.white : theme.colors.gray[9],
           }}
         >
           Login
         </Title>
-        <Text 
-          size="sm" 
+        <Text
+          size="sm"
           style={{
-            color: colorScheme === "dark" ? theme.colors.gray[4] : theme.colors.gray[6],
+            color:
+              colorScheme === "dark"
+                ? theme.colors.gray[4]
+                : theme.colors.gray[6],
           }}
         >
           Sign in to your account to continue
         </Text>
       </div>
+
+      {/* Lockout Alert */}
+      {isLocked && remainingTime && (
+        <Alert
+          icon={<IconClock size={20} />}
+          title="Account Locked"
+          color="red"
+          className="mb-4"
+          styles={{
+            message: {
+              fontSize: "0.875rem",
+            },
+          }}
+        >
+          <Text size="sm" fw={500} className="mb-2">
+            Too many failed login attempts
+          </Text>
+          <div className="flex items-center gap-2">
+            <Text size="xl" fw={700} className="tabular-nums">
+              {String(remainingTime.minutes).padStart(2, "0")}:
+              {String(remainingTime.seconds).padStart(2, "0")}
+            </Text>
+            <Text size="xs" c="dimmed">
+              remaining
+            </Text>
+          </div>
+          <Text size="xs" c="dimmed" className="mt-2">
+            Your account will be automatically unlocked after this time.
+          </Text>
+        </Alert>
+      )}
+
+      {/* Attempts Warning */}
+      {!isLocked && attemptsRemaining !== null && attemptsRemaining <= 3 && (
+        <Alert
+          icon={<IconAlertCircle size={20} />}
+          title="Warning"
+          color="orange"
+          className="mb-4"
+        >
+          <Text size="sm">
+            {attemptsRemaining === 1
+              ? "This is your last attempt before your account gets locked for 10 minutes."
+              : `You have ${attemptsRemaining} attempt${
+                  attemptsRemaining > 1 ? "s" : ""
+                } remaining before your account gets locked.`}
+          </Text>
+        </Alert>
+      )}
 
       <form onSubmit={handleEmailSignIn}>
         <Stack gap="md">
@@ -163,12 +295,13 @@ export function LoginForm() {
             value={formData.email}
             onChange={(e) => handleInputChange("email", e.target.value)}
             styles={{
-              label: { 
-                color: colorScheme === "dark" ? theme.white : theme.colors.gray[9], 
-                fontWeight: 500 
+              label: {
+                color:
+                  colorScheme === "dark" ? theme.white : theme.colors.gray[9],
+                fontWeight: 500,
               },
             }}
-            disabled={isLoading}
+            disabled={isLoading || !!isLocked}
           />
 
           <TextInput
@@ -179,12 +312,13 @@ export function LoginForm() {
             value={formData.password}
             onChange={(e) => handleInputChange("password", e.target.value)}
             styles={{
-              label: { 
-                color: colorScheme === "dark" ? theme.white : theme.colors.gray[9], 
-                fontWeight: 500 
+              label: {
+                color:
+                  colorScheme === "dark" ? theme.white : theme.colors.gray[9],
+                fontWeight: 500,
               },
             }}
-            disabled={isLoading}
+            disabled={isLoading || !!isLocked}
           />
 
           <div className="flex items-center justify-between gap-2">
@@ -195,11 +329,14 @@ export function LoginForm() {
               onChange={(e) =>
                 handleInputChange("rememberMe", e.target.checked)
               }
-              disabled={isLoading}
+              disabled={isLoading || !!isLocked}
               styles={{
-                label: { 
-                  color: colorScheme === "dark" ? theme.colors.gray[4] : theme.colors.gray[6], 
-                  fontSize: "0.875rem" 
+                label: {
+                  color:
+                    colorScheme === "dark"
+                      ? theme.colors.gray[4]
+                      : theme.colors.gray[6],
+                  fontSize: "0.875rem",
                 },
               }}
             />
@@ -207,7 +344,10 @@ export function LoginForm() {
               href="/forgot-password"
               className="text-sm font-medium hover:underline"
               style={{
-                color: colorScheme === "dark" ? theme.colors.blue[4] : theme.colors.blue[6],
+                color:
+                  colorScheme === "dark"
+                    ? theme.colors.blue[4]
+                    : theme.colors.blue[6],
               }}
             >
               Forgot password?
@@ -220,9 +360,9 @@ export function LoginForm() {
             size="md"
             fullWidth
             loading={isLoading}
-            disabled={isLoading}
+            disabled={isLoading || !!isLocked}
           >
-            Sign In
+            {isLocked ? "Account Locked" : "Sign In"}
           </Button>
         </Stack>
       </form>
