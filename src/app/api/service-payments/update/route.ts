@@ -1,89 +1,98 @@
+// app/api/service-payments/update/route.ts
 import { getServerSession } from "@/better-auth/action";
 import { connectDB, db } from "@/database/mongodb";
 import { NextRequest, NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
 
-export async function PUT(request: NextRequest) {
+const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY!;
+
+export async function PUT(req: NextRequest) {
   try {
     const session = await getServerSession();
-    if (!session) {
+    if (!session?.user) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const { requestId, checkoutSessionId } = await request.json();
+    const { requestId, checkoutSessionId } = await req.json();
 
-    if (!requestId) {
+    if (!requestId || !checkoutSessionId) {
       return NextResponse.json(
-        { success: false, error: "Request ID is required" },
+        { success: false, error: "Missing required parameters" },
         { status: 400 }
-      );
-    }
-
-    await connectDB();
-    const serviceRequestsCollection = db.collection("service_requests");
-
-    // Verify payment with PayMongo
-    const secretKey = process.env.PAYMONGO_SECRET_API_KEY;
-    if (!secretKey) {
-      return NextResponse.json(
-        { success: false, error: "Payment gateway not configured" },
-        { status: 500 }
       );
     }
 
     // Retrieve checkout session from PayMongo
-    const verifyResponse = await fetch(
+    const response = await fetch(
       `https://api.paymongo.com/v1/checkout_sessions/${checkoutSessionId}`,
       {
         method: "GET",
         headers: {
-          accept: "application/json",
-          authorization: `Basic ${Buffer.from(secretKey + ":").toString("base64")}`,
+          Accept: "application/json",
+          Authorization: `Basic ${Buffer.from(PAYMONGO_SECRET_KEY).toString("base64")}`,
         },
       }
     );
 
-    const verifyData = await verifyResponse.json();
-
-    if (!verifyResponse.ok) {
+    if (!response.ok) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to verify payment",
-        },
+        { success: false, error: "Failed to retrieve payment session" },
+        { status: response.status }
+      );
+    }
+
+    const sessionData = await response.json();
+    const checkoutSession = sessionData.data;
+
+    // Check payment status
+    if (checkoutSession.attributes.payment_status !== "paid") {
+      return NextResponse.json(
+        { success: false, error: "Payment not completed" },
         { status: 400 }
       );
     }
 
-    const paymentStatus =
-      verifyData.data.attributes.payment_intent?.attributes?.status;
+    // Get payment intent for receipt
+    const paymentIntentId = checkoutSession.attributes.payments?.[0]?.id;
+    let receiptUrl = null;
 
-    if (paymentStatus !== "succeeded") {
-      return NextResponse.json(
+    if (paymentIntentId) {
+      const paymentResponse = await fetch(
+        `https://api.paymongo.com/v1/payment_intents/${paymentIntentId}`,
         {
-          success: false,
-          error: "Payment not completed",
-        },
-        { status: 400 }
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Basic ${Buffer.from(PAYMONGO_SECRET_KEY).toString("base64")}`,
+          },
+        }
       );
+
+      if (paymentResponse.ok) {
+        const paymentData = await paymentResponse.json();
+        const payment = paymentData.data;
+
+        // PayMongo receipt URL (if available)
+        receiptUrl =
+          payment.attributes.payments?.[0]?.attributes?.receipt_url ||
+          checkoutSession.attributes.receipt_url ||
+          null;
+      }
     }
 
-    // Get payment details for receipt
-    const paymentIntent = verifyData.data.attributes.payment_intent;
-    const receiptUrl = verifyData.data.attributes.checkout_url; // Or generate your own receipt
+    // Connect to database and update service request
+    await connectDB();
 
-    // Update service request with paid status
-    const updateResult = await serviceRequestsCollection.updateOne(
-      { _id: new ObjectId(requestId), user_email: session.user.email },
+    const updateResult = await db.collection("service_requests").updateOne(
+      { _id: requestId, user_email: session.user.email },
       {
         $set: {
           payment_status: "paid",
-          paid_date: new Date().toISOString(),
-          payment_method: "PayMongo",
-          payment_intent_id: paymentIntent.id,
+          paid_at: new Date().toISOString(),
+          payment_method: checkoutSession.attributes.payment_method_used,
+          payment_intent_id: paymentIntentId,
           receipt_url: receiptUrl,
           updated_at: new Date().toISOString(),
         },
@@ -92,22 +101,66 @@ export async function PUT(request: NextRequest) {
 
     if (updateResult.matchedCount === 0) {
       return NextResponse.json(
-        { success: false, error: "Service request not found" },
+        { success: false, error: "Service request not found or unauthorized" },
         { status: 404 }
       );
     }
 
+    // Generate custom receipt if PayMongo receipt not available
+    if (!receiptUrl) {
+      try {
+        const receiptResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_BASE_URL}/api/generate-receipt`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              requestId,
+              paymentDetails: {
+                amount: checkoutSession.attributes.line_items[0].amount / 100,
+                paymentMethod: checkoutSession.attributes.payment_method_used,
+                referenceNumber: checkoutSession.attributes.reference_number,
+                paidAt: new Date().toISOString(),
+              },
+            }),
+          }
+        );
+
+        if (receiptResponse.ok) {
+          const receiptData = await receiptResponse.json();
+          receiptUrl = receiptData.receiptUrl;
+
+          // Update with custom receipt URL
+          await db
+            .collection("service_requests")
+            .updateOne(
+              { _id: requestId },
+              { $set: { receipt_url: receiptUrl } }
+            );
+        }
+      } catch (error) {
+        console.error("Custom receipt generation failed:", error);
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      message: "Payment verified and request updated",
+      message: "Payment verified successfully",
       receiptUrl,
+      paymentDetails: {
+        amount: checkoutSession.attributes.line_items[0].amount / 100,
+        paymentMethod: checkoutSession.attributes.payment_method_used,
+        referenceNumber: checkoutSession.attributes.reference_number,
+      },
     });
   } catch (error) {
-    console.error("Error updating payment:", error);
+    console.error("Payment update error:", error);
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to update payment status",
+        error: error instanceof Error ? error.message : "Internal server error",
       },
       { status: 500 }
     );

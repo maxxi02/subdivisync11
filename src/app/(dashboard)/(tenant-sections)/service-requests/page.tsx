@@ -348,49 +348,87 @@ const ServiceRequestsSection = () => {
     }
   };
   const handlePayment = async (request: ServiceRequest) => {
-    if (!request.final_cost) {
-      showNotification("error", "No final cost available for payment");
-      return;
+    // Check for existing pending payment
+    const pendingPayment = localStorage.getItem("pendingServicePayment");
+    if (pendingPayment) {
+      const paymentInfo = JSON.parse(pendingPayment);
+      if (paymentInfo.requestId === request._id) {
+        showNotification(
+          "error",
+          "You already have a pending payment for this request. Please complete it first."
+        );
+        return;
+      }
     }
 
     try {
       setPaymentLoading(true);
       setPaymentRequest(request);
+      open(); // Open modal
 
-      // Call the new payment processing endpoint
-      const paymentResponse = await axios.post(
-        "/api/service-payments/process",
-        {
+      // Create PayMongo checkout session
+      const response = await axios.post("/api/service-payments/create", {
+        requestId: request._id,
+      });
+
+      if (!response.data.success) {
+        throw new Error(
+          response.data.error || "Failed to create payment session"
+        );
+      }
+
+      const { checkoutUrl, checkoutSessionId, referenceNumber } = response.data;
+
+      // Store payment info in localStorage for verification later
+      localStorage.setItem(
+        "pendingServicePayment",
+        JSON.stringify({
           requestId: request._id,
-        }
+          checkoutSessionId,
+          referenceNumber,
+          timestamp: new Date().toISOString(),
+        })
       );
 
-      if (paymentResponse.data.success) {
-        // Store payment info in localStorage for success page
-        localStorage.setItem(
-          "pendingServicePayment",
-          JSON.stringify({
-            requestId: request._id,
-            checkoutSessionId: paymentResponse.data.checkoutSession.id,
-            amount: request.final_cost,
-          })
-        );
-
-        // Redirect to PayMongo checkout
-        window.location.href = paymentResponse.data.checkoutUrl;
-      } else {
-        showNotification(
-          "error",
-          paymentResponse.data.error || "Failed to create payment"
-        );
-        setPaymentLoading(false);
-      }
+      // Redirect to PayMongo checkout
+      window.location.href = checkoutUrl;
     } catch (error) {
       console.error("Payment error:", error);
-      showNotification("error", "Payment failed. Please try again.");
+      showNotification(
+        "error",
+        error instanceof Error ? error.message : "Failed to initiate payment"
+      );
       setPaymentLoading(false);
+      close();
     }
   };
+
+  // Also add this useEffect to check for pending payments on component mount
+  useEffect(() => {
+    const checkPendingPayment = () => {
+      const pendingPayment = localStorage.getItem("pendingServicePayment");
+      if (pendingPayment) {
+        const paymentInfo = JSON.parse(pendingPayment);
+        // Check if payment is more than 30 minutes old
+        const timestamp = new Date(paymentInfo.timestamp);
+        const now = new Date();
+        const diffMinutes = (now.getTime() - timestamp.getTime()) / (1000 * 60);
+
+        if (diffMinutes > 30) {
+          // Clear old pending payment
+          localStorage.removeItem("pendingServicePayment");
+        } else {
+          showNotification(
+            "error",
+            "You have a pending payment. Please complete it or it will expire."
+          );
+        }
+      }
+    };
+
+    checkPendingPayment();
+  }, []);
+
   const submitRequest = async () => {
     if (!selectedCategory || !issueDescription.trim()) {
       showNotification(

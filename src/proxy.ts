@@ -24,6 +24,10 @@ const publicPaths = [
   "/email-verification",
   "/2fa-verification",
   "/verify-email",
+  "/service-requests/payment/success",
+  "/service-requests/payment/cancel",
+  "/payments/success",
+  "/payments/cancel",
 ];
 
 // Role-based page access control
@@ -66,20 +70,26 @@ const roleDefaultPage = {
   user: "/homeowner-dashboard",
 };
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  // Allow public paths without authentication
-  if (publicPaths.some((path) => pathname === path || pathname.startsWith(path))) {
+  if (pathname.startsWith("/api")) {
+    console.log("API route detected, skipping middleware:", pathname);
     return NextResponse.next();
   }
 
-  // Allow API routes and static files
+  // Allow static files and Next.js internals
   if (
-    pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/static") ||
-    pathname.includes(".")
+    pathname.match(/\.(ico|png|jpg|jpeg|svg|css|js|woff|woff2|ttf|eot)$/)
+  ) {
+    return NextResponse.next();
+  }
+
+  // Allow public paths without authentication
+  if (
+    publicPaths.some((path) => pathname === path || pathname.startsWith(path))
   ) {
     return NextResponse.next();
   }
@@ -105,13 +115,12 @@ export async function middleware(request: NextRequest) {
 
     // Check email verification (if required by your app)
     if (!session.user.emailVerified && pathname !== "/email-verification") {
-      return NextResponse.redirect(
-        new URL("/email-verification", request.url)
-      );
+      return NextResponse.redirect(new URL("/email-verification", request.url));
     }
 
     // Normalize role (handle undefined or unexpected roles)
-    const userRole = (session.user.role?.toLowerCase() || "user") as keyof typeof rolePageAccess;
+    const userRole = (session.user.role?.toLowerCase() ||
+      "user") as keyof typeof rolePageAccess;
 
     // Get allowed pages for the user's role
     const allowedPages = rolePageAccess[userRole] || rolePageAccess.user;
@@ -122,7 +131,7 @@ export async function middleware(request: NextRequest) {
     if (!hasAccess) {
       // Redirect to default page for their role
       const defaultPage = roleDefaultPage[userRole] || roleDefaultPage.user;
-      
+
       // Prevent redirect loops
       if (pathname === defaultPage) {
         return NextResponse.next();
@@ -140,12 +149,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   } catch (error) {
     console.error("Middleware error:", error);
-    
+
     // On error, redirect to login for protected routes
     if (!publicPaths.some((path) => pathname.startsWith(path))) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
-    
+
     return NextResponse.next();
   }
 }
@@ -154,11 +163,12 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except:
-     * - api routes (handled separately)
+     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico, sitemap.xml, robots.txt (public files)
+     * - favicon.ico, sitemap.xml, robots.txt (metadata files)
+     * - *.png, *.jpg, etc. (static image files)
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!api|_next/static|_next/image|_next/webpack-hmr|favicon.ico|sitemap.xml|robots.txt|.*\\..*).+)",
   ],
 };
