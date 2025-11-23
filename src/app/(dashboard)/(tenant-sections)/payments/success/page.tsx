@@ -116,9 +116,7 @@ const PaymentSuccessPage = () => {
         {status === "success" && (
           <>
             <CheckCircle className="h-16 w-16  mx-auto mb-4" />
-            <h1 className="text-2xl font-bold mb-2">
-              Payment Successful!
-            </h1>
+            <h1 className="text-2xl font-bold mb-2">Payment Successful!</h1>
             <p className="text-gray-600 mb-6">{message}</p>
             <button
               onClick={handleContinue}

@@ -45,7 +45,7 @@ import { useDisclosure } from "@mantine/hooks";
 import axios from "axios";
 import Image from "next/image";
 import { Wrench } from "lucide-react";
-import ServiceRequestCarousel from "./_components/serveice-carousel";
+import ServiceRequestCarousel from "./_components/service-carousel";
 
 interface ServiceRequest {
   _id?: string;
@@ -352,27 +352,42 @@ const ServiceRequestsSection = () => {
       showNotification("error", "No final cost available for payment");
       return;
     }
+
     try {
       setPaymentLoading(true);
       setPaymentRequest(request);
-      open();
-      const paymentResponse = await axios.post("/api/create-payment", {
-        amount: request.final_cost,
-        description: `Payment for ${request.category} service`,
-        requestId: request._id,
-      });
+
+      // Call the new payment processing endpoint
+      const paymentResponse = await axios.post(
+        "/api/service-payments/process",
+        {
+          requestId: request._id,
+        }
+      );
+
       if (paymentResponse.data.success) {
-        window.location.href = paymentResponse.data.checkout_url;
+        // Store payment info in localStorage for success page
+        localStorage.setItem(
+          "pendingServicePayment",
+          JSON.stringify({
+            requestId: request._id,
+            checkoutSessionId: paymentResponse.data.checkoutSession.id,
+            amount: request.final_cost,
+          })
+        );
+
+        // Redirect to PayMongo checkout
+        window.location.href = paymentResponse.data.checkoutUrl;
       } else {
         showNotification(
           "error",
           paymentResponse.data.error || "Failed to create payment"
         );
+        setPaymentLoading(false);
       }
     } catch (error) {
       console.error("Payment error:", error);
       showNotification("error", "Payment failed. Please try again.");
-    } finally {
       setPaymentLoading(false);
     }
   };

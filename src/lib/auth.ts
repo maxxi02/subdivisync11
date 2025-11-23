@@ -10,32 +10,6 @@ export const auth = betterAuth({
     process.env.NODE_ENV === "production"
       ? process.env.NEXT_PUBLIC_URL!
       : process.env.BETTER_AUTH_URL!,
-  advanced: {
-    ipAddress: {
-      ipAddressHeaders: ["x-forwarded-for", "x-real-ip"],
-    },
-    rateLimit: {
-      enabled: true,
-      storage: "database",
-      modelName: "rateLimit",
-      window: 60,
-      max: 10,
-      customRules: {
-        "/sign-in/email": {
-          window: 10,
-          max: 5,
-        },
-        "/two-factor/*": {
-          window: 10,
-          max: 5,
-        },
-        "/two-factor/send-otp": {
-          window: 60,
-          max: 5,
-        },
-      },
-    },
-  },
   user: {
     additionalFields: {
       address: {
