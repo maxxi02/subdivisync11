@@ -70,11 +70,7 @@ interface ServiceRequest {
   scheduled_date?: string;
   assignment_message?: string;
   payment_status: string;
-<<<<<<< HEAD
   receipt_url?: string; // Add this line
-=======
-    receipt_url?: string; // Add this line
->>>>>>> ac7338234a57e21f6b20e2a72c22d56c9de63ac2
 }
 
 interface NotificationType {
@@ -1004,9 +1000,16 @@ const ServiceRequestsSection = () => {
             Request History
           </Title>
           {/* Desktop View - Table */}
+          {/* Desktop View - Table */}
           <Box display={{ base: "none", md: "block" }}>
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  tableLayout: "fixed",
+                }}
+              >
                 <thead
                   style={{
                     backgroundColor:
@@ -1021,36 +1024,111 @@ const ServiceRequestsSection = () => {
                   }}
                 >
                   <tr>
-                    {[
-                      "Category",
-                      "Description",
-                      "Priority",
-                      "Status",
-                      "Date",
-                      "Actions",
-                    ].map((header) => (
-                      <th
-                        key={header}
-                        style={{
-                          padding: "12px 16px",
-                          textAlign: "left",
-                          fontSize: "12px",
-                          fontWeight: 600,
-                          color: secondaryTextColor,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px",
-                        }}
-                      >
-                        {header}
-                      </th>
-                    ))}
+                    <th
+                      style={{
+                        padding: "12px 16px",
+                        textAlign: "left",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: secondaryTextColor,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        width: "12%",
+                      }}
+                    >
+                      Category
+                    </th>
+                    <th
+                      style={{
+                        padding: "12px 16px",
+                        textAlign: "left",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: secondaryTextColor,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        width: "20%",
+                      }}
+                    >
+                      Description
+                    </th>
+                    <th
+                      style={{
+                        padding: "12px 16px",
+                        textAlign: "left",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: secondaryTextColor,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        width: "10%",
+                      }}
+                    >
+                      Priority
+                    </th>
+                    <th
+                      style={{
+                        padding: "12px 16px",
+                        textAlign: "left",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: secondaryTextColor,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        width: "12%",
+                      }}
+                    >
+                      Status
+                    </th>
+                    <th
+                      style={{
+                        padding: "12px 16px",
+                        textAlign: "left",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: secondaryTextColor,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        width: "13%",
+                      }}
+                    >
+                      Payment Status
+                    </th>
+                    <th
+                      style={{
+                        padding: "12px 16px",
+                        textAlign: "left",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: secondaryTextColor,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        width: "10%",
+                      }}
+                    >
+                      Date
+                    </th>
+                    <th
+                      style={{
+                        padding: "12px 16px",
+                        textAlign: "left",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: secondaryTextColor,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        width: "23%",
+                      }}
+                    >
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredRequests.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={7}
                         style={{
                           padding: "32px",
                           textAlign: "center",
@@ -1103,17 +1181,18 @@ const ServiceRequestsSection = () => {
                             {request.priority.toUpperCase()}
                           </Badge>
                         </td>
-<<<<<<< HEAD
+                        <td style={{ padding: "12px 16px" }}>
+                          <Badge
+                            color={getStatusColor(request.status)}
+                            variant="light"
+                            size="sm"
+                            radius="md"
+                          >
+                            {request.status.toUpperCase()}
+                          </Badge>
+                        </td>
                         <td style={{ padding: "12px 16px" }}>
                           <Stack gap={4}>
-                            <Badge
-                              color={getStatusColor(request.status)}
-                              variant="light"
-                              size="sm"
-                              radius="md"
-                            >
-                              {request.status.toUpperCase()}
-                            </Badge>
                             {request.payment_status === "paid" ? (
                               <>
                                 <Badge color="green" variant="light" size="sm">
@@ -1138,45 +1217,18 @@ const ServiceRequestsSection = () => {
                               <Badge color="orange" variant="light" size="sm">
                                 Pending Verification
                               </Badge>
-                            ) : null}
+                            ) : request.status === "completed" &&
+                              request.final_cost ? (
+                              <Badge color="yellow" variant="light" size="sm">
+                                Payment Due
+                              </Badge>
+                            ) : (
+                              <Badge color="gray" variant="light" size="sm">
+                                N/A
+                              </Badge>
+                            )}
                           </Stack>
                         </td>
-=======
-         <td style={{ padding: "12px 16px" }}>
-  <Stack gap={4}>
-    <Badge
-      color={getStatusColor(request.status)}
-      variant="light"
-      size="sm"
-      radius="md"
-    >
-      {request.status.toUpperCase()}
-    </Badge>
-    {request.payment_status === "paid" ? (
-      <>
-        <Badge color="green" variant="light" size="sm">
-          Paid
-        </Badge>
-        {request.receipt_url && (
-          <MantineButton
-            size="xs"
-            variant="outline"
-            color="blue"
-            onClick={() => window.open(request.receipt_url, '_blank')}
-            leftSection={<IconEye size={12} />}
-          >
-            View Receipt
-          </MantineButton>
-        )}
-      </>
-    ) : request.payment_status === "pending_verification" ? (
-      <Badge color="orange" variant="light" size="sm">
-        Pending Verification
-      </Badge>
-    ) : null}
-  </Stack>
-</td>
->>>>>>> ac7338234a57e21f6b20e2a72c22d56c9de63ac2
                         <td style={{ padding: "12px 16px" }}>
                           <Text size="sm" c={primaryTextColor}>
                             {request.date}
@@ -1225,24 +1277,6 @@ const ServiceRequestsSection = () => {
                                     Pay Cash
                                   </MantineButton>
                                 </Group>
-                              )}
-                            {request.status === "completed" &&
-                              (request.payment_status === "paid" ||
-                                request.payment_status ===
-                                  "pending_verification") && (
-                                <Badge
-                                  color={
-                                    request.payment_status === "paid"
-                                      ? "green"
-                                      : "orange"
-                                  }
-                                  variant="light"
-                                  size="sm"
-                                >
-                                  {request.payment_status === "paid"
-                                    ? "Paid"
-                                    : "Pending Verification"}
-                                </Badge>
                               )}
                             {request.status === "pending" && (
                               <MantineButton
@@ -1320,7 +1354,6 @@ const ServiceRequestsSection = () => {
                       >
                         View
                       </MantineButton>
-<<<<<<< HEAD
                       {request.status === "completed" &&
                         request.final_cost &&
                         (request.payment_status !== "paid" &&
@@ -1379,56 +1412,65 @@ const ServiceRequestsSection = () => {
                               )}
                           </Stack>
                         ))}
-=======
-               {request.status === "completed" &&
-  request.final_cost &&
-  (request.payment_status !== "paid" && request.payment_status !== "pending_verification" ? (
-    <Group gap="xs">
-      <MantineButton
-        size="xs"
-        variant="filled"
-        color="blue"
-        onClick={() => handlePayment(request)}
-        loading={paymentLoading}
-        disabled={paymentLoading}
-        leftSection={<IconCash size={14} />}
-      >
-        Pay Online
-      </MantineButton>
-      <MantineButton
-        size="xs"
-        variant="outline"
-        color="green"
-        onClick={() => handleCashPayment(request)}
-        leftSection={<IconCash size={14} />}
-      >
-        Pay Cash
-      </MantineButton>
-    </Group>
-  ) : (
-    <Stack gap="xs">
-      <Badge 
-        color={request.payment_status === "paid" ? "green" : "orange"} 
-        variant="light" 
-        size="sm"
-      >
-        {request.payment_status === "paid" ? "Paid" : "Pending Verification"}
-      </Badge>
-      {request.payment_status === "paid" && request.receipt_url && (
-        <MantineButton
-          size="xs"
-          variant="outline"
-          color="blue"
-          onClick={() => window.open(request.receipt_url, '_blank')}
-          leftSection={<IconEye size={12} />}
-          fullWidth
-        >
-          View Receipt
-        </MantineButton>
-      )}
-    </Stack>
-  ))}
->>>>>>> ac7338234a57e21f6b20e2a72c22d56c9de63ac2
+                      =======
+                      {request.status === "completed" &&
+                        request.final_cost &&
+                        (request.payment_status !== "paid" &&
+                        request.payment_status !== "pending_verification" ? (
+                          <Group gap="xs">
+                            <MantineButton
+                              size="xs"
+                              variant="filled"
+                              color="blue"
+                              onClick={() => handlePayment(request)}
+                              loading={paymentLoading}
+                              disabled={paymentLoading}
+                              leftSection={<IconCash size={14} />}
+                            >
+                              Pay Online
+                            </MantineButton>
+                            <MantineButton
+                              size="xs"
+                              variant="outline"
+                              color="green"
+                              onClick={() => handleCashPayment(request)}
+                              leftSection={<IconCash size={14} />}
+                            >
+                              Pay Cash
+                            </MantineButton>
+                          </Group>
+                        ) : (
+                          <Stack gap="xs">
+                            <Badge
+                              color={
+                                request.payment_status === "paid"
+                                  ? "green"
+                                  : "orange"
+                              }
+                              variant="light"
+                              size="sm"
+                            >
+                              {request.payment_status === "paid"
+                                ? "Paid"
+                                : "Pending Verification"}
+                            </Badge>
+                            {request.payment_status === "paid" &&
+                              request.receipt_url && (
+                                <MantineButton
+                                  size="xs"
+                                  variant="outline"
+                                  color="blue"
+                                  onClick={() =>
+                                    window.open(request.receipt_url, "_blank")
+                                  }
+                                  leftSection={<IconEye size={12} />}
+                                  fullWidth
+                                >
+                                  View Receipt
+                                </MantineButton>
+                              )}
+                          </Stack>
+                        ))}
                       {request.status === "pending" && (
                         <MantineButton
                           size="xs"
@@ -1634,8 +1676,6 @@ const ServiceRequestsSection = () => {
                 </Badge>
               </Box>
             )}
-
-<<<<<<< HEAD
             {selectedRequest?.payment_status === "paid" &&
               selectedRequest?.receipt_url && (
                 <Box>
@@ -1654,23 +1694,25 @@ const ServiceRequestsSection = () => {
                   </MantineButton>
                 </Box>
               )}
-=======
-            {selectedRequest?.payment_status === "paid" && selectedRequest?.receipt_url && (
-  <Box>
-    <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
-      Receipt
-    </Text>
-    <MantineButton
-      variant="filled"
-      color="blue"
-      onClick={() => window.open(selectedRequest.receipt_url, '_blank')}
-      leftSection={<IconEye size={16} />}
-    >
-      View Receipt
-    </MantineButton>
-  </Box>
-)}
->>>>>>> ac7338234a57e21f6b20e2a72c22d56c9de63ac2
+            =======
+            {selectedRequest?.payment_status === "paid" &&
+              selectedRequest?.receipt_url && (
+                <Box>
+                  <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
+                    Receipt
+                  </Text>
+                  <MantineButton
+                    variant="filled"
+                    color="blue"
+                    onClick={() =>
+                      window.open(selectedRequest.receipt_url, "_blank")
+                    }
+                    leftSection={<IconEye size={16} />}
+                  >
+                    View Receipt
+                  </MantineButton>
+                </Box>
+              )}
             <Group justify="right">
               <MantineButton variant="outline" color="gray" onClick={closeView}>
                 Close
