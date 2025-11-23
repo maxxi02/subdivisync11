@@ -35,7 +35,7 @@ const ServicePaymentSuccessPage = () => {
         const { checkoutSessionId } = paymentInfo;
 
         // Update payment status
-        const response = await fetch("/api/service-requests/payment/update", {
+        const response = await fetch("/api/service-payments/update", {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
