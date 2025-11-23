@@ -861,7 +861,6 @@ export default function Dashboard() {
                 <Table.Tr>
                   <Table.Th>Name</Table.Th>
                   <Table.Th>Email</Table.Th>
-                  <Table.Th>Status</Table.Th>
                   <Table.Th>Created At</Table.Th>
                 </Table.Tr>
               </Table.Thead>
@@ -877,7 +876,7 @@ export default function Dashboard() {
                     <Table.Tr key={tenant._id}>
                       <Table.Td>{tenant.user_name}</Table.Td>
                       <Table.Td>{tenant.user_email}</Table.Td>
-                      <Table.Td>
+                      {/* <Table.Td>
                         <Badge
                           color={
                             tenant.status === "Active"
@@ -889,7 +888,7 @@ export default function Dashboard() {
                         >
                           {tenant.status}
                         </Badge>
-                      </Table.Td>
+                      </Table.Td> */}
                       <Table.Td>
                         {new Date(tenant.created_at).toLocaleDateString()}
                       </Table.Td>

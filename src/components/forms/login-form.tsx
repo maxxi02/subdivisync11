@@ -21,11 +21,22 @@ import { Session } from "@/better-auth/auth-types";
 import { toast } from "react-hot-toast";
 import { IconAlertCircle, IconClock } from "@tabler/icons-react";
 
+const RATE_LIMIT_WINDOW =
+  process.env.NODE_ENV === "production" ? 10 * 60 : 1 * 60; // 10 minutes in production, 1 minute in dev
+const RATE_LIMIT_MAX_ATTEMPTS = 5;
+
 interface FormData {
   email: string;
   password: string;
   rememberMe: boolean;
 }
+const formatRetryTime = (seconds: number) => {
+  if (seconds >= 60) {
+    const minutes = Math.ceil(seconds / 60);
+    return `${minutes} minute${minutes > 1 ? "s" : ""}`;
+  }
+  return `${seconds} second${seconds > 1 ? "s" : ""}`;
+};
 
 export function LoginForm() {
   const router = useRouter();
@@ -47,6 +58,31 @@ export function LoginForm() {
   const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(
     null
   );
+
+  const [rateLimitLockout, setRateLimitLockout] = useState<{
+    lockedUntil: number;
+    remainingSeconds: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!rateLimitLockout) return;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const remaining = Math.ceil((rateLimitLockout.lockedUntil - now) / 1000);
+
+      if (remaining <= 0) {
+        setRateLimitLockout(null);
+        toast.success("You can now try logging in again");
+      } else {
+        setRateLimitLockout((prev) =>
+          prev ? { ...prev, remainingSeconds: remaining } : null
+        );
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [rateLimitLockout]);
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -110,9 +146,7 @@ export function LoginForm() {
 
   const parseErrorMessage = (errorMessage: string) => {
     // Check if it's a lockout message
-    const lockoutMatch = errorMessage.match(
-      /try again in (\d+) minute\(s\)/i
-    );
+    const lockoutMatch = errorMessage.match(/try again in (\d+) minute\(s\)/i);
     if (lockoutMatch) {
       const minutes = parseInt(lockoutMatch[1]);
       const endTime = new Date();
@@ -138,15 +172,40 @@ export function LoginForm() {
       return;
     }
 
-    // Check if account is locked
     if (lockoutEndTime && new Date() < lockoutEndTime) {
-      toast.error("Account is locked. Please wait for the countdown to finish.");
+      toast.error(
+        "Account is locked. Please wait for the countdown to finish."
+      );
       return;
     }
 
     setIsLoading(true);
 
     try {
+      // Check rate limit before attempting sign-in
+      const rateLimitKey = `email-signin:${formData.email}`;
+      const rateLimitCheck = await fetch("/api/check-rate-limit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: rateLimitKey,
+          window: RATE_LIMIT_WINDOW,
+          max: RATE_LIMIT_MAX_ATTEMPTS,
+        }),
+      });
+
+      if (!rateLimitCheck.ok) {
+        const data = await rateLimitCheck.json();
+        const lockoutEnd = new Date();
+        lockoutEnd.setSeconds(lockoutEnd.getSeconds() + data.retryAfter);
+        setLockoutEndTime(lockoutEnd);
+        toast.error(
+          `Too many login attempts. Please try again in ${formatRetryTime(data.retryAfter)}.`
+        );
+        setIsLoading(false);
+        return;
+      }
+
       await authClient.signIn.email(
         {
           email: formData.email,
@@ -155,7 +214,13 @@ export function LoginForm() {
         },
         {
           async onSuccess(context) {
-            // Clear lockout state on success
+            // Clear rate limit on success
+            await fetch("/api/clear-rate-limit", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ key: rateLimitKey }),
+            });
+
             setLockoutEndTime(null);
             setRemainingTime(null);
             setAttemptsRemaining(null);
@@ -172,16 +237,20 @@ export function LoginForm() {
             }
           },
           async onError(context) {
+            // Increment rate limit on failure
+            await fetch("/api/increment-rate-limit", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ key: rateLimitKey }),
+            });
+
             console.error("Sign in error:", context.error.message);
-            const errorMessage =
-              context.error.message ||
-              "Sign in failed. Please check your credentials.";
-            
+            const errorMessage = context.error.message || "Sign in failed";
+
             // Parse error message for lockout or attempts info
             parseErrorMessage(errorMessage);
-            
-            toast.error(errorMessage);
 
+            // Show specific error messages
             if (context.error.status === 403) {
               toast.error("Please verify your email address");
               await authClient.sendVerificationEmail({
@@ -189,6 +258,15 @@ export function LoginForm() {
                 callbackURL: "/login",
               });
               toast.success("Verification email sent!");
+            } else if (
+              errorMessage.toLowerCase().includes("invalid") ||
+              errorMessage.toLowerCase().includes("incorrect") ||
+              errorMessage.toLowerCase().includes("password") ||
+              errorMessage.toLowerCase().includes("email")
+            ) {
+              toast.error("Invalid email or password. Please try again.");
+            } else {
+              toast.error(errorMessage);
             }
           },
         }
@@ -217,8 +295,7 @@ export function LoginForm() {
           order={2}
           className="text-xl mb-2"
           style={{
-            color:
-              colorScheme === "dark" ? theme.white : theme.colors.gray[9],
+            color: colorScheme === "dark" ? theme.white : theme.colors.gray[9],
           }}
         >
           Login
@@ -362,7 +439,15 @@ export function LoginForm() {
             loading={isLoading}
             disabled={isLoading || !!isLocked}
           >
-            {isLocked ? "Account Locked" : "Sign In"}
+            {isLocked && remainingTime ? (
+              <span className="flex items-center justify-center gap-2">
+                <IconClock size={18} />
+                {String(remainingTime.minutes).padStart(2, "0")}:
+                {String(remainingTime.seconds).padStart(2, "0")}
+              </span>
+            ) : (
+              "Sign In"
+            )}
           </Button>
         </Stack>
       </form>

@@ -611,7 +611,6 @@ const TenantsSection = () => {
               <Table.Tr>
                 <Table.Th>Homeowner</Table.Th>
                 <Table.Th>Email</Table.Th>
-                <Table.Th>Status</Table.Th>
                 <Table.Th>Created At</Table.Th>
                 <Table.Th>Actions</Table.Th>
               </Table.Tr>
@@ -625,7 +624,6 @@ const TenantsSection = () => {
                   <Table.Td>
                     <Text size="sm">{tenant.user_email}</Text>
                   </Table.Td>
-                  <Table.Td>{getStatusBadge(tenant.status)}</Table.Td>
                   <Table.Td>
                     <Text size="sm">
                       {new Date(tenant.created_at).toLocaleDateString()}
