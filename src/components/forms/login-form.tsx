@@ -267,7 +267,7 @@ export function LoginForm() {
               errorMessage.toLowerCase().includes("password") ||
               errorMessage.toLowerCase().includes("email")
             ) {
-              toast.error("Invalid email or password. Please try again.");
+              // toast.error("Invalid email or password. Please try again.");
             } else {
               toast.error(errorMessage);
             }

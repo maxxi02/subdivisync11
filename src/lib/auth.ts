@@ -1,9 +1,5 @@
 import { db } from "@/database/mongodb";
-<<<<<<< HEAD
 import { sendEmail } from "@/resend/resend";
-=======
-import {  sendEmail } from "@/resend/resend";
->>>>>>> ac7338234a57e21f6b20e2a72c22d56c9de63ac2
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { nextCookies } from "better-auth/next-js";
@@ -87,13 +83,8 @@ export const auth = betterAuth({
         textContent: `Click the link to reset your password: ${url}`,
         sender: {
           email: process.env.BREVO_SENDER_EMAIL!,
-<<<<<<< HEAD
           name: "SubdiviSync",
         },
-=======
-          name: "SubdiviSync"
-        }
->>>>>>> ac7338234a57e21f6b20e2a72c22d56c9de63ac2
       });
     },
   },
@@ -107,13 +98,8 @@ export const auth = betterAuth({
         textContent: `Click the link to verify your email: ${url}`,
         sender: {
           email: process.env.BREVO_SENDER_EMAIL!,
-<<<<<<< HEAD
           name: "SubdiviSync",
         },
-=======
-          name: "SubdiviSync"
-        }
->>>>>>> ac7338234a57e21f6b20e2a72c22d56c9de63ac2
       });
     },
   },
@@ -133,13 +119,8 @@ export const auth = betterAuth({
             textContent: `Verify your OTP: ${otp}`,
             sender: {
               email: process.env.BREVO_SENDER_EMAIL!,
-<<<<<<< HEAD
               name: "SubdiviSync",
             },
-=======
-              name: "SubdiviSync"
-            }
->>>>>>> ac7338234a57e21f6b20e2a72c22d56c9de63ac2
           });
         },
       },
