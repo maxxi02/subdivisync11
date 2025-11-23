@@ -245,12 +245,15 @@ export function LoginForm() {
             });
 
             console.error("Sign in error:", context.error.message);
-            const errorMessage = context.error.message || "Sign in failed";
+            const errorMessage =
+              context.error.message ||
+              "Sign in failed. Please check your credentials.";
 
             // Parse error message for lockout or attempts info
             parseErrorMessage(errorMessage);
 
-            // Show specific error messages
+            toast.error(errorMessage);
+
             if (context.error.status === 403) {
               toast.error("Please verify your email address");
               await authClient.sendVerificationEmail({
