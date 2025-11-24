@@ -10,9 +10,10 @@ import {
   Stack,
   Progress,
   Box,
-  Container,
-  Center,
   useMantineColorScheme,
+  useMantineTheme,
+  Anchor,
+  alpha,
 } from "@mantine/core";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -20,6 +21,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 
 export function ResetPasswordForm() {
+  const theme = useMantineTheme();
   const { colorScheme } = useMantineColorScheme();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -31,6 +33,13 @@ export function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+
+  const titleColor = colorScheme === "dark" ? "white" : "dark";
+  const paperBg = colorScheme === "dark" ? theme.colors.dark[6] : theme.white;
+  const subTextColor = colorScheme === "dark" ? theme.colors.gray[1] : theme.colors.gray[7];
+  const greenBgColor = alpha(theme.colors.green[6], 0.1);
+  const greenBorderColor = alpha(theme.colors.green[6], 0.2);
+  const errorBgColor = alpha(theme.colors.red[6], 0.1);
 
   // Check password strength
   const calculatePasswordStrength = (pwd: string) => {
@@ -168,215 +177,218 @@ export function ResetPasswordForm() {
 
   if (isSubmitted) {
     return (
-      <Container className="min-h-screen">
-        <Center className="min-h-screen">
-          <Paper
-            className="w-full max-w-sm backdrop-blur-sm"
-            p="xl"
-            radius="md"
-            withBorder
+      <Paper
+        className="w-full max-w-sm mx-auto"
+        p="xl"
+        radius="md"
+        withBorder
+        style={{
+          backgroundColor: paperBg,
+        }}
+      >
+        <div className="text-center mb-6">
+          <Title order={2} className="text-xl mb-2" c={titleColor}>
+            Password Reset Successful
+          </Title>
+          <Text size="sm" style={{ color: subTextColor }}>
+            Your password has been successfully updated
+          </Text>
+        </div>
+
+        <Stack gap="md">
+          <div
+            className="text-center p-4 rounded-md border"
             style={{
-              backgroundColor: colorScheme === "dark" ? "rgba(255, 255, 255, 0.05)" : "rgba(255, 255, 255, 0.95)"
+              backgroundColor: greenBgColor,
+              borderColor: greenBorderColor,
             }}
           >
-            <div className="text-center mb-6">
-              <Title order={2} className="text-xl mb-2" c={colorScheme === "dark" ? "white" : "dark"}>
-                Password Reset Successful
-              </Title>
-              <Text size="sm" c="dimmed">
-                Your password has been successfully updated
-              </Text>
-            </div>
+            <Text size="sm" c="green.7">
+              You can now sign in with your new password. Redirecting to
+              login in 3 seconds...
+            </Text>
+          </div>
 
-            <Stack gap="md">
-              <div 
-                className="text-center p-4 rounded-md border"
-                style={{
-                  backgroundColor: colorScheme === "dark" ? "rgba(34, 197, 94, 0.1)" : "#f0fdf4",
-                  borderColor: colorScheme === "dark" ? "rgba(34, 197, 94, 0.2)" : "#bbf7d0"
-                }}
-              >
-                <Text size="sm" c="green.7">
-                  You can now sign in with your new password. Redirecting to
-                  login in 3 seconds...
-                </Text>
-              </div>
-
-              <Link href="/login">
-                <Button variant="outline" size="md" fullWidth>
-                  Go to Sign In Now
-                </Button>
-              </Link>
-            </Stack>
-          </Paper>
-        </Center>
-      </Container>
+          <Link href="/login">
+            <Button variant="filled" size="md" fullWidth>
+              Back to Sign In
+            </Button>
+          </Link>
+        </Stack>
+      </Paper>
     );
   }
 
   return (
-    <Container className="min-h-screen">
-      <Center className="min-h-screen">
-        <Paper
-          className="w-full max-w-sm backdrop-blur-sm"
-          p="xl"
-          radius="md"
-          withBorder
-          style={{
-            backgroundColor: colorScheme === "dark" ? "rgba(255, 255, 255, 0.05)" : "rgba(255, 255, 255, 0.95)"
-          }}
-        >
-          <div className="text-center mb-6">
-            <Title order={2} className="text-xl mb-2" c={colorScheme === "dark" ? "white" : "dark"}>
-              Reset Your Password
-            </Title>
-            <Text size="sm" c="dimmed">
-              Enter your new password below
+    <Paper
+      className="w-full max-w-sm mx-auto"
+      p="xl"
+      radius="md"
+      withBorder
+      style={{
+        backgroundColor: paperBg,
+      }}
+    >
+      <div className="text-center mb-6">
+        <Title order={2} className="text-xl mb-2" c={titleColor}>
+          Reset Your Password
+        </Title>
+        <Text size="sm" style={{ color: subTextColor }}>
+          Enter your new password below
+        </Text>
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        <Stack gap="md">
+          {error && (
+            <Text
+              size="sm"
+              c="red"
+              ta="center"
+              className="p-2 rounded"
+              style={{
+                backgroundColor: errorBgColor,
+              }}
+            >
+              {error}
             </Text>
+          )}
+
+          <div>
+            <TextInput
+              label="New Password"
+              placeholder="Enter your new password"
+              type="password"
+              value={password}
+              onChange={(e) => handlePasswordChange(e.target.value)}
+              required
+              disabled={isLoading}
+              styles={{
+                label: {
+                  color: colorScheme === "dark" ? "#ffffff" : "#374151",
+                  fontWeight: 500,
+                },
+              }}
+            />
+
+            {password && (
+              <Box mt="xs">
+                <Text size="xs" c="dimmed" mb={4}>
+                  Password strength: {getStrengthText(passwordStrength)}
+                </Text>
+                <Progress
+                  value={passwordStrength}
+                  color={getStrengthColor(passwordStrength)}
+                  size="sm"
+                  radius="sm"
+                />
+              </Box>
+            )}
           </div>
 
-          <form onSubmit={handleSubmit}>
-            <Stack gap="md">
-              {error && (
-                <div 
-                  className="p-3 rounded-md border"
-                  style={{
-                    backgroundColor: colorScheme === "dark" ? "rgba(239, 68, 68, 0.1)" : "#fef2f2",
-                    borderColor: colorScheme === "dark" ? "rgba(239, 68, 68, 0.2)" : "#fecaca"
-                  }}
-                >
-                  <Text size="sm" c="red.7">
-                    {error}
-                  </Text>
-                </div>
-              )}
+          <TextInput
+            label="Confirm New Password"
+            placeholder="Confirm your new password"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => handleConfirmPasswordChange(e.target.value)}
+            required
+            disabled={isLoading}
+            styles={{
+              label: {
+                color: colorScheme === "dark" ? "#ffffff" : "#374151",
+                fontWeight: 500,
+              },
+            }}
+            error={
+              confirmPassword && password !== confirmPassword
+                ? "Passwords do not match"
+                : null
+            }
+          />
 
-              <div>
-                <TextInput
-                  label="New Password"
-                  placeholder="Enter your new password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => handlePasswordChange(e.target.value)}
-                  required
-                  disabled={isLoading}
-                  styles={{
-                    label: { 
-                      color: colorScheme === "dark" ? "#ffffff" : "#374151", 
-                      fontWeight: 500 
-                    },
-                  }}
-                />
-
-                {password && (
-                  <Box mt="xs">
-                    <Text size="xs" c="dimmed" mb={4}>
-                      Password strength: {getStrengthText(passwordStrength)}
-                    </Text>
-                    <Progress
-                      value={passwordStrength}
-                      color={getStrengthColor(passwordStrength)}
-                      size="sm"
-                      radius="sm"
-                    />
-                  </Box>
-                )}
-              </div>
-
-              <TextInput
-                label="Confirm New Password"
-                placeholder="Confirm your new password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => handleConfirmPasswordChange(e.target.value)}
-                required
-                disabled={isLoading}
-                styles={{
-                  label: { 
-                    color: colorScheme === "dark" ? "#ffffff" : "#374151", 
-                    fontWeight: 500 
-                  },
-                }}
-                error={
-                  confirmPassword && password !== confirmPassword
-                    ? "Passwords do not match"
-                    : null
-                }
-              />
-
-              <div 
-                className="text-xs p-2 rounded"
+          <div
+            className="text-xs p-2 rounded"
+            style={{
+              backgroundColor: colorScheme === "dark" ? alpha(theme.colors.gray[6], 0.2) : alpha(theme.colors.gray[0], 0.5),
+              color: subTextColor,
+            }}
+          >
+            <Text size="xs" style={{ color: subTextColor }}>
+              Password requirements:
+            </Text>
+            <ul className="mt-1 space-y-1 text-xs">
+              <li
                 style={{
-                  backgroundColor: colorScheme === "dark" ? "rgba(107, 114, 128, 0.1)" : "#f9fafb",
-                  color: colorScheme === "dark" ? "#d1d5db" : "#6b7280"
+                  color: password.length >= 8
+                    ? theme.colors.green[6]
+                    : subTextColor,
                 }}
               >
-                <Text size="xs" c="dimmed">
-                  Password requirements:
-                </Text>
-                <ul className="mt-1 space-y-1 text-xs">
-                  <li
-                    style={{
-                      color: password.length >= 8 ? "#16a34a" : (colorScheme === "dark" ? "#9ca3af" : "#6b7280")
-                    }}
-                  >
-                    • At least 8 characters
-                  </li>
-                  <li
-                    style={{
-                      color: /[a-z]/.test(password) ? "#16a34a" : (colorScheme === "dark" ? "#9ca3af" : "#6b7280")
-                    }}
-                  >
-                    • One lowercase letter
-                  </li>
-                  <li
-                    style={{
-                      color: /[A-Z]/.test(password) ? "#16a34a" : (colorScheme === "dark" ? "#9ca3af" : "#6b7280")
-                    }}
-                  >
-                    • One uppercase letter
-                  </li>
-                  <li
-                    style={{
-                      color: /[0-9]/.test(password) ? "#16a34a" : (colorScheme === "dark" ? "#9ca3af" : "#6b7280")
-                    }}
-                  >
-                    • One number
-                  </li>
-                </ul>
-              </div>
-
-              <Button
-                type="submit"
-                color="blue"
-                size="md"
-                fullWidth
-                loading={isLoading}
-                disabled={
-                  isLoading ||
-                  !password ||
-                  !confirmPassword ||
-                  password !== confirmPassword ||
-                  passwordStrength < 50 ||
-                  !token
-                }
+                • At least 8 characters
+              </li>
+              <li
+                style={{
+                  color: /[a-z]/.test(password)
+                    ? theme.colors.green[6]
+                    : subTextColor,
+                }}
               >
-                {isLoading ? "Resetting..." : "Reset Password"}
-              </Button>
+                • One lowercase letter
+              </li>
+              <li
+                style={{
+                  color: /[A-Z]/.test(password)
+                    ? theme.colors.green[6]
+                    : subTextColor,
+                }}
+              >
+                • One uppercase letter
+              </li>
+              <li
+                style={{
+                  color: /[0-9]/.test(password)
+                    ? theme.colors.green[6]
+                    : subTextColor,
+                }}
+              >
+                • One number
+              </li>
+            </ul>
+          </div>
 
-              <Text ta="center" size="sm" c="dimmed">
-                Remember your password?{" "}
-                <Link
-                  href="/login"
-                  className="text-cyan-600 hover:text-cyan-700 font-medium hover:underline"
-                >
-                  Back to Sign In
-                </Link>
-              </Text>
-            </Stack>
-          </form>
-        </Paper>
-      </Center>
-    </Container>
+          <Button
+            type="submit"
+            color="blue"
+            size="md"
+            fullWidth
+            loading={isLoading}
+            disabled={
+              isLoading ||
+              !password ||
+              !confirmPassword ||
+              password !== confirmPassword ||
+              passwordStrength < 50 ||
+              !token
+            }
+          >
+            {isLoading ? "Resetting..." : "Reset Password"}
+          </Button>
+
+          <Text ta="center" size="sm" style={{ color: subTextColor }}>
+            Remember your password?{" "}
+            <Anchor
+              component={Link}
+              href="/login"
+              c="blue"
+              underline="hover"
+              fw={500}
+            >
+              Back to Sign In
+            </Anchor>
+          </Text>
+        </Stack>
+      </form>
+    </Paper>
   );
 }
