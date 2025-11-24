@@ -16,6 +16,7 @@ import {
   SimpleGrid,
   Card,
   Notification,
+  Box,
   useMantineTheme,
   useMantineColorScheme,
   rgba,
@@ -33,6 +34,7 @@ import {
   IconCheck,
   IconX,
 } from "@tabler/icons-react";
+import { ThemeIcon } from "@mantine/core";
 import Image from "next/image";
 import { getServerSession } from "@/better-auth/action";
 import { Session } from "@/better-auth/auth-types";
@@ -175,7 +177,6 @@ const MyApplication = () => {
       try {
         const session = await getServerSession();
         setSession(session);
-        showNotification("success", "Session loaded successfully");
       } catch (error) {
         showNotification(
           "error",
@@ -203,7 +204,6 @@ const MyApplication = () => {
 
       if (data.success) {
         setPaymentPlanData(data.paymentPlan);
-        showNotification("success", "Payment plan loaded successfully");
       } else {
         throw new Error(data.error || "Failed to fetch payment plan");
       }
@@ -256,7 +256,6 @@ const MyApplication = () => {
           }
         });
         setInquiries(userInquiries);
-        showNotification("success", "Applications loaded successfully");
       } else {
         throw new Error(data.error || "Failed to fetch applications");
       }
@@ -338,41 +337,102 @@ const MyApplication = () => {
         </Stack>
 
         {/* Stats Cards */}
-        <SimpleGrid cols={{ base: 1, md: 4 }} spacing="md">
+        <SimpleGrid cols={{ base: 1, xs: 2, sm: 2, md: 4 }} spacing="md" style={{ width: "100%" }}>
           <Card
             shadow="sm"
-            padding="lg"
-            radius="lg"
+            padding="md"
+            radius="md"
             withBorder
-            style={{ boxShadow: getDefaultShadow() }}
+            style={{
+              backgroundColor: "white",
+              boxShadow: getDefaultShadow(),
+              minWidth: 0,
+              width: "100%",
+            }}
           >
-            <Group justify="space-between" align="center">
-              <Stack gap="xs">
-                <Text size="sm" c={primaryTextColor} fw={500}>
+            <Group align="center" gap="sm" wrap="wrap" style={{ width: "100%" }}>
+              <ThemeIcon
+                variant="filled"
+                color="gray"
+                size="lg"
+                radius="md"
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                }}
+              >
+                <IconUser size={18} />
+              </ThemeIcon>
+              <Stack gap={2} style={{ flex: 1, minWidth: "100px" }}>
+                <Text
+                  c="dimmed"
+                  size="xs"
+                  tt="uppercase"
+                  fw={600}
+                  lts={0.5}
+                  style={{
+                    wordBreak: "break-word",
+                    lineHeight: 1.3,
+                  }}
+                >
                   Total Applications
                 </Text>
-                <Text size="xl" fw={700} c={primaryTextColor}>
+                <Text
+                  fw={700}
+                  size="lg"
+                  c="black"
+                  lh={1.2}
+                >
                   {inquiries.length}
                 </Text>
               </Stack>
-              <Center className="h-12 w-12 bg-blue-100 rounded-lg">
-                <IconUser size={24} color="blue" />
-              </Center>
             </Group>
           </Card>
           <Card
             shadow="sm"
-            padding="lg"
-            radius="lg"
+            padding="md"
+            radius="md"
             withBorder
-            style={{ boxShadow: getDefaultShadow() }}
+            style={{
+              backgroundColor: "white",
+              boxShadow: getDefaultShadow(),
+              minWidth: 0,
+              width: "100%",
+            }}
           >
-            <Group justify="space-between" align="center">
-              <Stack gap="xs">
-                <Text size="sm" c={primaryTextColor} fw={500}>
+            <Group align="center" gap="sm" wrap="wrap" style={{ width: "100%" }}>
+              <ThemeIcon
+                variant="filled"
+                color="yellow"
+                size="lg"
+                radius="md"
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                }}
+              >
+                <IconClock size={18} />
+              </ThemeIcon>
+              <Stack gap={2} style={{ flex: 1, minWidth: "100px" }}>
+                <Text
+                  c="dimmed"
+                  size="xs"
+                  tt="uppercase"
+                  fw={600}
+                  lts={0.5}
+                  style={{
+                    wordBreak: "break-word",
+                    lineHeight: 1.3,
+                  }}
+                >
                   Pending
                 </Text>
-                <Text size="xl" fw={700} c="yellow.6">
+                <Text 
+                  fw={700}
+                  size="lg"
+                  c="yellow.6"
+                  lh={1.2}
+                >
                   {
                     inquiries.filter(
                       (inq) =>
@@ -382,24 +442,53 @@ const MyApplication = () => {
                   }
                 </Text>
               </Stack>
-              <Center className="h-12 w-12 bg-yellow-100 rounded-lg">
-                <IconClock size={24} color="yellow" />
-              </Center>
             </Group>
           </Card>
           <Card
             shadow="sm"
-            padding="lg"
-            radius="lg"
+            padding="md"
+            radius="md"
             withBorder
-            style={{ boxShadow: getDefaultShadow() }}
+            style={{
+              backgroundColor: "white",
+              boxShadow: getDefaultShadow(),
+              minWidth: 0,
+              width: "100%",
+            }}
           >
-            <Group justify="space-between" align="center">
-              <Stack gap="xs">
-                <Text size="sm" c={primaryTextColor} fw={500}>
+            <Group align="center" gap="sm" wrap="wrap" style={{ width: "100%" }}>
+              <ThemeIcon
+                variant="filled"
+                color="green"
+                size="lg"
+                radius="md"
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                }}
+              >
+                <IconCreditCard size={18} />
+              </ThemeIcon>
+              <Stack gap={2} style={{ flex: 1, minWidth: "100px" }}>
+                <Text
+                  c="dimmed"
+                  size="xs"
+                  tt="uppercase"
+                  fw={600}
+                  lts={0.5}
+                  style={{
+                    wordBreak: "break-word",
+                    lineHeight: 1.3,
+                  }}
+                >
                   Approved/Leased
                 </Text>
-                <Text size="xl" fw={700} c="green.6">
+                <Text 
+                  fw={700}
+                  size="lg"
+                  c="green.6"
+                  lh={1.2}
+                >
                   {
                     inquiries.filter(
                       (inq) =>
@@ -409,30 +498,56 @@ const MyApplication = () => {
                   }
                 </Text>
               </Stack>
-              <Center className="h-12 w-12 bg-green-100 rounded-lg">
-                <IconCreditCard size={24} color="green" />
-              </Center>
             </Group>
           </Card>
           <Card
             shadow="sm"
-            padding="lg"
-            radius="lg"
+            padding="md"
+            radius="md"
             withBorder
-            style={{ boxShadow: getDefaultShadow() }}
+            style={{
+              backgroundColor: "white",
+              boxShadow: getDefaultShadow(),
+              minWidth: 0,
+              width: "100%",
+            }}
           >
-            <Group justify="space-between" align="center">
-              <Stack gap="xs">
-                <Text size="sm" c={primaryTextColor} fw={500}>
+            <Group align="center" gap="sm" wrap="wrap" style={{ width: "100%" }}>
+              <ThemeIcon
+                variant="filled"
+                color="red"
+                size="lg"
+                radius="md"
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                }}
+              >
+                <IconAlertCircle size={18} />
+              </ThemeIcon>
+              <Stack gap={2} style={{ flex: 1, minWidth: "100px" }}>
+                <Text
+                  c="dimmed"
+                  size="xs"
+                  tt="uppercase"
+                  fw={600}
+                  lts={0.5}
+                  style={{
+                    wordBreak: "break-word",
+                    lineHeight: 1.3,
+                  }}
+                >
                   Rejected
                 </Text>
-                <Text size="xl" fw={700} c="red.6">
+                <Text 
+                  fw={700}
+                  size="lg"
+                  c="red.6"
+                  lh={1.2}
+                >
                   {inquiries.filter((inq) => inq.status === "rejected").length}
                 </Text>
               </Stack>
-              <Center className="h-12 w-12 bg-red-100 rounded-lg">
-                <IconAlertCircle size={24} color="red" />
-              </Center>
             </Group>
           </Card>
         </SimpleGrid>

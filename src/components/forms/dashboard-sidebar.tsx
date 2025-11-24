@@ -38,6 +38,7 @@ import {
   IconToolsKitchen,
   IconSun,
   IconMoonStars,
+  IconShieldLock,
 } from "@tabler/icons-react";
 import { signOut } from "@/lib/auth-client";
 import type { Session } from "@/better-auth/auth-types";
@@ -249,6 +250,13 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
       notificationCount: 0,
     },
     {
+      icon: IconShieldLock,
+      label: "Account Security",
+      href: "/account-security",
+      description: "Locked Accounts",
+      notificationCount: 0,
+    },
+    {
       icon: IconSpeakerphone,
       label: "Announcements",
       href: "/announcements",
@@ -325,10 +333,10 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
     <AppShell
       navbar={{
         width: collapsed ? 80 : 280,
-        breakpoint: "sm",
+        breakpoint: "lg",
         collapsed: { mobile: !opened },
       }}
-      header={{ height: { base: 60, md: 0 } }}
+      header={{ height: { base: 60, lg: 0 } }}
       padding="md"
     >
       <AppShell.Header p="md" hiddenFrom="sm">
@@ -362,6 +370,7 @@ export function DashboardSidebar({ children, session }: DashboardSidebarProps) {
         p={collapsed ? "xs" : "md"}
         bg={colorScheme === "dark" ? "dark.8" : "white"}
         withBorder
+        style={{ height: "100vh" }}
       >
         <AppShell.Section>
           <Group justify="space-between" mb="md">

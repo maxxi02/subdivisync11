@@ -26,9 +26,13 @@ import {
   ArrowLeft,
   ArrowRight as ArrowRightIcon,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useMantineTheme, useMantineColorScheme, rgba } from "@mantine/core";
-import { ToggleColorScheme } from "./LayoutWrapper";
+import { useMantineTheme, useComputedColorScheme, rgba } from "@mantine/core";
+import dynamic from "next/dynamic";
+
+const HeaderClientNoSSR = dynamic(
+  () => import("./_components/HeaderClient"),
+  { ssr: false }
+);
 import Link from "next/link";
 
 interface Announcement {
@@ -46,7 +50,7 @@ interface Announcement {
 
 const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
   const theme = useMantineTheme();
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useComputedColorScheme("dark", { getInitialValueInEffect: true });
   const [currentIndex, setCurrentIndex] = useState(0);
   const images = announcement.images || [];
 
@@ -231,7 +235,13 @@ const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
                 : theme.colors.gray[4],
           }}
         >
-          Posted on {new Date(announcement.scheduledDate).toLocaleDateString()}
+          Posted on
+          {" "}
+          {new Date(announcement.scheduledDate).toLocaleDateString("en-PH", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
         </Text>
       </CardSection>
     </Card>
@@ -240,10 +250,10 @@ const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
 
 export default function HomePage() {
   const theme = useMantineTheme();
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useComputedColorScheme("dark", { getInitialValueInEffect: true });
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
+  const [cardWidth, setCardWidth] = useState(550);
 
   // === Hero carousel images & state (NEW) ===
   const heroImages = [
@@ -330,6 +340,57 @@ export default function HomePage() {
     fetchAnnouncements();
   }, []);
 
+  // Calculate card width to show exactly 2 cards
+  useEffect(() => {
+    const calculateCardWidth = () => {
+      const scrollContainer = document.getElementById("house-models-scroll-container");
+      if (!scrollContainer) return;
+      
+      const containerWidth = scrollContainer.clientWidth;
+      const gap = 24;
+      const calculatedWidth = (containerWidth - gap) / 2;
+      setCardWidth(calculatedWidth);
+    };
+
+    calculateCardWidth();
+    window.addEventListener("resize", calculateCardWidth);
+    return () => window.removeEventListener("resize", calculateCardWidth);
+  }, []);
+
+  // Arrow key navigation for house models
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const scrollContainer = document.getElementById("house-models-scroll-container");
+      if (!scrollContainer) return;
+
+      // Only handle arrow keys when the container is in view
+      const rect = scrollContainer.getBoundingClientRect();
+      const isInView = rect.top < window.innerHeight && rect.bottom > 0;
+      if (!isInView) return;
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        const gap = 24;
+        const scrollAmount = cardWidth + gap;
+
+        if (e.key === "ArrowLeft") {
+          scrollContainer.scrollBy({
+            left: -scrollAmount,
+            behavior: "smooth",
+          });
+        } else if (e.key === "ArrowRight") {
+          scrollContainer.scrollBy({
+            left: scrollAmount,
+            behavior: "smooth",
+          });
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [cardWidth]);
+
   const propertyTypes = [
     { icon: Home, label: "Total Units", count: "737" },
     { icon: Building2, label: "Project Area", count: "11.7 hectares" },
@@ -356,6 +417,7 @@ export default function HomePage() {
 
   return (
     <div
+      suppressHydrationWarning
       style={{
         minHeight: "100vh",
         backgroundColor:
@@ -382,60 +444,39 @@ export default function HomePage() {
             flex-direction: column !important;
           }
         }
+
+        .house-models-scroll {
+          scroll-behavior: smooth;
+          -webkit-overflow-scrolling: touch;
+          scroll-snap-type: x mandatory;
+        }
+
+        .house-models-scroll::-webkit-scrollbar {
+          height: 8px;
+        }
+
+        .house-models-scroll::-webkit-scrollbar-track {
+          border-radius: 4px;
+        }
+
+        .house-models-scroll::-webkit-scrollbar-thumb {
+          border-radius: 4px;
+        }
+
+        .house-model-card {
+          scroll-snap-align: start;
+        }
+
+        @media (max-width: 768px) {
+          .house-model-card {
+            min-width: calc(100vw - 80px) !important;
+            max-width: calc(100vw - 80px) !important;
+            width: calc(100vw - 80px) !important;
+          }
+        }
       `}</style>
       {/* Header */}
-      <header
-        style={{
-          borderBottom: `1px solid ${
-            colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[2]
-          }`,
-          backgroundColor:
-            colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-        }}
-      >
-        <Container size="lg" py="sm">
-          <Group justify="space-between" align="center">
-            <Group gap="xs">
-              <Paper
-                radius="md"
-                style={{
-                  width: 32,
-                  height: 32,
-                  backgroundColor: theme.colors.blue[6],
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Home size={20} color={theme.white} />
-              </Paper>
-              <Title
-                order={4}
-                style={{
-                  color:
-                    colorScheme === "dark" ? theme.white : theme.colors.gray[9],
-                }}
-              >
-                Subdivisync
-              </Title>
-            </Group>
-
-            <Group gap="sm">
-              <MantineButton
-                variant="subtle"
-                color={colorScheme === "dark" ? "gray.4" : "gray.6"}
-                onClick={() => router.push("/login")}
-              >
-                Log In
-              </MantineButton>
-              <ToggleColorScheme />
-            </Group>
-          </Group>
-        </Container>
-      </header>
+      <HeaderClientNoSSR />
 
       {/* Hero Section */}
       <section
@@ -506,6 +547,14 @@ export default function HomePage() {
                           ? theme.colors.dark[4]
                           : theme.colors.gray[2]
                       }`,
+                      cursor: "pointer",
+                      transition: "transform 0.2s ease-in-out",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "scale(1.05)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "scale(1)";
                     }}
                   >
                     <Paper
@@ -733,6 +782,311 @@ export default function HomePage() {
         </Container>
       </section>
 
+      {/* House Models Section */}
+      <section
+        style={{
+          padding: "4rem 0",
+          backgroundColor:
+            colorScheme === "dark"
+              ? theme.colors.dark[7]
+              : theme.white,
+        }}
+      >
+        <Container size="lg">
+          <Stack gap="xl">
+            <Stack align="center" gap="md">
+              <Title
+                order={2}
+                style={{
+                  color:
+                    colorScheme === "dark" ? theme.white : theme.colors.gray[9],
+                }}
+              >
+                Available House Models
+              </Title>
+              <Text
+                size="md"
+                style={{
+                  color:
+                    colorScheme === "dark"
+                      ? theme.colors.gray[4]
+                      : theme.colors.gray[6],
+                  maxWidth: 672,
+                  textAlign: "center",
+                }}
+              >
+                Explore our diverse range of modern house models designed to suit
+                your lifestyle and budget
+              </Text>
+            </Stack>
+            <div
+              className="house-models-scroll"
+              id="house-models-scroll-container"
+              style={{
+                overflowX: "auto",
+                overflowY: "hidden",
+                paddingBottom: "16px",
+                scrollbarWidth: "thin",
+                scrollbarColor: `${colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[3]} ${colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[0]}`,
+                width: "100%",
+                scrollSnapType: "x mandatory",
+                scrollBehavior: "smooth",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  gap: "24px",
+                  padding: "8px 0",
+                  width: "max-content",
+                }}
+              >
+                {[
+                  {
+                    name: "Lynville 1",
+                    area: "42 sqm",
+                    bedrooms: 2,
+                    bathrooms: 1,
+                    price: "PHP 1,766,000",
+                    color: theme.colors.blue[6],
+                  },
+                  {
+                    name: "Lynville 2",
+                    area: "50 sqm",
+                    bedrooms: 3,
+                    bathrooms: 2,
+                    price: "PHP 2,000,000",
+                    color: theme.colors.green[6],
+                  },
+                  {
+                    name: "Lynville 3",
+                    area: "60 sqm",
+                    bedrooms: 3,
+                    bathrooms: 2,
+                    price: "PHP 2,200,000",
+                    color: theme.colors.violet[6],
+                  },
+                  {
+                    name: "Lynville 4",
+                    area: "75 sqm",
+                    bedrooms: 4,
+                    bathrooms: 3,
+                    price: "PHP 2,500,000",
+                    color: theme.colors.orange[6],
+                  },
+                  {
+                    name: "Lynville 5",
+                    area: "45 sqm",
+                    bedrooms: 2,
+                    bathrooms: 1,
+                    price: "PHP 1,850,000",
+                    color: theme.colors.blue[7],
+                  },
+                  {
+                    name: "Lynville 6",
+                    area: "55 sqm",
+                    bedrooms: 3,
+                    bathrooms: 2,
+                    price: "PHP 2,100,000",
+                    color: theme.colors.green[7],
+                  },
+                  {
+                    name: "Lynville 7",
+                    area: "65 sqm",
+                    bedrooms: 3,
+                    bathrooms: 2,
+                    price: "PHP 2,350,000",
+                    color: theme.colors.violet[7],
+                  },
+                  {
+                    name: "Lynville 8",
+                    area: "70 sqm",
+                    bedrooms: 4,
+                    bathrooms: 2,
+                    price: "PHP 2,400,000",
+                    color: theme.colors.orange[7],
+                  },
+                  {
+                    name: "Lynville 9",
+                    area: "80 sqm",
+                    bedrooms: 4,
+                    bathrooms: 3,
+                    price: "PHP 2,650,000",
+                    color: theme.colors.red[6],
+                  },
+                  {
+                    name: "Lynville 10",
+                    area: "48 sqm",
+                    bedrooms: 2,
+                    bathrooms: 2,
+                    price: "PHP 1,950,000",
+                    color: theme.colors.blue[5],
+                  },
+                  {
+                    name: "Lynville 11",
+                    area: "58 sqm",
+                    bedrooms: 3,
+                    bathrooms: 2,
+                    price: "PHP 2,150,000",
+                    color: theme.colors.green[5],
+                  },
+                  {
+                    name: "Lynville 12",
+                    area: "68 sqm",
+                    bedrooms: 3,
+                    bathrooms: 3,
+                    price: "PHP 2,450,000",
+                    color: theme.colors.yellow[6],
+                  },
+                  {
+                    name: "Lynville 13",
+                    area: "85 sqm",
+                    bedrooms: 4,
+                    bathrooms: 3,
+                    price: "PHP 2,750,000",
+                    color: theme.colors.violet[5],
+                  },
+                  {
+                    name: "Lynville 14",
+                    area: "52 sqm",
+                    bedrooms: 3,
+                    bathrooms: 2,
+                    price: "PHP 2,050,000",
+                    color: theme.colors.orange[5],
+                  },
+                ].map((model, index) => (
+                  <Card
+                    key={index}
+                    className="house-model-card"
+                    shadow="sm"
+                    radius="md"
+                    withBorder
+                    style={{
+                      overflow: "hidden",
+                      backgroundColor:
+                        colorScheme === "dark"
+                          ? theme.colors.dark[6]
+                          : theme.white,
+                      cursor: "pointer",
+                      transition: "all 0.3s ease-in-out",
+                      minWidth: `${cardWidth}px`,
+                      maxWidth: `${cardWidth}px`,
+                      width: `${cardWidth}px`,
+                      flexShrink: 0,
+                      scrollSnapAlign: "start",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-8px)";
+                      e.currentTarget.style.boxShadow = theme.shadows.lg;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = theme.shadows.sm;
+                    }}
+                  >
+                  <CardSection>
+                    <div
+                      style={{
+                        width: "100%",
+                        height: 400,
+                        backgroundColor: model.color,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        position: "relative",
+                      }}
+                    >
+                      <Text
+                        size="xl"
+                        fw={700}
+                        style={{
+                          color: theme.white,
+                          textAlign: "center",
+                          padding: "0 16px",
+                          fontSize: "1.75rem",
+                        }}
+                      >
+                        {model.name}
+                      </Text>
+                      <Badge
+                        color="white"
+                        variant="filled"
+                        style={{
+                          position: "absolute",
+                          top: 12,
+                          right: 12,
+                          backgroundColor: "rgba(255, 255, 255, 0.2)",
+                          backdropFilter: "blur(10px)",
+                          color: theme.white,
+                        }}
+                      >
+                        Coming Soon
+                      </Badge>
+                    </div>
+                  </CardSection>
+                  <CardSection p="md">
+                    <Stack gap="xs">
+                      <Title
+                        order={4}
+                        style={{
+                          color:
+                            colorScheme === "dark"
+                              ? theme.white
+                              : theme.colors.gray[9],
+                          fontSize: "1.1rem",
+                          marginBottom: 4,
+                        }}
+                      >
+                        {model.name}
+                      </Title>
+                      <Stack gap={4}>
+                        <Text
+                          size="sm"
+                          style={{
+                            color:
+                              colorScheme === "dark"
+                                ? theme.colors.gray[4]
+                                : theme.colors.gray[6],
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          <strong>Bedroom{model.bedrooms !== 1 ? "s" : ""}:</strong> {model.bedrooms} • <strong>Bathroom{model.bathrooms !== 1 ? "s" : ""}:</strong> {model.bathrooms} • {model.area}
+                        </Text>
+                        <Text
+                          size="sm"
+                          fw={600}
+                          style={{
+                            color: model.color,
+                            marginTop: 4,
+                          }}
+                        >
+                          {model.price}
+                        </Text>
+                      </Stack>
+                    </Stack>
+                  </CardSection>
+                </Card>
+              ))}
+              </div>
+            </div>
+            <Center mt="xl">
+              <MantineButton
+                size="lg"
+                variant="filled"
+                color="blue"
+                rightSection={<ArrowRight size={18} />}
+                style={{
+                  paddingLeft: "2rem",
+                  paddingRight: "2rem",
+                }}
+              >
+                Browse All House Models
+              </MantineButton>
+            </Center>
+          </Stack>
+        </Container>
+      </section>
+
       {/* Announcements Section */}
       <section
         data-section="announcements"
@@ -838,17 +1192,71 @@ export default function HomePage() {
               <Card
                 shadow="sm"
                 radius="md"
+                withBorder
                 style={{
                   textAlign: "center",
-                  backgroundColor: theme.colors.blue[6],
-                  color: theme.white,
+                  backgroundColor:
+                    colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease-in-out",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.05)";
+                  e.currentTarget.style.backgroundColor = theme.colors.blue[6];
+                  const textElements = e.currentTarget.querySelectorAll("p");
+                  textElements.forEach((el) => {
+                    (el as HTMLElement).style.color = theme.white;
+                  });
+                  const smallText = e.currentTarget.querySelector("p:last-child");
+                  if (smallText) {
+                    (smallText as HTMLElement).style.color = theme.colors.blue[1];
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.backgroundColor =
+                    colorScheme === "dark"
+                      ? theme.colors.dark[6]
+                      : theme.white;
+                  const textElements = e.currentTarget.querySelectorAll("p");
+                  textElements.forEach((el, index) => {
+                    if (index === 0) {
+                      (el as HTMLElement).style.color =
+                        colorScheme === "dark"
+                          ? theme.white
+                          : theme.colors.gray[9];
+                    } else {
+                      (el as HTMLElement).style.color =
+                        colorScheme === "dark"
+                          ? theme.colors.gray[4]
+                          : theme.colors.gray[6];
+                    }
+                  });
                 }}
               >
                 <CardSection p="lg">
-                  <Text size="xl" fw={700} style={{ marginBottom: 8 }}>
+                  <Text
+                    size="xl"
+                    fw={700}
+                    style={{
+                      marginBottom: 8,
+                      color:
+                        colorScheme === "dark"
+                          ? theme.white
+                          : theme.colors.gray[9],
+                    }}
+                  >
                     737
                   </Text>
-                  <Text size="sm" style={{ color: theme.colors.blue[1] }}>
+                  <Text
+                    size="sm"
+                    style={{
+                      color:
+                        colorScheme === "dark"
+                          ? theme.colors.gray[4]
+                          : theme.colors.gray[6],
+                    }}
+                  >
                     Total Units
                   </Text>
                 </CardSection>
@@ -856,20 +1264,71 @@ export default function HomePage() {
               <Card
                 shadow="sm"
                 radius="md"
+                withBorder
                 style={{
                   textAlign: "center",
                   backgroundColor:
+                    colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease-in-out",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.05)";
+                  e.currentTarget.style.backgroundColor = theme.colors.blue[6];
+                  const textElements = e.currentTarget.querySelectorAll("p");
+                  textElements.forEach((el) => {
+                    (el as HTMLElement).style.color = theme.white;
+                  });
+                  const smallText = e.currentTarget.querySelector("p:last-child");
+                  if (smallText) {
+                    (smallText as HTMLElement).style.color = theme.colors.blue[1];
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.backgroundColor =
                     colorScheme === "dark"
                       ? theme.colors.dark[6]
-                      : theme.colors.gray[9],
-                  color: theme.white,
+                      : theme.white;
+                  const textElements = e.currentTarget.querySelectorAll("p");
+                  textElements.forEach((el, index) => {
+                    if (index === 0) {
+                      (el as HTMLElement).style.color =
+                        colorScheme === "dark"
+                          ? theme.white
+                          : theme.colors.gray[9];
+                    } else {
+                      (el as HTMLElement).style.color =
+                        colorScheme === "dark"
+                          ? theme.colors.gray[4]
+                          : theme.colors.gray[6];
+                    }
+                  });
                 }}
               >
                 <CardSection p="lg">
-                  <Text size="xl" fw={700} style={{ marginBottom: 8 }}>
+                  <Text
+                    size="xl"
+                    fw={700}
+                    style={{
+                      marginBottom: 8,
+                      color:
+                        colorScheme === "dark"
+                          ? theme.white
+                          : theme.colors.gray[9],
+                    }}
+                  >
                     11.7 Hectares
                   </Text>
-                  <Text size="sm" style={{ color: theme.colors.gray[3] }}>
+                  <Text
+                    size="sm"
+                    style={{
+                      color:
+                        colorScheme === "dark"
+                          ? theme.colors.gray[4]
+                          : theme.colors.gray[6],
+                    }}
+                  >
                     Project Area
                   </Text>
                 </CardSection>
@@ -882,6 +1341,41 @@ export default function HomePage() {
                   textAlign: "center",
                   backgroundColor:
                     colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease-in-out",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.05)";
+                  e.currentTarget.style.backgroundColor = theme.colors.blue[6];
+                  const textElements = e.currentTarget.querySelectorAll("p");
+                  textElements.forEach((el) => {
+                    (el as HTMLElement).style.color = theme.white;
+                  });
+                  const smallText = e.currentTarget.querySelector("p:last-child");
+                  if (smallText) {
+                    (smallText as HTMLElement).style.color = theme.colors.blue[1];
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.backgroundColor =
+                    colorScheme === "dark"
+                      ? theme.colors.dark[6]
+                      : theme.white;
+                  const textElements = e.currentTarget.querySelectorAll("p");
+                  textElements.forEach((el, index) => {
+                    if (index === 0) {
+                      (el as HTMLElement).style.color =
+                        colorScheme === "dark"
+                          ? theme.white
+                          : theme.colors.gray[9];
+                    } else {
+                      (el as HTMLElement).style.color =
+                        colorScheme === "dark"
+                          ? theme.colors.gray[4]
+                          : theme.colors.gray[6];
+                    }
+                  });
                 }}
               >
                 <CardSection p="lg">
@@ -919,6 +1413,41 @@ export default function HomePage() {
                   textAlign: "center",
                   backgroundColor:
                     colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease-in-out",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.05)";
+                  e.currentTarget.style.backgroundColor = theme.colors.blue[6];
+                  const textElements = e.currentTarget.querySelectorAll("p");
+                  textElements.forEach((el) => {
+                    (el as HTMLElement).style.color = theme.white;
+                  });
+                  const smallText = e.currentTarget.querySelector("p:last-child");
+                  if (smallText) {
+                    (smallText as HTMLElement).style.color = theme.colors.blue[1];
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.backgroundColor =
+                    colorScheme === "dark"
+                      ? theme.colors.dark[6]
+                      : theme.white;
+                  const textElements = e.currentTarget.querySelectorAll("p");
+                  textElements.forEach((el, index) => {
+                    if (index === 0) {
+                      (el as HTMLElement).style.color =
+                        colorScheme === "dark"
+                          ? theme.white
+                          : theme.colors.gray[9];
+                    } else {
+                      (el as HTMLElement).style.color =
+                        colorScheme === "dark"
+                          ? theme.colors.gray[4]
+                          : theme.colors.gray[6];
+                    }
+                  });
                 }}
               >
                 <CardSection p="lg">
@@ -959,19 +1488,30 @@ export default function HomePage() {
           padding: "4rem 0",
           backgroundColor:
             colorScheme === "dark"
-              ? theme.colors.dark[6]
-              : theme.colors.gray[9],
+              ? theme.colors.dark[7]
+              : theme.white,
         }}
       >
         <Container size="lg">
           <Stack align="center" gap="md" mb="xl">
-            <Title order={2} style={{ color: theme.white }}>
+            <Title
+              order={2}
+              style={{
+                color:
+                  colorScheme === "dark"
+                    ? theme.white
+                    : theme.colors.gray[9],
+              }}
+            >
               Why Lynville
             </Title>
             <Text
               size="md"
               style={{
-                color: theme.colors.gray[3],
+                color:
+                  colorScheme === "dark"
+                    ? theme.colors.gray[3]
+                    : theme.colors.gray[6],
                 maxWidth: 672,
                 textAlign: "center",
               }}
@@ -985,6 +1525,12 @@ export default function HomePage() {
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+              backgroundColor:
+                colorScheme === "dark"
+                  ? theme.colors.dark[6]
+                  : theme.colors.gray[0],
+              padding: "2rem",
+              alignItems: "stretch",
             }}
           >
             {differentiators.map((item, index) => (
@@ -997,14 +1543,25 @@ export default function HomePage() {
                   backgroundColor:
                     colorScheme === "dark"
                       ? theme.colors.dark[5]
-                      : theme.colors.gray[8],
+                      : theme.white,
                   borderColor:
                     colorScheme === "dark"
                       ? theme.colors.dark[4]
-                      : theme.colors.gray[7],
+                      : theme.colors.gray[2],
+                  cursor: "pointer",
+                  transition: "transform 0.2s ease-in-out",
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.05)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
                 }}
               >
-                <CardSection p="md">
+                <CardSection p="md" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                   <Paper
                     radius="md"
                     style={{
@@ -1021,13 +1578,25 @@ export default function HomePage() {
                   </Paper>
                   <Title
                     order={3}
-                    style={{ marginBottom: 12, color: theme.white }}
+                    style={{
+                      marginBottom: 12,
+                      color:
+                        colorScheme === "dark"
+                          ? theme.white
+                          : theme.colors.gray[9],
+                    }}
                   >
                     {item.title}
                   </Title>
                   <Text
                     size="sm"
-                    style={{ color: theme.colors.gray[3], lineHeight: 1.6 }}
+                    style={{
+                      color:
+                        colorScheme === "dark"
+                          ? theme.colors.gray[3]
+                          : theme.colors.gray[6],
+                      lineHeight: 1.6,
+                    }}
                   >
                     {item.description}
                   </Text>
@@ -1044,9 +1613,10 @@ export default function HomePage() {
           backgroundColor:
             colorScheme === "dark"
               ? theme.colors.dark[6]
-              : theme.colors.gray[9],
+              : theme.colors.gray[0],
           padding: "3rem 0",
-          color: theme.white,
+          color:
+            colorScheme === "dark" ? theme.white : theme.colors.gray[9],
         }}
       >
         <Container size="lg">
@@ -1071,27 +1641,75 @@ export default function HomePage() {
                 >
                   <Home size={20} color={theme.white} />
                 </Paper>
-                <Title order={4} style={{ color: theme.white }}>
+                <Title
+                  order={4}
+                  style={{
+                    color:
+                      colorScheme === "dark"
+                        ? theme.white
+                        : theme.colors.gray[9],
+                  }}
+                >
                   Lynville Residences Malvar 2 Sonera
                 </Title>
               </Group>
-              <Text size="sm" style={{ color: theme.colors.gray[4] }}>
+              <Text
+                size="sm"
+                style={{
+                  color:
+                    colorScheme === "dark"
+                      ? theme.colors.gray[4]
+                      : theme.colors.gray[6],
+                }}
+              >
                 Your trusted partner in finding the perfect property that suits
                 your lifestyle.
               </Text>
             </Stack>
             <Stack gap="md" style={{ minWidth: "200px", flex: 1 }}>
-              <Title order={4} style={{ color: theme.white }}>
+              <Title
+                order={4}
+                style={{
+                  color:
+                    colorScheme === "dark"
+                      ? theme.white
+                      : theme.colors.gray[9],
+                }}
+              >
                 Contact
               </Title>
               <Stack gap="xs">
-                <Text size="sm" style={{ color: theme.colors.gray[4] }}>
+                <Text
+                  size="sm"
+                  style={{
+                    color:
+                      colorScheme === "dark"
+                        ? theme.colors.gray[4]
+                        : theme.colors.gray[6],
+                  }}
+                >
                   Barangay San Fernando & Santiago, Malvar
                 </Text>
-                <Text size="sm" style={{ color: theme.colors.gray[4] }}>
+                <Text
+                  size="sm"
+                  style={{
+                    color:
+                      colorScheme === "dark"
+                        ? theme.colors.gray[4]
+                        : theme.colors.gray[6],
+                  }}
+                >
                   Phone: 09178039073
                 </Text>
-                <Text size="sm" style={{ color: theme.colors.gray[4] }}>
+                <Text
+                  size="sm"
+                  style={{
+                    color:
+                      colorScheme === "dark"
+                        ? theme.colors.gray[4]
+                        : theme.colors.gray[6],
+                  }}
+                >
                   Email: customercare@lynvilleland.com.ph
                 </Text>
               </Stack>
@@ -1106,10 +1724,83 @@ export default function HomePage() {
               }`,
               marginTop: 32,
               paddingTop: 32,
-              textAlign: "center",
             }}
           >
-            <Text size="sm" style={{ color: theme.colors.gray[4] }}>
+            <Group justify="center" gap="xl" mb="md">
+              <Link
+                href="/terms-of-service"
+                style={{
+                  color:
+                    colorScheme === "dark"
+                      ? theme.colors.gray[4]
+                      : theme.colors.gray[6],
+                  textDecoration: "none",
+                  fontSize: "0.875rem",
+                  transition: "color 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color =
+                    colorScheme === "dark"
+                      ? theme.colors.blue[4]
+                      : theme.colors.blue[6];
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color =
+                    colorScheme === "dark"
+                      ? theme.colors.gray[4]
+                      : theme.colors.gray[6];
+                }}
+              >
+                Terms and Conditions
+              </Link>
+              <Text
+                size="sm"
+                style={{
+                  color:
+                    colorScheme === "dark"
+                      ? theme.colors.gray[4]
+                      : theme.colors.gray[6],
+                }}
+              >
+                •
+              </Text>
+              <Link
+                href="/privacy-policy"
+                style={{
+                  color:
+                    colorScheme === "dark"
+                      ? theme.colors.gray[4]
+                      : theme.colors.gray[6],
+                  textDecoration: "none",
+                  fontSize: "0.875rem",
+                  transition: "color 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color =
+                    colorScheme === "dark"
+                      ? theme.colors.blue[4]
+                      : theme.colors.blue[6];
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color =
+                    colorScheme === "dark"
+                      ? theme.colors.gray[4]
+                      : theme.colors.gray[6];
+                }}
+              >
+                Privacy Policy
+              </Link>
+            </Group>
+            <Text
+              size="sm"
+              style={{
+                color:
+                  colorScheme === "dark"
+                    ? theme.colors.gray[4]
+                    : theme.colors.gray[6],
+                textAlign: "center",
+              }}
+            >
               &copy; 2025 Lynville Residences Malvar 2 Sonera. All rights
               reserved.
             </Text>

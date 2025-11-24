@@ -39,14 +39,11 @@ export function LoginForm() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
-  const [lockoutEndTime, setLockoutEndTime] = useState<Date | null>(null);
-  const [remainingTime, setRemainingTime] = useState<{
-    minutes: number;
-    seconds: number;
-  } | null>(null);
-  const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(
-    null
-  );
+  const [accountLocked, setAccountLocked] = useState(false);
+  const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null);
+  const [failedLoginCount, setFailedLoginCount] = useState(0);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isNewUser, setIsNewUser] = useState(false);
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -60,41 +57,51 @@ export function LoginForm() {
     }
   }, [session, router]);
 
-  // Countdown timer effect
-  useEffect(() => {
-    if (!lockoutEndTime) {
-      setRemainingTime(null);
-      return;
+  // Function to get user's IP address
+  const getUserIP = async (): Promise<string | undefined> => {
+    try {
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      return data.ip;
+    } catch (error) {
+      console.warn('Could not fetch user IP:', error);
+      return undefined;
     }
+  };
 
-    const updateCountdown = () => {
-      const now = new Date();
-      const diff = lockoutEndTime.getTime() - now.getTime();
-
-      if (diff <= 0) {
-        setLockoutEndTime(null);
-        setRemainingTime(null);
-        setAttemptsRemaining(null);
-        toast.success("Account unlocked! You can try logging in again.");
-        return;
+  // Function to get account status
+  const getAccountStatus = async (email: string) => {
+    try {
+      const response = await fetch(`/api/auth/failed-login?email=${encodeURIComponent(email)}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setAccountLocked(data.accountLocked || false);
+        setFailedLoginCount(data.failedLoginCount || 0);
+        setAttemptsRemaining(data.attemptsRemaining ?? null);
+        setIsNewUser(data.isNewUser || false);
       }
-
-      const minutes = Math.floor(diff / 60000);
-      const seconds = Math.floor((diff % 60000) / 1000);
-      setRemainingTime({ minutes, seconds });
-    };
-
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-
-    return () => clearInterval(interval);
-  }, [lockoutEndTime]);
+    } catch (error) {
+      console.warn('Could not fetch account status:', error);
+    }
+  };
 
   const handleInputChange = (
     field: keyof FormData,
     value: string | boolean
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    
+    // Check account status when email is entered
+    if (field === "email" && typeof value === "string" && value.trim()) {
+      getAccountStatus(value.trim());
+    }
+  };
+
+  const handleEmailFocus = () => {
+    if (formData.email.trim()) {
+      getAccountStatus(formData.email.trim());
+    }
   };
 
   const validateForm = (): string | null => {
@@ -108,22 +115,70 @@ export function LoginForm() {
     return null;
   };
 
-  const parseErrorMessage = (errorMessage: string) => {
-    // Check if it's a lockout message
-    const lockoutMatch = errorMessage.match(/try again in (\d+) minute\(s\)/i);
-    if (lockoutMatch) {
-      const minutes = parseInt(lockoutMatch[1]);
-      const endTime = new Date();
-      endTime.setMinutes(endTime.getMinutes() + minutes);
-      setLockoutEndTime(endTime);
-      return;
-    }
+  // Track failed login attempt
+  const trackFailedLogin = async (userId: string | null, email: string) => {
+    try {
+      const ipAddress = await getUserIP();
+      
+      const response = await fetch('/api/auth/failed-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: userId || undefined,
+          email,
+          ipAddress,
+        }),
+      });
 
-    // Check if it's an attempts remaining message
-    const attemptsMatch = errorMessage.match(/(\d+) attempt\(s\) remaining/i);
-    if (attemptsMatch) {
-      const attempts = parseInt(attemptsMatch[1]);
-      setAttemptsRemaining(attempts);
+      const data = await response.json();
+      
+      // Always update UI state, regardless of response status
+      // The API will tell us the current state
+      setAccountLocked(data.accountLocked || false);
+      setFailedLoginCount(data.failedLoginCount || 0);
+      setAttemptsRemaining(data.attemptsRemaining ?? null);
+      setIsNewUser(false); // Once they've attempted login, they're not a "new user" anymore
+
+      return data;
+    } catch (error) {
+      console.warn('Failed to track login attempt:', error);
+      return null;
+    }
+  };
+
+  // Reset failed login count on successful login
+  const resetFailedLoginCount = async (email: string) => {
+    try {
+      const response = await fetch('/api/auth/reset-failed-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+        }),
+      });
+
+      if (response.ok) {
+        console.log('Failed login count reset successfully');
+      }
+
+      // Clear local state
+      setAccountLocked(false);
+      setFailedLoginCount(0);
+      setAttemptsRemaining(null);
+      setUserId(null);
+      setIsNewUser(false);
+    } catch (error) {
+      console.warn('Failed to reset login count:', error);
+      // Still clear local state even if API call fails
+      setAccountLocked(false);
+      setFailedLoginCount(0);
+      setAttemptsRemaining(null);
+      setUserId(null);
+      setIsNewUser(false);
     }
   };
 
@@ -136,10 +191,9 @@ export function LoginForm() {
       return;
     }
 
-    // Check if account is locked
-    if (lockoutEndTime && new Date() < lockoutEndTime) {
+    if (accountLocked) {
       toast.error(
-        "Account is locked. Please wait for the countdown to finish."
+        "This account has been locked. Please contact admin or customer service to regain access."
       );
       return;
     }
@@ -147,6 +201,27 @@ export function LoginForm() {
     setIsLoading(true);
 
     try {
+      // Check account status before attempting login
+      const statusResponse = await fetch(`/api/auth/failed-login?email=${encodeURIComponent(formData.email)}`);
+      const statusData = await statusResponse.json();
+      
+      // Check if account is locked from the API response
+      if (statusData?.success) {
+        // Update local state
+        setAccountLocked(statusData.accountLocked || false);
+        setFailedLoginCount(statusData.failedLoginCount || 0);
+        setAttemptsRemaining(statusData.attemptsRemaining ?? null);
+        setIsNewUser(statusData.isNewUser || false);
+      }
+
+      if (statusData.accountLocked) {
+        toast.error(
+          "This account has been locked. Please contact admin or customer service to regain access."
+        );
+        setIsLoading(false);
+        return;
+      }
+
       await authClient.signIn.email(
         {
           email: formData.email,
@@ -155,11 +230,9 @@ export function LoginForm() {
         },
         {
           async onSuccess(context) {
-            // Clear lockout state on success
-            setLockoutEndTime(null);
-            setRemainingTime(null);
-            setAttemptsRemaining(null);
-
+            // Reset failed login count in database on successful login
+            await resetFailedLoginCount(formData.email);
+            
             if (context.data.twoFactorRedirect) {
               await authClient.twoFactor.sendOtp();
               toast.success(
@@ -173,15 +246,8 @@ export function LoginForm() {
           },
           async onError(context) {
             console.error("Sign in error:", context.error.message);
-            const errorMessage =
-              context.error.message ||
-              "Sign in failed. Please check your credentials.";
-
-            // Parse error message for lockout or attempts info
-            parseErrorMessage(errorMessage);
-
-            toast.error(errorMessage);
-
+            
+            // Check for email verification required
             if (context.error.status === 403) {
               toast.error("Please verify your email address");
               await authClient.sendVerificationEmail({
@@ -189,6 +255,39 @@ export function LoginForm() {
                 callbackURL: "/login",
               });
               toast.success("Verification email sent!");
+              setIsLoading(false);
+              return;
+            }
+
+            // For authentication errors, track failed login attempt first
+            const failedLoginData = await trackFailedLogin(null, formData.email);
+            
+            // Update UI state with the latest information from tracking
+            if (failedLoginData) {
+              setAccountLocked(failedLoginData.accountLocked || false);
+              setFailedLoginCount(failedLoginData.failedLoginCount || 0);
+              setAttemptsRemaining(failedLoginData.attemptsRemaining ?? null);
+              setIsNewUser(false); // Once they've failed, they're not new anymore
+            }
+
+            // Show appropriate message based on current account status
+            if (failedLoginData?.accountLocked) {
+              toast.error(
+                "This account has been locked. Please contact admin or customer service to regain access."
+              );
+            } else {
+              const hasFailedHistory = (failedLoginData?.failedLoginCount ?? 0) > 0;
+              const remaining = hasFailedHistory
+                ? (failedLoginData?.attemptsRemaining ?? 0)
+                : 0;
+
+              if (remaining > 0) {
+                toast.error(
+                  `Invalid credentials. You have only ${remaining} attempt${remaining !== 1 ? "s" : ""} left to login.`
+                );
+              } else {
+                toast.error("Invalid credentials.");
+              }
             }
           },
         }
@@ -201,11 +300,11 @@ export function LoginForm() {
     }
   };
 
-  const isLocked = lockoutEndTime && new Date() < lockoutEndTime;
+  const isLocked = accountLocked;
 
   return (
     <Paper
-      className="w-full max-w-sm"
+      className="w-full max-w-sm mx-auto"
       p="xl"
       style={{
         backgroundColor:
@@ -236,38 +335,39 @@ export function LoginForm() {
       </div>
 
       {/* Lockout Alert */}
-      {isLocked && remainingTime && (
+      {isLocked && (
         <Alert
           icon={<IconClock size={20} />}
           title="Account Locked"
           color="red"
           className="mb-4"
+          variant="light"
           styles={{
             message: {
               fontSize: "0.875rem",
             },
+            root: {
+              backgroundColor: '#fff5f5',
+              borderColor: '#f03e3e',
+              borderWidth: '2px',
+            },
           }}
         >
-          <Text size="sm" fw={500} className="mb-2">
-            Too many failed login attempts
+          <Text size="sm" fw={600} c="red.9" className="mb-2">
+            This account has been locked
           </Text>
-          <div className="flex items-center gap-2">
-            <Text size="xl" fw={700} className="tabular-nums">
-              {String(remainingTime.minutes).padStart(2, "0")}:
-              {String(remainingTime.seconds).padStart(2, "0")}
-            </Text>
-            <Text size="xs" c="dimmed">
-              remaining
-            </Text>
-          </div>
-          <Text size="xs" c="dimmed" className="mt-2">
-            Your account will be automatically unlocked after this time.
+          <Text size="xs" c="dark.7" className="mb-2">
+            Your account has been locked for security reasons. Please contact admin 
+            or customer service to regain access.
+          </Text>
+          <Text size="xs" c="red.7" fw={600}>
+            Failed attempts: {failedLoginCount}/3
           </Text>
         </Alert>
       )}
 
       {/* Attempts Warning */}
-      {!isLocked && attemptsRemaining !== null && attemptsRemaining <= 3 && (
+      {!isLocked && attemptsRemaining !== null && attemptsRemaining > 0 && attemptsRemaining <= 3 && (
         <Alert
           icon={<IconAlertCircle size={20} />}
           title="Warning"
@@ -276,7 +376,7 @@ export function LoginForm() {
         >
           <Text size="sm">
             {attemptsRemaining === 1
-              ? "This is your last attempt before your account gets locked for 10 minutes."
+              ? "This is your last attempt before your account gets locked. You will need to contact admin to regain access."
               : `You have ${attemptsRemaining} attempt${
                   attemptsRemaining > 1 ? "s" : ""
                 } remaining before your account gets locked.`}
@@ -292,6 +392,7 @@ export function LoginForm() {
             type="email"
             required
             value={formData.email}
+            onFocus={handleEmailFocus}
             onChange={(e) => handleInputChange("email", e.target.value)}
             styles={{
               label: {

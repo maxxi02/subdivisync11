@@ -210,7 +210,6 @@ const PaymentsTrackingPage = () => {
       );
 
       setPayments(paymentsWithPlans);
-      showNotification("success", "Payment data fetched successfully");
     } catch (error) {
       console.error("Error fetching payment data:", error);
       showNotification(

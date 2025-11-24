@@ -133,7 +133,6 @@ const TenantDashboard = () => {
         const annData = await annRes.json();
         if (annData.success) {
           setAnnouncements(annData.announcements);
-          showNotification("success", "Announcements loaded successfully");
         } else {
           showNotification(
             "error",
@@ -146,7 +145,6 @@ const TenantDashboard = () => {
         const propData = await propRes.json();
         if (propData.success) {
           setProperties(propData.paymentPlans);
-          showNotification("success", "Payment plans loaded successfully");
         } else {
           showNotification(
             "error",
@@ -159,7 +157,6 @@ const TenantDashboard = () => {
         const srData = await srRes.json();
         if (srData.success) {
           setServiceRequests(srData.serviceRequests);
-          showNotification("success", "Service requests loaded successfully");
         } else {
           showNotification(
             "error",
@@ -179,7 +176,6 @@ const TenantDashboard = () => {
             return p;
           });
           setPayments(updatedPayments);
-          showNotification("success", "Payments loaded successfully");
         } else {
           showNotification("error", payData.error || "Failed to load payments");
         }
@@ -267,20 +263,24 @@ const TenantDashboard = () => {
         </Box>
 
         <SimpleGrid
-          cols={{ base: 1, xs: 2, sm: 2, md: 5 }}
+          cols={{ base: 1, xs: 2, sm: 2, md: 3, lg: 5 }}
           spacing={{ base: "md", sm: "lg" }}
           verticalSpacing={{ base: "md", sm: "lg" }}
+          style={{ width: "100%" }}
         >
           {stats.map((stat) => (
             <Card
               key={stat.title}
-              padding="xl"
-              radius="lg"
+              padding="md"
+              radius="md"
               withBorder
               style={{
+                backgroundColor: "white",
                 boxShadow: getDefaultShadow(),
                 transition: "transform 0.2s ease, box-shadow 0.2s ease",
                 cursor: "pointer",
+                minWidth: 0,
+                width: "100%",
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = "translateY(-2px)";
@@ -292,33 +292,50 @@ const TenantDashboard = () => {
                 e.currentTarget.style.boxShadow = getDefaultShadow();
               }}
             >
-              <Flex justify="space-between" align="flex-start" gap="md">
-                <Stack gap="xs" flex={1}>
+              <Group 
+                align="center" 
+                gap="sm"
+                wrap="wrap"
+                style={{ width: "100%" }}
+              >
+                <ThemeIcon
+                  variant="filled"
+                  color={stat.color}
+                  size="lg"
+                  radius="md"
+                  aria-hidden="true"
+                  style={{
+                    flexShrink: 0,
+                  }}
+                >
+                  <stat.icon size={18} />
+                </ThemeIcon>
+                <Stack gap={2} style={{ flex: 1, minWidth: "100px" }}>
                   <Text
-                    c={primaryTextColor}
-                    size="sm"
+                    c="dimmed"
+                    size="xs"
                     tt="uppercase"
                     fw={600}
                     lts={0.5}
                     role="heading"
                     aria-level={3}
+                    style={{
+                      wordBreak: "break-word",
+                      lineHeight: 1.3,
+                    }}
                   >
                     {stat.title}
                   </Text>
-                  <Text fw={700} size="xl" c={primaryTextColor} lh={1.2}>
+                  <Text
+                    fw={700}
+                    size="lg"
+                    c="black"
+                    lh={1.2}
+                  >
                     {stat.value}
                   </Text>
                 </Stack>
-                <ThemeIcon
-                  variant="light"
-                  color={stat.color}
-                  size="xl"
-                  radius="lg"
-                  aria-hidden="true"
-                >
-                  <stat.icon size="1.5rem" />
-                </ThemeIcon>
-              </Flex>
+              </Group>
             </Card>
           ))}
         </SimpleGrid>
@@ -361,9 +378,11 @@ const TenantDashboard = () => {
                             colorScheme === "dark"
                               ? theme.colors.dark[6]
                               : theme.white,
+                          minWidth: 0,
+                          width: "100%",
                         }}
                       >
-                        <Grid gutter="md">
+                        <Grid gutter="md" style={{ minWidth: 0 }}>
                           {/* Image Section */}
                           {ann.images && ann.images.length > 0 && (
                             <Grid.Col span={{ base: 12, sm: 4 }}>
@@ -401,14 +420,24 @@ const TenantDashboard = () => {
                               sm: ann.images && ann.images.length > 0 ? 8 : 12,
                             }}
                           >
-                            <Stack gap="xs">
-                              <Group justify="space-between" align="flex-start">
+                            <Stack gap="xs" style={{ minWidth: 0 }}>
+                              <Group 
+                                justify="space-between" 
+                                align="flex-start"
+                                wrap="nowrap"
+                                gap="xs"
+                                style={{ minWidth: 0 }}
+                              >
                                 <Title
                                   order={4}
                                   size="h5"
                                   fw={600}
                                   c={primaryTextColor}
-                                  style={{ flex: 1 }}
+                                  style={{ 
+                                    flex: 1,
+                                    minWidth: 0,
+                                    fontSize: "clamp(0.875rem, 2vw, 1rem)",
+                                  }}
                                 >
                                   {ann.title}
                                 </Title>
@@ -423,26 +452,33 @@ const TenantDashboard = () => {
                                   variant="light"
                                   size="sm"
                                   radius="md"
+                                  style={{ flexShrink: 0 }}
                                 >
                                   {ann.priority}
                                 </Badge>
                               </Group>
 
                               <Text
-                                size="sm"
+                                size="xs"
                                 c={primaryTextColor}
                                 lineClamp={2}
                                 style={{
                                   wordBreak: "break-word",
                                   overflowWrap: "break-word",
+                                  fontSize: "clamp(0.75rem, 1.5vw, 0.875rem)",
                                 }}
                               >
                                 {ann.content}
                               </Text>
 
-                              <Group gap="xs" mt="xs">
+                              <Group gap="xs" mt="xs" wrap="nowrap">
                                 <IconAlertCircle
-                                  size={16}
+                                  size={14}
+                                  style={{
+                                    flexShrink: 0,
+                                    width: "clamp(0.75rem, 1.5vw, 0.875rem)",
+                                    height: "clamp(0.75rem, 1.5vw, 0.875rem)",
+                                  }}
                                   color={
                                     colorScheme === "dark"
                                       ? theme.colors.gray[5]
@@ -456,6 +492,10 @@ const TenantDashboard = () => {
                                       ? theme.colors.gray[5]
                                       : theme.colors.gray[6]
                                   }
+                                  style={{
+                                    fontSize: "clamp(0.65rem, 1.5vw, 0.75rem)",
+                                    wordBreak: "break-word",
+                                  }}
                                 >
                                   Posted on{" "}
                                   {new Date(

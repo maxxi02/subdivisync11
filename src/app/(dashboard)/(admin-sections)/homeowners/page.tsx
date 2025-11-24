@@ -125,7 +125,6 @@ const TenantsSection = () => {
 
   useEffect(() => {
     fetchTenants();
-    toast.success("Homeonwers fetched successfully");
   }, []);
 
   const fetchTenants = async () => {

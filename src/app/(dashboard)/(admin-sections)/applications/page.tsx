@@ -245,7 +245,6 @@ const ApplicationsPage = () => {
           }
         });
         setInquiries(allInquiries);
-        showNotification("success", "Inquiries fetched successfully");
       } else {
         throw new Error(data.error || "Failed to fetch inquiries");
       }
@@ -744,8 +743,14 @@ const ApplicationsPage = () => {
                   {stats.totalApplications}
                 </Text>
               </Stack>
-              <ThemeIcon variant="light" color="blue" size="xl" radius="lg">
-                <IconUser size="1.5rem" />
+              <ThemeIcon
+                variant="light"
+                color="blue"
+                size="xl"
+                radius="lg"
+                style={{ backgroundColor: "rgba(255, 255, 255, 0.2)", color: "white", boxShadow: getDefaultShadow() }}
+              >
+                <IconUser size="1.5rem" color="white" />
               </ThemeIcon>
             </Flex>
           </Card>
@@ -771,8 +776,14 @@ const ApplicationsPage = () => {
                   {stats.pendingApplications}
                 </Text>
               </Stack>
-              <ThemeIcon variant="light" color="yellow" size="xl" radius="lg">
-                <IconClock size="1.5rem" />
+              <ThemeIcon
+                variant="light"
+                color="yellow"
+                size="xl"
+                radius="lg"
+                style={{ backgroundColor: "rgba(255, 255, 255, 0.2)", color: "white", boxShadow: getDefaultShadow() }}
+              >
+                <IconClock size="1.5rem" color="white" />
               </ThemeIcon>
             </Flex>
           </Card>
@@ -798,8 +809,14 @@ const ApplicationsPage = () => {
                   {stats.approvedApplications}
                 </Text>
               </Stack>
-              <ThemeIcon variant="light" color="green" size="xl" radius="lg">
-                <IconCheck size="1.5rem" />
+              <ThemeIcon
+                variant="light"
+                color="green"
+                size="xl"
+                radius="lg"
+                style={{ backgroundColor: "rgba(255, 255, 255, 0.2)", color: "white", boxShadow: getDefaultShadow() }}
+              >
+                <IconCheck size="1.5rem" color="white" />
               </ThemeIcon>
             </Flex>
           </Card>
@@ -825,8 +842,14 @@ const ApplicationsPage = () => {
                   {stats.rejectedApplications}
                 </Text>
               </Stack>
-              <ThemeIcon variant="light" color="red" size="xl" radius="lg">
-                <IconX size="1.5rem" />
+              <ThemeIcon
+                variant="light"
+                color="red"
+                size="xl"
+                radius="lg"
+                style={{ backgroundColor: "rgba(255, 255, 255, 0.2)", color: "white", boxShadow: getDefaultShadow() }}
+              >
+                <IconX size="1.5rem" color="white" />
               </ThemeIcon>
             </Flex>
           </Card>

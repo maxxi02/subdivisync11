@@ -18,6 +18,7 @@ import {
   Textarea,
   Image as MantineImage,
   Divider,
+  ThemeIcon,
   useMantineTheme,
   useMantineColorScheme,
   rgba,
@@ -147,10 +148,6 @@ const ServicesSection = () => {
     getSession();
   }, [router]);
 
-  useEffect(() => {
-    fetchServiceRequests();
-    toast.success("Service requests fetched successfully");
-  }, []);
 
   const handleVerifyCashPayment = async (
     requestId: string,
@@ -540,26 +537,26 @@ const ServicesSection = () => {
           >
             <Group justify="space-between" align="center">
               <Stack gap={4}>
-                <Text size="xs" c={rgba("white", 0.8)} fw={500}>
+                <Text size="xs" c="white" fw={500}>
                   {stat.title}
                 </Text>
-                <Text size="lg" fw={700}>
+                <Text size="lg" fw={700} c="white">
                   {stat.value}
                 </Text>
               </Stack>
-              <Box
+              <ThemeIcon
+                variant="light"
+                color="gray"
+                size="xl"
+                radius="lg"
                 style={{
-                  height: 40,
-                  width: 40,
-                  backgroundColor: rgba("white", 0.15),
-                  borderRadius: theme.radius.sm,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  backgroundColor: "rgba(255, 255, 255, 0.2)",
+                  color: "white",
+                  boxShadow: getDefaultShadow(),
                 }}
               >
-                <stat.icon size={20} stroke={1.5} />
-              </Box>
+                <stat.icon size="1.5rem" color="white" />
+              </ThemeIcon>
             </Group>
           </Box>
         ))}
@@ -582,7 +579,7 @@ const ServicesSection = () => {
           <Group gap="sm">
             <IconExclamationMark
               size={18}
-              color={theme.colors.red[6]}
+              color={colorScheme === "dark" ? "white" : theme.colors.red[6]}
               stroke={1.5}
             />
             <Stack gap={0}>

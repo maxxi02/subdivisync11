@@ -203,7 +203,6 @@ const TenantProfilePage = () => {
             phoneNumber: session?.user?.phoneNumber || "",
           });
           setImagePreview(session?.user?.image || "");
-          showNotification("success", "Profile data loaded successfully");
         }
       } catch (error) {
         showNotification(

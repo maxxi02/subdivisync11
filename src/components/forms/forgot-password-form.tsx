@@ -25,7 +25,8 @@ export function ForgotPasswordForm() {
   const [error, setError] = useState<string | null>(null);
 
   const titleColor = colorScheme === "dark" ? "white" : "dark";
-  const paperBg = alpha(theme.white, colorScheme === "dark" ? 0.05 : 0.95);
+  const paperBg = colorScheme === "dark" ? theme.colors.dark[6] : theme.white;
+  const subTextColor = colorScheme === "dark" ? theme.colors.gray[1] : theme.colors.gray[7];
   const greenBgColor = alpha(theme.colors.green[6], 0.1);
   const greenBorderColor = alpha(theme.colors.green[6], 0.2);
   const errorBgColor = alpha(theme.colors.red[6], 0.1);
@@ -83,7 +84,7 @@ export function ForgotPasswordForm() {
   if (isSubmitted) {
     return (
       <Paper
-        className="w-full max-w-sm backdrop-blur-sm"
+        className="w-full max-w-sm mx-auto"
         p="xl"
         radius="md"
         withBorder
@@ -95,7 +96,7 @@ export function ForgotPasswordForm() {
           <Title order={2} className="text-xl mb-2" c={titleColor}>
             Check Your Email
           </Title>
-          <Text size="sm" c="dimmed">
+          <Text size="sm" style={{ color: subTextColor }}>
             We&#39;ve sent a password reset link to {email}
           </Text>
         </div>
@@ -112,12 +113,12 @@ export function ForgotPasswordForm() {
               reset link shortly. The link will expire in 24 hours.
             </Text>
           </div>
-          <Text size="xs" c="dimmed" ta="center">
+          <Text size="xs" ta="center" style={{ color: subTextColor }}>
             Didn&#39;t receive an email? Check your spam folder or try again in a
             few minutes.
           </Text>
           <Link href="/login">
-            <Button variant="outline" size="md" fullWidth>
+            <Button variant="filled" size="md" fullWidth>
               Back to Sign In
             </Button>
           </Link>
@@ -144,10 +145,13 @@ export function ForgotPasswordForm() {
 
   return (
     <Paper
-      className="w-full max-w-sm backdrop-blur-sm"
+      className="w-full max-w-sm mx-auto"
       p="xl"
       radius="md"
       withBorder
+      style={{
+        backgroundColor: paperBg,
+      }}
     >
       <div className="text-center mb-6">
         <Title order={2} className="text-xl mb-2" c={titleColor}>

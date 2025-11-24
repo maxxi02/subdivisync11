@@ -16,6 +16,7 @@ import {
   Badge,
   Progress,
   Table,
+  Box,
   useMantineTheme,
   useMantineColorScheme,
   rgba,
@@ -32,6 +33,7 @@ import {
   IconCheck,
   IconExclamationMark,
 } from "@tabler/icons-react";
+import { ThemeIcon } from "@mantine/core";
 
 interface PaymentPlan {
   _id: string;
@@ -124,7 +126,6 @@ const TransactionPage = () => {
       const data = await response.json();
       if (data.success) {
         setPaymentPlans(data.paymentPlans);
-        showNotification("success", "Payment plans loaded successfully");
       } else {
         throw new Error(data.error || "Failed to fetch payment plans");
       }
@@ -186,7 +187,6 @@ const TransactionPage = () => {
       const data = await response.json();
       if (data.success) {
         setMonthlyPayments(data.payments);
-        showNotification("success", "Monthly payments loaded successfully");
       } else {
         throw new Error(data.error || "Failed to fetch monthly payments");
       }
@@ -482,92 +482,202 @@ const TransactionPage = () => {
           </Group>
         </Card>
         {/* Stats Cards */}
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 5 }} spacing="md">
+        <SimpleGrid cols={{ base: 1, xs: 2, sm: 2, md: 3, lg: 5 }} spacing="md" style={{ width: "100%" }}>
           <Card
             shadow="sm"
-            padding="lg"
-            radius="lg"
+            padding="md"
+            radius="md"
             withBorder
-            style={{ boxShadow: getDefaultShadow() }}
+            style={{
+              backgroundColor: "white",
+              boxShadow: getDefaultShadow(),
+              minWidth: 0,
+              width: "100%",
+            }}
           >
-            <Group justify="space-between" align="center">
-              <Stack gap="xs">
-                <Text size="sm" c={primaryTextColor} fw={500}>
+            <Group align="center" gap="sm" wrap="wrap" style={{ width: "100%" }}>
+              <ThemeIcon
+                variant="filled"
+                color="blue"
+                size="lg"
+                radius="md"
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                }}
+              >
+                <IconHome size={18} />
+              </ThemeIcon>
+              <Stack gap={2} style={{ flex: 1, minWidth: "100px" }}>
+                <Text
+                  c="dimmed"
+                  size="xs"
+                  tt="uppercase"
+                  fw={600}
+                  lts={0.5}
+                  style={{
+                    wordBreak: "break-word",
+                    lineHeight: 1.3,
+                  }}
+                >
                   Active Plans
                 </Text>
-                <Text size="xl" fw={700} c="blue.6">
+                <Text
+                  fw={700}
+                  size="lg"
+                  c="blue.6"
+                  lh={1.2}
+                >
                   {paymentPlans.filter((p) => p.status === "active").length}
                 </Text>
               </Stack>
-              <Group
-                className="h-12 w-12 bg-blue-100 rounded-lg"
-                justify="center"
-              >
-                <IconHome size={24} color="blue" />
-              </Group>
             </Group>
           </Card>
           <Card
             shadow="sm"
-            padding="lg"
-            radius="lg"
+            padding="md"
+            radius="md"
             withBorder
-            style={{ boxShadow: getDefaultShadow() }}
+            style={{
+              backgroundColor: "white",
+              boxShadow: getDefaultShadow(),
+              minWidth: 0,
+              width: "100%",
+            }}
           >
-            <Group justify="space-between" align="center">
-              <Stack gap="xs">
-                <Text size="sm" c={primaryTextColor} fw={500}>
+            <Group align="center" gap="sm" wrap="wrap" style={{ width: "100%" }}>
+              <ThemeIcon
+                variant="filled"
+                color="orange"
+                size="lg"
+                radius="md"
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                }}
+              >
+                <IconClock size={18} />
+              </ThemeIcon>
+              <Stack gap={2} style={{ flex: 1, minWidth: "100px" }}>
+                <Text
+                  c="dimmed"
+                  size="xs"
+                  tt="uppercase"
+                  fw={600}
+                  lts={0.5}
+                  style={{
+                    wordBreak: "break-word",
+                    lineHeight: 1.3,
+                  }}
+                >
                   Pending Payments
                 </Text>
-                <Text size="xl" fw={700} c="yellow.6">
+                <Text
+                  fw={700}
+                  size="lg"
+                  c="yellow.6"
+                  lh={1.2}
+                >
                   {monthlyPayments.filter((p) => p.status === "pending").length}
                 </Text>
               </Stack>
-              <Group
-                className="h-12 w-12 bg-yellow-100 rounded-lg"
-                justify="center"
-              >
-                <IconClock size={24} color="yellow" />
-              </Group>
             </Group>
           </Card>
           <Card
             shadow="sm"
-            padding="lg"
-            radius="lg"
+            padding="md"
+            radius="md"
             withBorder
-            style={{ boxShadow: getDefaultShadow() }}
+            style={{
+              backgroundColor: "white",
+              boxShadow: getDefaultShadow(),
+              minWidth: 0,
+              width: "100%",
+            }}
           >
-            <Group justify="space-between" align="center">
-              <Stack gap="xs">
-                <Text size="sm" c={primaryTextColor} fw={500}>
+            <Group align="center" gap="sm" wrap="wrap" style={{ width: "100%" }}>
+              <ThemeIcon
+                variant="filled"
+                color="red"
+                size="lg"
+                radius="md"
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                }}
+              >
+                <IconAlertCircle size={18} />
+              </ThemeIcon>
+              <Stack gap={2} style={{ flex: 1, minWidth: "100px" }}>
+                <Text
+                  c="dimmed"
+                  size="xs"
+                  tt="uppercase"
+                  fw={600}
+                  lts={0.5}
+                  style={{
+                    wordBreak: "break-word",
+                    lineHeight: 1.3,
+                  }}
+                >
                   Overdue
                 </Text>
-                <Text size="xl" fw={700} c="red.6">
+                <Text
+                  fw={700}
+                  size="lg"
+                  c="red.6"
+                  lh={1.2}
+                >
                   {getOverduePayments().length}
                 </Text>
               </Stack>
-              <Group
-                className="h-12 w-12 bg-red-100 rounded-lg"
-                justify="center"
-              >
-                <IconAlertCircle size={24} color="red" />
-              </Group>
             </Group>
           </Card>
           <Card
             shadow="sm"
-            padding="lg"
-            radius="lg"
+            padding="md"
+            radius="md"
             withBorder
-            style={{ boxShadow: getDefaultShadow() }}
+            style={{
+              backgroundColor: "white",
+              boxShadow: getDefaultShadow(),
+              minWidth: 0,
+              width: "100%",
+            }}
           >
-            <Group justify="space-between" align="center">
-              <Stack gap="xs">
-                <Text size="sm" c={primaryTextColor} fw={500}>
+            <Group align="center" gap="sm" wrap="wrap" style={{ width: "100%" }}>
+              <ThemeIcon
+                variant="filled"
+                color="green"
+                size="lg"
+                radius="md"
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                }}
+              >
+                <IconTrendingUp size={18} />
+              </ThemeIcon>
+              <Stack gap={2} style={{ flex: 1, minWidth: "100px" }}>
+                <Text
+                  c="dimmed"
+                  size="xs"
+                  tt="uppercase"
+                  fw={600}
+                  lts={0.5}
+                  style={{
+                    wordBreak: "break-word",
+                    lineHeight: 1.3,
+                  }}
+                >
                   Total Remaining
                 </Text>
-                <Text size="xl" fw={700} c="green.6">
+                <Text
+                  fw={700}
+                  size="lg"
+                  c="green.6"
+                  lh={1.2}
+                >
                   {formatCurrency(
                     paymentPlans.reduce(
                       (sum, plan) => sum + plan.remainingBalance,
@@ -576,27 +686,53 @@ const TransactionPage = () => {
                   )}
                 </Text>
               </Stack>
-              <Group
-                className="h-12 w-12 bg-green-100 rounded-lg"
-                justify="center"
-              >
-                <IconTrendingUp size={24} color="green" />
-              </Group>
             </Group>
           </Card>
           <Card
             shadow="sm"
-            padding="lg"
-            radius="lg"
+            padding="md"
+            radius="md"
             withBorder
-            style={{ boxShadow: getDefaultShadow() }}
+            style={{
+              backgroundColor: "white",
+              boxShadow: getDefaultShadow(),
+              minWidth: 0,
+              width: "100%",
+            }}
           >
-            <Group justify="space-between" align="center">
-              <Stack gap="xs">
-                <Text size="sm" c={primaryTextColor} fw={500}>
+            <Group align="center" gap="sm" wrap="wrap" style={{ width: "100%" }}>
+              <ThemeIcon
+                variant="filled"
+                color="yellow"
+                size="lg"
+                radius="md"
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                }}
+              >
+                <IconClock size={18} />
+              </ThemeIcon>
+              <Stack gap={2} style={{ flex: 1, minWidth: "100px" }}>
+                <Text
+                  c="dimmed"
+                  size="xs"
+                  tt="uppercase"
+                  fw={600}
+                  lts={0.5}
+                  style={{
+                    wordBreak: "break-word",
+                    lineHeight: 1.3,
+                  }}
+                >
                   Pending Verification
                 </Text>
-                <Text size="xl" fw={700} c="orange.6">
+                <Text
+                  fw={700}
+                  size="lg"
+                  c="orange.6"
+                  lh={1.2}
+                >
                   {
                     monthlyPayments.filter(
                       (p) => p.status === "pending_verification"
@@ -604,12 +740,6 @@ const TransactionPage = () => {
                   }
                 </Text>
               </Stack>
-              <Group
-                className="h-12 w-12 bg-orange-100 rounded-lg"
-                justify="center"
-              >
-                <IconClock size={24} color="orange" />
-              </Group>
             </Group>
           </Card>
         </SimpleGrid>

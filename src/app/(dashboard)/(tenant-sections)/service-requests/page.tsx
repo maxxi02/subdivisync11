@@ -40,6 +40,7 @@ import {
   IconHome,
   IconQuestionMark,
 } from "@tabler/icons-react";
+import { ThemeIcon } from "@mantine/core";
 import { Dropzone } from "@mantine/dropzone";
 import { useDisclosure } from "@mantine/hooks";
 import axios from "axios";
@@ -241,7 +242,6 @@ const ServiceRequestsSection = () => {
         );
         console.log("Transformed Requests:", transformedRequests); // Debug log
         setRequests(transformedRequests);
-        showNotification("success", "Service requests loaded successfully");
       } else {
         showNotification(
           "error",
@@ -539,137 +539,173 @@ const ServiceRequestsSection = () => {
           </Group>
         </Card>
         {/* Stats Cards */}
-        <SimpleGrid cols={{ base: 1, sm: 4 }} spacing="md">
+        <SimpleGrid cols={{ base: 1, xs: 2, md: 4 }} spacing="md">
           <Card
-            padding="xl"
-            radius="lg"
+            padding="md"
+            radius="md"
             withBorder
             style={{
+              backgroundColor: "white",
               boxShadow: getDefaultShadow(),
-              background: "linear-gradient(90deg, #fb8c00, #f57c00)",
             }}
           >
-            <Group justify="space-between">
-              <Stack gap={4}>
-                <Text size="sm" c={primaryTextColor}>
+            <Group align="center" gap="sm" wrap="wrap" style={{ width: "100%" }}>
+              <ThemeIcon
+                variant="filled"
+                color="yellow"
+                size="lg"
+                radius="md"
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                }}
+              >
+                <IconClock size={18} />
+              </ThemeIcon>
+              <Stack gap={2} style={{ flex: 1, minWidth: "100px" }}>
+                <Text
+                  c="dimmed"
+                  size="xs"
+                  tt="uppercase"
+                  fw={600}
+                  lts={0.5}
+                  style={{
+                    wordBreak: "break-word",
+                    lineHeight: 1.3,
+                  }}
+                >
                   Pending Requests
                 </Text>
-                <Text size="xl" fw={700} c={primaryTextColor}>
+                <Text fw={700} size="lg" c="yellow.6" lh={1.2}>
                   {stats.pending}
                 </Text>
               </Stack>
-              <Box
-                style={{
-                  width: 48,
-                  height: 48,
-                  background: "rgba(255, 255, 255, 0.2)",
-                  borderRadius: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <IconClock size={24} color="white" />
-              </Box>
             </Group>
           </Card>
           <Card
-            padding="xl"
-            radius="lg"
+            padding="md"
+            radius="md"
             withBorder
             style={{
+              backgroundColor: "white",
               boxShadow: getDefaultShadow(),
-              background: "linear-gradient(90deg, #1976d2, #1565c0)",
             }}
           >
-            <Group justify="space-between">
-              <Stack gap={4}>
-                <Text size="sm" c={primaryTextColor}>
+            <Group align="center" gap="sm" wrap="wrap" style={{ width: "100%" }}>
+              <ThemeIcon
+                variant="filled"
+                color="blue"
+                size="lg"
+                radius="md"
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                }}
+              >
+                <IconSettings size={18} />
+              </ThemeIcon>
+              <Stack gap={2} style={{ flex: 1, minWidth: "100px" }}>
+                <Text
+                  c="dimmed"
+                  size="xs"
+                  tt="uppercase"
+                  fw={600}
+                  lts={0.5}
+                  style={{
+                    wordBreak: "break-word",
+                    lineHeight: 1.3,
+                  }}
+                >
                   In Progress
                 </Text>
-                <Text size="xl" fw={700} c={primaryTextColor}>
+                <Text fw={700} size="lg" c="blue.6" lh={1.2}>
                   {stats.inProgress}
                 </Text>
               </Stack>
-              <Box
-                style={{
-                  width: 48,
-                  height: 48,
-                  background: "rgba(255, 255, 255, 0.2)",
-                  borderRadius: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <IconSettings size={24} color="white" />
-              </Box>
             </Group>
           </Card>
           <Card
-            padding="xl"
-            radius="lg"
+            padding="md"
+            radius="md"
             withBorder
             style={{
+              backgroundColor: "white",
               boxShadow: getDefaultShadow(),
-              background: "linear-gradient(90deg, #2e7d32, #1b5e20)",
             }}
           >
-            <Group justify="space-between">
-              <Stack gap={4}>
-                <Text size="sm" c={primaryTextColor}>
+            <Group align="center" gap="sm" wrap="wrap" style={{ width: "100%" }}>
+              <ThemeIcon
+                variant="filled"
+                color="green"
+                size="lg"
+                radius="md"
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                }}
+              >
+                <IconCheck size={18} />
+              </ThemeIcon>
+              <Stack gap={2} style={{ flex: 1, minWidth: "100px" }}>
+                <Text
+                  c="dimmed"
+                  size="xs"
+                  tt="uppercase"
+                  fw={600}
+                  lts={0.5}
+                  style={{
+                    wordBreak: "break-word",
+                    lineHeight: 1.3,
+                  }}
+                >
                   Completed
                 </Text>
-                <Text size="xl" fw={700} c={primaryTextColor}>
+                <Text fw={700} size="lg" c="green.6" lh={1.2}>
                   {stats.completed}
                 </Text>
               </Stack>
-              <Box
-                style={{
-                  width: 48,
-                  height: 48,
-                  background: "rgba(255, 255, 255, 0.2)",
-                  borderRadius: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <IconCheck size={24} color="white" />
-              </Box>
             </Group>
           </Card>
           <Card
-            padding="xl"
-            radius="lg"
+            padding="md"
+            radius="md"
             withBorder
             style={{
+              backgroundColor: "white",
               boxShadow: getDefaultShadow(),
-              background: "linear-gradient(90deg, #d32f2f, #b71c1c)",
             }}
           >
-            <Group justify="space-between">
-              <Stack gap={4}>
-                <Text size="sm" c={primaryTextColor}>
+            <Group align="center" gap="sm" wrap="wrap" style={{ width: "100%" }}>
+              <ThemeIcon
+                variant="filled"
+                color="red"
+                size="lg"
+                radius="md"
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                }}
+              >
+                <IconExclamationMark size={18} />
+              </ThemeIcon>
+              <Stack gap={2} style={{ flex: 1, minWidth: "100px" }}>
+                <Text
+                  c="dimmed"
+                  size="xs"
+                  tt="uppercase"
+                  fw={600}
+                  lts={0.5}
+                  style={{
+                    wordBreak: "break-word",
+                    lineHeight: 1.3,
+                  }}
+                >
                   High Priority
                 </Text>
-                <Text size="xl" fw={700} c={primaryTextColor}>
+                <Text fw={700} size="lg" c="red.6" lh={1.2}>
                   {stats.highPriority}
                 </Text>
               </Stack>
-              <Box
-                style={{
-                  width: 48,
-                  height: 48,
-                  background: "rgba(255, 255, 255, 0.2)",
-                  borderRadius: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <IconExclamationMark size={24} color="white" />
-              </Box>
             </Group>
           </Card>
         </SimpleGrid>

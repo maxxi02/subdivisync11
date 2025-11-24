@@ -455,7 +455,6 @@ const ManageAnnouncementSection = () => {
         const data = await response.json();
         if (data.success) {
           setAnnouncements(data.announcements);
-          showNotification("success", "Announcements fetched successfully");
         } else {
           throw new Error(data.error || "Failed to fetch announcements");
         }

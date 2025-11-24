@@ -791,8 +791,14 @@ export default function PropertyManagement() {
                   {stats.total}
                 </Text>
               </Stack>
-              <ThemeIcon variant="light" color="blue" size="xl" radius="lg">
-                <IconBuilding size="1.5rem" />
+              <ThemeIcon
+                variant="light"
+                color="blue"
+                size="xl"
+                radius="lg"
+                style={{ backgroundColor: "rgba(255, 255, 255, 0.2)", color: "white", boxShadow: getDefaultShadow() }}
+              >
+                <IconBuilding size="1.5rem" color="white" />
               </ThemeIcon>
             </Flex>
           </Card>
@@ -817,8 +823,14 @@ export default function PropertyManagement() {
                   {stats.underInquiry}
                 </Text>
               </Stack>
-              <ThemeIcon variant="light" color="yellow" size="xl" radius="lg">
-                <IconFileText size="1.5rem" />
+              <ThemeIcon
+                variant="light"
+                color="yellow"
+                size="xl"
+                radius="lg"
+                style={{ backgroundColor: "rgba(255, 255, 255, 0.2)", color: "white", boxShadow: getDefaultShadow() }}
+              >
+                <IconFileText size="1.5rem" color="white" />
               </ThemeIcon>
             </Flex>
           </Card>
@@ -843,8 +855,14 @@ export default function PropertyManagement() {
                   {stats.leased}
                 </Text>
               </Stack>
-              <ThemeIcon variant="light" color="violet" size="xl" radius="lg">
-                <IconUsers size="1.5rem" />
+              <ThemeIcon
+                variant="light"
+                color="violet"
+                size="xl"
+                radius="lg"
+                style={{ backgroundColor: "rgba(255, 255, 255, 0.2)", color: "white", boxShadow: getDefaultShadow() }}
+              >
+                <IconUsers size="1.5rem" color="white" />
               </ThemeIcon>
             </Flex>
           </Card>

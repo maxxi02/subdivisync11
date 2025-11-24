@@ -154,7 +154,6 @@ const PropertyListingPage = () => {
 
         setProperties(data.properties || []);
         setFilteredProperties(data.properties || []);
-        showNotification("success", "Properties loaded successfully");
       } catch (err) {
         console.error("Error loading properties:", err);
         showNotification(
