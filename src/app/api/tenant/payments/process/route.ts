@@ -170,13 +170,13 @@ export async function POST(request: NextRequest) {
               ],
               success_url: `${
                 process.env.NODE_ENV === "production"
-                  ? process.env.NEXT_PUBLIC_URL
-                  : process.env.BETTER_AUTH_URL
+                  ? (process.env.NEXT_PUBLIC_URL || process.env.BETTER_AUTH_URL)
+                  : (process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_URL)
               }/payments/success?payment_id=${paymentId}`,
               cancel_url: `${
                 process.env.NODE_ENV === "production"
-                  ? process.env.NEXT_PUBLIC_URL
-                  : process.env.BETTER_AUTH_URL
+                  ? (process.env.NEXT_PUBLIC_URL || process.env.BETTER_AUTH_URL)
+                  : (process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_URL)
               }/payments/cancel?payment_id=${paymentId}`,
 
               description: `Property Payment for Month ${payment.monthNumber}`,

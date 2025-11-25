@@ -49,15 +49,35 @@ interface ReceiptData {
 
 export async function POST(request: NextRequest) {
   try {
-    const body: PayMongoWebhookPayload = await request.json();
+    const body = await request.json();
+    
+    // Log full webhook payload for debugging
+    console.log("=== PayMongo Webhook Received ===");
+    console.log("Timestamp:", new Date().toISOString());
+    console.log("Full webhook body:", JSON.stringify(body, null, 2));
+    
     const event = body.data;
+    const eventType = event?.attributes?.type;
 
-    console.log("PayMongo Webhook received:", event.attributes.type);
+    if (!event || !eventType) {
+      console.error("Invalid webhook payload - missing event or event type:", {
+        hasEvent: !!event,
+        eventType,
+        bodyKeys: Object.keys(body)
+      });
+      return NextResponse.json(
+        { success: false, error: "Invalid webhook payload" },
+        { status: 400 }
+      );
+    }
+
+    console.log("Event type:", eventType);
+    console.log("Event attributes:", JSON.stringify(event?.attributes, null, 2));
 
     await connectDB();
 
     // Handle different event types
-    switch (event.attributes.type) {
+    switch (eventType) {
       case "payment.paid":
         await handlePaymentPaid(event);
         break;
@@ -67,8 +87,16 @@ export async function POST(request: NextRequest) {
       case "checkout_session.payment.paid":
         await handleCheckoutSessionPaid(event);
         break;
+      case "payment_intent.succeeded":
+      case "payment_intent.payment_succeeded":
+        await handlePaymentIntentSucceeded(event);
+        break;
+      case "payment_intent.payment_failed":
+        await handlePaymentIntentFailed(event);
+        break;
       default:
-        console.log("Unhandled event type:", event.attributes.type);
+        console.log("Unhandled event type:", eventType);
+        console.log("Event data:", JSON.stringify(event, null, 2));
     }
 
     return NextResponse.json({ success: true });
@@ -82,10 +110,15 @@ export async function POST(request: NextRequest) {
 }
 
 async function handlePaymentPaid(event: PayMongoWebhookPayload["data"]) {
-  const attributes = event.attributes.data.attributes as PaymentAttributes;
-  const metadata = attributes.metadata;
+  console.log("=== Handling payment.paid event ===");
+  console.log("Event structure:", JSON.stringify(event, null, 2));
+  
+  // PayMongo webhook structure might be different - let's check
+  const attributes = event.attributes?.data?.attributes as PaymentAttributes;
+  const metadata = attributes?.metadata;
 
-  console.log("Payment paid:", metadata);
+  console.log("Payment attributes:", JSON.stringify(attributes, null, 2));
+  console.log("Payment metadata:", metadata);
 
   // Check if it's a monthly payment or service request payment
   if (metadata.paymentId) {
@@ -100,11 +133,15 @@ async function handlePaymentPaid(event: PayMongoWebhookPayload["data"]) {
 async function handleCheckoutSessionPaid(
   event: PayMongoWebhookPayload["data"]
 ) {
-  const attributes = event.attributes.data
-    .attributes as CheckoutSessionAttributes;
-  const metadata = attributes.metadata;
+  console.log("=== Handling checkout_session.payment.paid event ===");
+  console.log("Event structure:", JSON.stringify(event, null, 2));
+  
+  // PayMongo webhook structure might be different - let's check
+  const attributes = event.attributes?.data?.attributes as CheckoutSessionAttributes;
+  const metadata = attributes?.metadata;
 
-  console.log("Checkout session paid:", metadata);
+  console.log("Checkout session attributes:", JSON.stringify(attributes, null, 2));
+  console.log("Checkout session metadata:", metadata);
 
   if (metadata.paymentId) {
     await handleMonthlyPaymentPaid(metadata, attributes);
@@ -125,7 +162,7 @@ async function handleMonthlyPaymentPaid(
     type: "monthly_payment",
     amount: attributes.amount / 100,
     paymentId: metadata.paymentId,
-    transactionId: attributes.id || attributes.payment_intent_id || "",
+    transactionId: (attributes as any).id || attributes.payment_intent_id || "",
     paidDate: new Date().toISOString(),
     description: `Monthly Payment - Month ${metadata.monthNumber}`,
   });
@@ -137,7 +174,7 @@ async function handleMonthlyPaymentPaid(
       $set: {
         status: "paid",
         paidDate: new Date().toISOString(),
-        paymentMethod: attributes.payment_method_used || "PayMongo",
+        paymentMethod: (attributes as any).payment_method_used || "PayMongo",
         paymentIntentId: attributes.payment_intent_id,
         receiptUrl: receiptUrl,
         updated_at: new Date().toISOString(),
@@ -185,39 +222,113 @@ async function handleServiceRequestPaymentPaid(
   metadata: PaymentMetadata,
   attributes: PaymentAttributes | CheckoutSessionAttributes
 ) {
-  const serviceRequestsCollection = db.collection("service-requests");
+  try {
+    const serviceRequestsCollection = db.collection("service-requests");
 
-  // Generate receipt URL
-  const receiptUrl = await generateReceipt({
-    type: "service_payment",
-    amount: attributes.amount / 100,
-    requestId: metadata.request_id,
-    transactionId: attributes.id || attributes.payment_intent_id || "",
-    paidDate: new Date().toISOString(),
-    description: "Service Request Payment",
+    console.log("Processing service request payment:", {
+      requestId: metadata.request_id,
+      amount: attributes.amount / 100,
+      paymentIntentId: attributes.payment_intent_id
+    });
+
+    // Generate receipt URL
+    const receiptUrl = await generateReceipt({
+      type: "service_payment",
+      amount: attributes.amount / 100,
+      requestId: metadata.request_id,
+      transactionId: (attributes as any).id || attributes.payment_intent_id || "",
+      paidDate: new Date().toISOString(),
+      description: "Service Request Payment",
+    });
+
+    // Update service request
+    const updateResult = await serviceRequestsCollection.updateOne(
+      { _id: new ObjectId(metadata.request_id) },
+      {
+        $set: {
+          payment_status: "paid",
+          payment_date: new Date().toISOString(),
+          payment_method: (attributes as any).payment_method_used || "PayMongo",
+          payment_intent_id: attributes.payment_intent_id,
+          receipt_url: receiptUrl,
+          updated_at: new Date(),
+        },
+      }
+    );
+
+    console.log("Service request payment updated successfully:", {
+      matched: updateResult.matchedCount,
+      modified: updateResult.modifiedCount
+    });
+  } catch (error) {
+    console.error("Error handling service request payment:", error);
+    throw error;
+  }
+}
+
+async function handlePaymentIntentSucceeded(event: PayMongoWebhookPayload["data"]) {
+  console.log("=== Handling payment_intent.succeeded event ===");
+  console.log("Event structure:", JSON.stringify(event, null, 2));
+  
+  // Get payment intent data from webhook
+  const paymentIntentData = event.attributes?.data as any;
+  const paymentIntentId = paymentIntentData?.id;
+  const attributes = paymentIntentData?.attributes;
+  const metadata = attributes?.metadata;
+
+  console.log("Payment intent ID:", paymentIntentId);
+  console.log("Payment intent attributes:", JSON.stringify(attributes, null, 2));
+  console.log("Payment intent metadata:", metadata);
+
+  if (metadata?.request_id) {
+    await handleServiceRequestPaymentPaid(
+      metadata,
+      {
+        amount: attributes?.amount || 0,
+        id: paymentIntentId,
+        payment_intent_id: paymentIntentId,
+        payment_method_used: "PayMongo",
+        metadata: metadata,
+      } as PaymentAttributes
+    );
+  }
+}
+
+async function handlePaymentIntentFailed(event: PayMongoWebhookPayload["data"]) {
+  console.log("=== Handling payment_intent.payment_failed event ===");
+  console.log("Event structure:", JSON.stringify(event, null, 2));
+  
+  const paymentIntentData = event.attributes?.data as any;
+  const paymentIntentId = paymentIntentData?.id;
+  const attributes = paymentIntentData?.attributes;
+  const metadata = attributes?.metadata;
+
+  console.log("Payment intent failed:", {
+    paymentIntentId,
+    metadata,
   });
 
-  // Update service request
-  await serviceRequestsCollection.updateOne(
-    { _id: new ObjectId(metadata.request_id) },
-    {
-      $set: {
-        payment_status: "paid",
-        payment_date: new Date().toISOString(),
-        payment_method: attributes.payment_method_used || "PayMongo",
-        payment_intent_id: attributes.payment_intent_id,
-        receipt_url: receiptUrl,
-        updated_at: new Date(),
-      },
-    }
-  );
-
-  console.log("Service request payment updated successfully");
+  if (metadata?.request_id) {
+    const serviceRequestsCollection = db.collection("service-requests");
+    await serviceRequestsCollection.updateOne(
+      { _id: new ObjectId(metadata.request_id) },
+      {
+        $set: {
+          payment_status: "failed",
+          updated_at: new Date(),
+        },
+      }
+    );
+    console.log("Service request payment marked as failed");
+  }
 }
 
 async function handlePaymentFailed(event: PayMongoWebhookPayload["data"]) {
-  const attributes = event.attributes.data.attributes as PaymentAttributes;
-  const metadata = attributes.metadata;
+  console.log("=== Handling payment.failed event ===");
+  console.log("Event structure:", JSON.stringify(event, null, 2));
+  
+  const attributes = event.attributes?.data?.attributes as PaymentAttributes;
+  const metadata = attributes?.metadata;
 
   console.log("Payment failed:", metadata);
 

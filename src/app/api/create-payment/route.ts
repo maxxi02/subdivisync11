@@ -56,21 +56,36 @@ export async function POST(request: NextRequest) {
       requestId,
     });
 
-    // Update request with payment intent ID
-    await serviceRequestsCollection.updateOne(
+    console.log("Payment session created:", {
+      paymentIntentId: paymentSession.id,
+      checkoutUrl: paymentSession.checkout_url,
+      requestId: requestId,
+    });
+
+    // Update request with payment intent ID, checkout session ID, and initial payment status
+    const updateResult = await serviceRequestsCollection.updateOne(
       { _id: new ObjectId(requestId) },
       {
         $set: {
           payment_intent_id: paymentSession.id,
+          checkout_session_id: paymentSession.checkout_session_id,
+          payment_status: "pending", // Set initial status
           updated_at: new Date(),
         },
       }
     );
 
+    console.log("MongoDB update result:", {
+      matched: updateResult.matchedCount,
+      modified: updateResult.modifiedCount,
+      requestId: requestId,
+    });
+
     return NextResponse.json({
       success: true,
       checkout_url: paymentSession.checkout_url,
       payment_intent_id: paymentSession.id,
+      checkout_session_id: paymentSession.checkout_session_id,
     });
   } catch (error) {
     console.error("Error creating payment:", error);
@@ -93,14 +108,21 @@ async function createPayMongoCheckout(params: {
     throw new Error("PayMongo keys not configured");
   }
 
-  // Get base URL based on environment
+  // Get base URL - use BETTER_AUTH_URL in development, NEXT_PUBLIC_URL in production
   const baseUrl = process.env.NODE_ENV === "production" 
-    ? process.env.NEXT_PUBLIC_URL 
-    : process.env.BETTER_AUTH_URL;
+    ? (process.env.NEXT_PUBLIC_URL || process.env.BETTER_AUTH_URL)
+    : (process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_URL);
 
   if (!baseUrl) {
-    throw new Error("Base URL not configured");
+    console.error("Base URL configuration missing:", {
+      NEXT_PUBLIC_URL: process.env.NEXT_PUBLIC_URL,
+      BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+      NODE_ENV: process.env.NODE_ENV
+    });
+    throw new Error("Base URL not configured - check NEXT_PUBLIC_URL or BETTER_AUTH_URL environment variables");
   }
+
+  console.log("Using base URL for payment redirect:", baseUrl, "(NODE_ENV:", process.env.NODE_ENV + ")");
 
   // Create payment intent
   const paymentIntentResponse = await fetch(
@@ -133,12 +155,21 @@ async function createPayMongoCheckout(params: {
   const paymentIntentData = await paymentIntentResponse.json();
 
   if (!paymentIntentResponse.ok) {
+    console.error("PayMongo payment intent creation failed:", paymentIntentData);
     throw new Error(
       paymentIntentData.errors?.[0]?.detail || "Failed to create payment intent"
     );
   }
 
   const paymentIntentId = paymentIntentData.data.id;
+  const paymentIntentStatus = paymentIntentData.data.attributes.status;
+
+  console.log("PayMongo payment intent created:", {
+    id: paymentIntentId,
+    status: paymentIntentStatus,
+    amount: params.amount,
+    requestId: params.requestId,
+  });
 
   // Create checkout session with success/cancel URLs
   const checkoutResponse = await fetch(
@@ -177,13 +208,25 @@ async function createPayMongoCheckout(params: {
   const checkoutData = await checkoutResponse.json();
 
   if (!checkoutResponse.ok) {
+    console.error("PayMongo checkout session creation failed:", checkoutData);
     throw new Error(
       checkoutData.errors?.[0]?.detail || "Failed to create checkout session"
     );
   }
 
+  const checkoutUrl = checkoutData.data.attributes.checkout_url;
+  const checkoutSessionId = checkoutData.data.id;
+
+  console.log("PayMongo checkout session created:", {
+    sessionId: checkoutSessionId,
+    paymentIntentId: paymentIntentId,
+    checkoutUrl: checkoutUrl,
+    requestId: params.requestId,
+  });
+
   return {
     id: paymentIntentId,
-    checkout_url: checkoutData.data.attributes.checkout_url,
+    checkout_url: checkoutUrl,
+    checkout_session_id: checkoutSessionId,
   };
 }

@@ -44,11 +44,13 @@ export function ResetPasswordForm() {
   // Check password strength
   const calculatePasswordStrength = (pwd: string) => {
     let strength = 0;
-    if (pwd.length >= 8) strength += 25;
-    if (pwd.match(/[a-z]/)) strength += 25;
-    if (pwd.match(/[A-Z]/)) strength += 25;
-    if (pwd.match(/[0-9]/)) strength += 25;
-    if (pwd.match(/[^a-zA-Z0-9]/)) strength += 25;
+    if (pwd.length >= 8) strength += 20;
+    if (pwd.length >= 10) strength += 10;
+    if (pwd.length >= 12) strength += 10;
+    if (pwd.match(/[a-z]/)) strength += 20;
+    if (pwd.match(/[A-Z]/)) strength += 20;
+    if (pwd.match(/[0-9]/)) strength += 20;
+    if (pwd.match(/[!@#$%^&]/)) strength += 20;
     return Math.min(strength, 100);
   };
 
@@ -77,6 +79,9 @@ export function ResetPasswordForm() {
     }
     if (!/(?=.*[0-9])/.test(pwd)) {
       return "Password must contain at least one number";
+    }
+    if (!/(?=.*[!@#$%^&])/.test(pwd)) {
+      return "Password must contain at least one special character (! @ # $ % ^ & )";
     }
     return null;
   };
@@ -241,17 +246,24 @@ export function ResetPasswordForm() {
       <form onSubmit={handleSubmit}>
         <Stack gap="md">
           {error && (
-            <Text
-              size="sm"
-              c="red"
-              ta="center"
-              className="p-2 rounded"
+            <div 
+              className="rounded" 
               style={{
                 backgroundColor: errorBgColor,
+                padding: '12px 16px',
+                marginBottom: '8px',
+                border: `1px solid ${alpha(theme.colors.red[6], 0.3)}`,
               }}
             >
-              {error}
-            </Text>
+              <Text
+                size="sm"
+                c="red"
+                ta="center"
+                fw={500}
+              >
+                {error}
+              </Text>
+            </div>
           )}
 
           <div>
@@ -308,16 +320,17 @@ export function ResetPasswordForm() {
           />
 
           <div
-            className="text-xs p-2 rounded"
+            className="p-2 rounded"
             style={{
               backgroundColor: colorScheme === "dark" ? alpha(theme.colors.gray[6], 0.2) : alpha(theme.colors.gray[0], 0.5),
               color: subTextColor,
+              fontSize: '10px',
             }}
           >
-            <Text size="xs" style={{ color: subTextColor }}>
+            <Text size="xs" style={{ color: subTextColor, fontSize: '11px', fontWeight: 500 }}>
               Password requirements:
             </Text>
-            <ul className="mt-1 space-y-1 text-xs">
+            <ul className="mt-1 space-y-1" style={{ fontSize: '10px' }}>
               <li
                 style={{
                   color: password.length >= 8
@@ -325,16 +338,7 @@ export function ResetPasswordForm() {
                     : subTextColor,
                 }}
               >
-                • At least 8 characters
-              </li>
-              <li
-                style={{
-                  color: /[a-z]/.test(password)
-                    ? theme.colors.green[6]
-                    : subTextColor,
-                }}
-              >
-                • One lowercase letter
+                • Use at least 8–12 characters
               </li>
               <li
                 style={{
@@ -343,7 +347,16 @@ export function ResetPasswordForm() {
                     : subTextColor,
                 }}
               >
-                • One uppercase letter
+                • Include at least one Uppercase Letter (A–Z)
+              </li>
+              <li
+                style={{
+                  color: /[a-z]/.test(password)
+                    ? theme.colors.green[6]
+                    : subTextColor,
+                }}
+              >
+                • Include at least one Lowercase Letter (a–z)
               </li>
               <li
                 style={{
@@ -352,7 +365,16 @@ export function ResetPasswordForm() {
                     : subTextColor,
                 }}
               >
-                • One number
+                • Include at least one Number (0–9)
+              </li>
+              <li
+                style={{
+                  color: /[!@#$%^&]/.test(password)
+                    ? theme.colors.green[6]
+                    : subTextColor,
+                }}
+              >
+                • Include at least one Special Character (! @ # $ % ^ & )
               </li>
             </ul>
           </div>

@@ -24,21 +24,22 @@ import {
   rgba,
 } from "@mantine/core";
 import {
-  IconUpload,
-  IconPhoto,
-  IconX,
+  IconBolt,
+  IconCash,
   IconCheck,
   IconClock,
-  IconSettings,
-  IconCash,
-  IconExclamationMark,
-  IconSearch,
-  IconRefresh,
   IconEye,
-  IconLock,
-  IconBolt,
+  IconExclamationMark,
   IconHome,
+  IconLock,
+  IconPhoto,
   IconQuestionMark,
+  IconReceipt,
+  IconRefresh,
+  IconSearch,
+  IconSettings,
+  IconUpload,
+  IconX,
 } from "@tabler/icons-react";
 import { ThemeIcon } from "@mantine/core";
 import { Dropzone } from "@mantine/dropzone";
@@ -217,6 +218,7 @@ const ServiceRequestsSection = () => {
       showNotification("error", "Failed to submit cash payment request");
     } finally {
       setPaymentLoading(false);
+      setPayingRequestId(null);
     }
   };
 
@@ -347,33 +349,143 @@ const ServiceRequestsSection = () => {
       showNotification("error", errorMessage);
     }
   };
+  // Track which request is being paid
+  const [payingRequestId, setPayingRequestId] = useState<string | null>(null);
+  const [paymentModalOpened, { open: openPaymentModal, close: closePaymentModal }] = useDisclosure(false);
+  const [requestToPay, setRequestToPay] = useState<ServiceRequest | null>(null);
+
+  // Show payment confirmation modal first
+  const showPaymentModal = (request: ServiceRequest) => {
+    if (!request.final_cost) {
+      showNotification("error", "No final cost available for payment");
+      return;
+    }
+    setRequestToPay(request);
+    openPaymentModal();
+  };
+
   const handlePayment = async (request: ServiceRequest) => {
     if (!request.final_cost) {
       showNotification("error", "No final cost available for payment");
       return;
     }
+    
     try {
+      closePaymentModal();
+      setPayingRequestId(request.id);
       setPaymentLoading(true);
-      setPaymentRequest(request);
-      open();
+      
+      // Create payment intent
       const paymentResponse = await axios.post("/api/create-payment", {
         amount: request.final_cost,
         description: `Payment for ${request.category} service`,
         requestId: request._id,
       });
-      if (paymentResponse.data.success) {
-        window.location.href = paymentResponse.data.checkout_url;
-      } else {
+      
+      if (!paymentResponse.data.success) {
         showNotification(
           "error",
           paymentResponse.data.error || "Failed to create payment"
         );
+        return;
       }
+      
+      // Store payment info in localStorage for cross-tab communication
+      const paymentInfo = {
+        paymentIntentId: paymentResponse.data.payment_intent_id,
+        requestId: request._id,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem('pending_payment', JSON.stringify(paymentInfo));
+      
+      // Open PayMongo checkout in a new tab
+      const paymentWindow = window.open(
+        paymentResponse.data.checkout_url,
+        '_blank',
+        'noopener,noreferrer'
+      );
+      
+      // Monitor if the window was blocked
+      if (!paymentWindow) {
+        localStorage.removeItem('pending_payment');
+        showNotification(
+          "error",
+          "Please allow popups to proceed with payment"
+        );
+        return;
+      }
+      
+      // Show notification
+      showNotification(
+        "success",
+        "Payment window opened. Complete your payment in the new tab, then return here."
+      );
+      
+      // Set up polling to check payment status when user returns to this tab
+      const checkPaymentStatus = async () => {
+        try {
+          const storedPayment = localStorage.getItem('pending_payment');
+          if (!storedPayment) {
+            // Payment was completed and cleared
+            return;
+          }
+          
+          const paymentInfo = JSON.parse(storedPayment);
+          
+          // Verify payment status
+          const verifyResponse = await axios.post("/api/create-payment/verify-payment", {
+            paymentIntentId: paymentInfo.paymentIntentId,
+            requestId: paymentInfo.requestId,
+          });
+          
+          if (verifyResponse.data.success && verifyResponse.data.localStatus === "paid") {
+            // Payment successful!
+            localStorage.removeItem('pending_payment');
+            showNotification("success", "Payment completed successfully!");
+            fetchServiceRequests(); // Refresh the list
+            return true; // Stop polling
+          }
+          
+          return false; // Continue polling
+        } catch (error) {
+          console.error("Error checking payment status:", error);
+          return false;
+        }
+      };
+      
+      // Poll every 3 seconds when tab has focus
+      const pollInterval = setInterval(async () => {
+        if (document.hasFocus()) {
+          const isComplete = await checkPaymentStatus();
+          if (isComplete) {
+            clearInterval(pollInterval);
+          }
+        }
+      }, 3000);
+      
+      // Also check when window regains focus
+      const focusHandler = async () => {
+        const isComplete = await checkPaymentStatus();
+        if (isComplete) {
+          window.removeEventListener('focus', focusHandler);
+        }
+      };
+      window.addEventListener('focus', focusHandler);
+      
+      // Clear interval and listener after 10 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        window.removeEventListener('focus', focusHandler);
+        localStorage.removeItem('pending_payment');
+      }, 10 * 60 * 1000);
+      
     } catch (error) {
       console.error("Payment error:", error);
+      localStorage.removeItem('pending_payment');
       showNotification("error", "Payment failed. Please try again.");
     } finally {
       setPaymentLoading(false);
+      setPayingRequestId(null);
     }
   };
   const submitRequest = async () => {
@@ -483,6 +595,11 @@ const ServiceRequestsSection = () => {
     inProgress: requests.filter((r) => r.status === "in-progress").length,
     completed: requests.filter((r) => r.status === "completed").length,
     highPriority: requests.filter((r) => r.priority === "high").length,
+    unpaidHighPriority: requests.filter((r) => 
+      r.priority === "high" && 
+      r.payment_status !== "paid" && 
+      (r.status === "completed" || r.status === "in-progress")
+    ).length,
   };
   return (
     <Container size="100%" py="md">
@@ -709,8 +826,8 @@ const ServiceRequestsSection = () => {
             </Group>
           </Card>
         </SimpleGrid>
-        {/* Priority Alert */}
-        {stats.highPriority > 0 && (
+        {/* Priority Alert - Only show for unpaid high priority requests */}
+        {stats.unpaidHighPriority > 0 && (
           <Card
             padding="lg"
             radius="lg"
@@ -728,8 +845,8 @@ const ServiceRequestsSection = () => {
                   High Priority Alert
                 </Text>
                 <Text size="sm" c="red.7">
-                  You have {stats.highPriority} high-priority request
-                  {stats.highPriority > 1 ? "s" : ""} submitted.
+                  You have {stats.unpaidHighPriority} unpaid high-priority request
+                  {stats.unpaidHighPriority > 1 ? "s" : ""} that require payment.
                 </Text>
               </Stack>
             </Group>
@@ -991,7 +1108,7 @@ const ServiceRequestsSection = () => {
             </Group>
           </>
         )}
-        {/* Search Bar */}
+        {/* Request History with Integrated Search Bar */}
         <Card
           padding="xl"
           radius="lg"
@@ -1002,40 +1119,28 @@ const ServiceRequestsSection = () => {
               colorScheme === "dark" ? "rgba(255, 255, 255, 0.05)" : "white",
           }}
         >
-          <Group align="center" style={{ position: "relative" }}>
-            <IconSearch
-              size={16}
-              color="gray"
-              style={{
-                position: "absolute",
-                left: 12,
-                top: "50%",
-                transform: "translateY(-50%)",
-              }}
-            />
-            <TextInput
-              placeholder="Search requests by tenant, category, or description..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.currentTarget.value)}
-              style={{ paddingLeft: 36 }}
-            />
+          <Group justify="space-between" align="center" mb="md">
+            <Title order={2} size="h3" c={primaryTextColor}>
+              Request History
+            </Title>
+            <div style={{ width: '300px', position: 'relative' }}>
+              <TextInput
+                placeholder="Search requests..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                leftSection={<IconSearch size={16} />}
+                radius="md"
+                styles={(theme) => ({
+                  input: {
+                    '&:focus': {
+                      borderColor: theme.colors.blue[5],
+                      boxShadow: `0 0 0 2px ${theme.colors.blue[1]}`,
+                    },
+                  },
+                })}
+              />
+            </div>
           </Group>
-        </Card>
-        {/* Request History Table */}
-        <Card
-          padding="xl"
-          radius="lg"
-          withBorder
-          style={{
-            boxShadow: getDefaultShadow(),
-            backgroundColor:
-              colorScheme === "dark" ? "rgba(255, 255, 255, 0.05)" : "white",
-          }}
-        >
-          <Title order={2} size="h3" mb="md" c={primaryTextColor}>
-            Request History
-          </Title>
-          {/* Desktop View - Table */}
           <Box display={{ base: "none", md: "block" }}>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -1044,11 +1149,11 @@ const ServiceRequestsSection = () => {
                     backgroundColor:
                       colorScheme === "dark"
                         ? theme.colors.dark[8]
-                        : theme.colors.gray[0],
+                        : theme.colors.blue[0],
                     borderBottom: `1px solid ${
                       colorScheme === "dark"
                         ? theme.colors.dark[5]
-                        : theme.colors.gray[3]
+                        : theme.colors.blue[3]
                     }`,
                   }}
                 >
@@ -1064,11 +1169,11 @@ const ServiceRequestsSection = () => {
                       <th
                         key={header}
                         style={{
-                          padding: "12px 16px",
+                          padding: "14px 16px",
                           textAlign: "left",
-                          fontSize: "12px",
-                          fontWeight: 600,
-                          color: secondaryTextColor,
+                          fontSize: "13px",
+                          fontWeight: 700,
+                          color: colorScheme === "dark" ? theme.colors.blue[3] : theme.colors.blue[8],
                           textTransform: "uppercase",
                           letterSpacing: "0.5px",
                         }}
@@ -1102,84 +1207,89 @@ const ServiceRequestsSection = () => {
                               ? theme.colors.dark[5]
                               : theme.colors.gray[2]
                           }`,
-                          transition: "background-color 0.2s",
+                          transition: "all 0.2s",
+                          borderRadius: "8px",
+                          marginBottom: "8px",
                         }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.backgroundColor =
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor =
                             colorScheme === "dark"
                               ? theme.colors.dark[6]
-                              : theme.colors.gray[0])
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.backgroundColor =
-                            "transparent")
-                        }
+                              : theme.colors.blue[0];
+                          e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = "transparent";
+                          e.currentTarget.style.boxShadow = "none";
+                        }}
                       >
-                        <td style={{ padding: "12px 16px" }}>
-                          <Text size="sm" fw={500} c={primaryTextColor}>
+                        <td style={{ padding: "16px" }}>
+                          <Text size="sm" fw={600} c={primaryTextColor}>
                             {request.category}
                           </Text>
                         </td>
-                        <td style={{ padding: "12px 16px" }}>
-                          <Text size="sm" lineClamp={2} c={primaryTextColor}>
+                        <td style={{ padding: "16px", maxWidth: "250px" }}>
+                          <Text size="sm" lineClamp={2} c={primaryTextColor} style={{ wordBreak: "break-word" }}>
                             {request.description}
                           </Text>
                         </td>
-                        <td style={{ padding: "12px 16px" }}>
+                        <td style={{ padding: "16px" }}>
                           <Badge
                             color={getPriorityColor(request.priority)}
-                            variant="light"
+                            variant="filled"
                             size="sm"
                             radius="md"
+                            style={{ padding: "6px 10px", fontWeight: 600 }}
                           >
                             {request.priority.toUpperCase()}
                           </Badge>
                         </td>
-         <td style={{ padding: "12px 16px" }}>
-  <Stack gap={4}>
-    <Badge
-      color={getStatusColor(request.status)}
-      variant="light"
-      size="sm"
-      radius="md"
-    >
-      {request.status.toUpperCase()}
-    </Badge>
-    {request.payment_status === "paid" ? (
-      <>
-        <Badge color="green" variant="light" size="sm">
-          Paid
-        </Badge>
-        {request.receipt_url && (
-          <MantineButton
-            size="xs"
-            variant="outline"
-            color="blue"
-            onClick={() => window.open(request.receipt_url, '_blank')}
-            leftSection={<IconEye size={12} />}
-          >
-            View Receipt
-          </MantineButton>
-        )}
-      </>
-    ) : request.payment_status === "pending_verification" ? (
-      <Badge color="orange" variant="light" size="sm">
-        Pending Verification
-      </Badge>
-    ) : null}
-  </Stack>
-</td>
                         <td style={{ padding: "12px 16px" }}>
-                          <Text size="sm" c={primaryTextColor}>
+                          <div>
+                            <Group gap={8} mb={request.receipt_url ? 8 : 0}>
+                              <Badge
+                                color={getStatusColor(request.status)}
+                                variant="filled"
+                                size="sm"
+                                radius="md"
+                                style={{ padding: "6px 10px", fontWeight: 600 }}
+                              >
+                                {request.status.toUpperCase()}
+                              </Badge>
+                              {request.payment_status === "paid" && (
+                                <Badge
+                                  color="green"
+                                  variant="filled"
+                                  size="sm"
+                                  style={{ padding: "6px 10px", fontWeight: 600 }}
+                                >
+                                  PAID
+                                </Badge>
+                              )}
+                              {request.payment_status === "pending_verification" && (
+                                <Badge
+                                  color="orange"
+                                  variant="filled"
+                                  size="sm"
+                                  style={{ padding: "6px 10px", fontWeight: 600 }}
+                                >
+                                  PENDING VERIFICATION
+                                </Badge>
+                              )}
+                            </Group>
+                          </div>
+                        </td>
+                        <td style={{ padding: "16px" }}>
+                          <Text size="sm" fw={500} c={primaryTextColor}>
                             {request.date}
                           </Text>
                         </td>
-                        <td style={{ padding: "12px 16px" }}>
-                          <Group gap="xs">
+                        <td style={{ padding: "16px" }}>
+                          <Group gap="sm">
                             <MantineButton
                               size="xs"
-                              variant="outline"
-                              color="gray"
+                              variant="light"
+                              color="blue"
                               leftSection={<IconEye size={12} />}
                               onClick={() => {
                                 setSelectedRequest(request);
@@ -1190,16 +1300,14 @@ const ServiceRequestsSection = () => {
                             </MantineButton>
                             {request.status === "completed" &&
                               request.final_cost &&
-                              request.payment_status !== "paid" &&
-                              request.payment_status !==
-                                "pending_verification" && (
+                              (request.payment_status !== "paid" && request.payment_status !== "pending_verification" ? (
                                 <Group gap="xs">
                                   <MantineButton
                                     size="xs"
-                                    variant="filled"
-                                    color="blue"
-                                    onClick={() => handlePayment(request)}
-                                    loading={paymentLoading}
+                                    variant="gradient"
+                                    gradient={{ from: "blue", to: "cyan" }}
+                                    onClick={() => showPaymentModal(request)}
+                                    loading={paymentLoading && payingRequestId === request.id}
                                     disabled={paymentLoading}
                                     leftSection={<IconCash size={14} />}
                                   >
@@ -1210,32 +1318,25 @@ const ServiceRequestsSection = () => {
                                     variant="outline"
                                     color="green"
                                     onClick={() => handleCashPayment(request)}
-                                    loading={paymentLoading}
+                                    loading={false}
                                     disabled={paymentLoading}
                                     leftSection={<IconCash size={14} />}
                                   >
                                     Pay Cash
                                   </MantineButton>
                                 </Group>
-                              )}
-                            {request.status === "completed" &&
-                              (request.payment_status === "paid" ||
-                                request.payment_status ===
-                                  "pending_verification") && (
-                                <Badge
-                                  color={
-                                    request.payment_status === "paid"
-                                      ? "green"
-                                      : "orange"
-                                  }
-                                  variant="light"
-                                  size="sm"
-                                >
-                                  {request.payment_status === "paid"
-                                    ? "Paid"
-                                    : "Pending Verification"}
-                                </Badge>
-                              )}
+                              ) : (
+                                <Stack gap="xs">
+                                  <Badge
+                                    color={request.payment_status === "paid" ? "green" : "orange"}
+                                    variant="light"
+                                    size="sm"
+                                  >
+                                    {request.payment_status === "paid" ? "Paid" : "Pending Verification"}
+                                  </Badge>
+                                  {/* Removed View Receipt button from actions column */}
+                                </Stack>
+                              ))}
                             {request.status === "pending" && (
                               <MantineButton
                                 size="xs"
@@ -1312,54 +1413,43 @@ const ServiceRequestsSection = () => {
                       >
                         View
                       </MantineButton>
-               {request.status === "completed" &&
-  request.final_cost &&
-  (request.payment_status !== "paid" && request.payment_status !== "pending_verification" ? (
-    <Group gap="xs">
-      <MantineButton
-        size="xs"
-        variant="filled"
-        color="blue"
-        onClick={() => handlePayment(request)}
-        loading={paymentLoading}
-        disabled={paymentLoading}
-        leftSection={<IconCash size={14} />}
-      >
-        Pay Online
-      </MantineButton>
-      <MantineButton
-        size="xs"
-        variant="outline"
-        color="green"
-        onClick={() => handleCashPayment(request)}
-        leftSection={<IconCash size={14} />}
-      >
-        Pay Cash
-      </MantineButton>
-    </Group>
-  ) : (
-    <Stack gap="xs">
-      <Badge 
-        color={request.payment_status === "paid" ? "green" : "orange"} 
-        variant="light" 
-        size="sm"
-      >
-        {request.payment_status === "paid" ? "Paid" : "Pending Verification"}
-      </Badge>
-      {request.payment_status === "paid" && request.receipt_url && (
-        <MantineButton
-          size="xs"
-          variant="outline"
-          color="blue"
-          onClick={() => window.open(request.receipt_url, '_blank')}
-          leftSection={<IconEye size={12} />}
-          fullWidth
-        >
-          View Receipt
-        </MantineButton>
-      )}
-    </Stack>
-  ))}
+                      {request.status === "completed" &&
+                        request.final_cost &&
+                        (request.payment_status !== "paid" && request.payment_status !== "pending_verification" ? (
+                          <Group gap="xs">
+                            <MantineButton
+                              size="xs"
+                              variant="filled"
+                              color="blue"
+                              onClick={() => showPaymentModal(request)}
+                              loading={paymentLoading && payingRequestId === request.id}
+                              disabled={paymentLoading}
+                              leftSection={<IconCash size={14} />}
+                            >
+                              Pay Online
+                            </MantineButton>
+                            <MantineButton
+                              size="xs"
+                              variant="outline"
+                              color="green"
+                              onClick={() => handleCashPayment(request)}
+                              leftSection={<IconCash size={14} />}
+                            >
+                              Pay Cash
+                            </MantineButton>
+                          </Group>
+                        ) : (
+                          <Stack gap="xs">
+                            <Badge
+                              color={request.payment_status === "paid" ? "green" : "orange"}
+                              variant="light"
+                              size="sm"
+                            >
+                              {request.payment_status === "paid" ? "Paid" : "Pending Verification"}
+                            </Badge>
+                            {/* Removed View Receipt button from mobile view actions */}
+                          </Stack>
+                        ))}
                       {request.status === "pending" && (
                         <MantineButton
                           size="xs"
@@ -1383,220 +1473,314 @@ const ServiceRequestsSection = () => {
           opened={viewModalOpened}
           onClose={closeView}
           title={
-            <Title order={2} c={primaryTextColor}>
-              Service Request Details
-            </Title>
-          }
-          centered
-          size="lg"
-        >
-          <Stack gap="md">
-            <Card
-              padding="lg"
-              radius="lg"
-              withBorder
-              style={{
-                boxShadow: getDefaultShadow(),
-                backgroundColor:
-                  colorScheme === "dark"
-                    ? "rgba(255, 255, 255, 0.05)"
-                    : "#f9fafb",
-              }}
-            >
-              <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
-                Request Overview
-              </Text>
-              <Grid>
-                <Grid.Col span={6}>
-                  <Text size="xs" c={primaryTextColor}>
-                    Category
-                  </Text>
-                  <Text size="sm" c={primaryTextColor}>
-                    {selectedRequest?.category}
-                  </Text>
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <Text size="xs" c={primaryTextColor}>
-                    Created Date
-                  </Text>
-                  <Text size="sm" c={primaryTextColor}>
-                    {formatDate(selectedRequest?.created_at)}
-                  </Text>
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <Text size="xs" c={primaryTextColor}>
-                    Priority
-                  </Text>
-                  <Badge
-                    color={getPriorityColor(selectedRequest?.priority || "low")}
-                    variant="light"
-                    size="sm"
-                    radius="md"
-                  >
-                    {(selectedRequest?.priority || "low").toUpperCase()}
-                  </Badge>
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <Text size="xs" c={primaryTextColor}>
-                    Status
-                  </Text>
-                  <Badge
-                    color={getStatusColor(selectedRequest?.status || "pending")}
-                    variant="light"
-                    size="sm"
-                    radius="md"
-                  >
-                    {(selectedRequest?.status || "pending").toUpperCase()}
-                  </Badge>
-                </Grid.Col>
-                {selectedRequest?.scheduled_date && (
-                  <Grid.Col span={6}>
-                    <Text size="xs" c={primaryTextColor}>
-                      Scheduled Date
-                    </Text>
-                    <Text size="sm" c={primaryTextColor}>
-                      {formatDate(selectedRequest.scheduled_date)}
-                    </Text>
-                  </Grid.Col>
-                )}
-                {selectedRequest?.assigned_technician && (
-                  <Grid.Col span={6}>
-                    <Text size="xs" c={primaryTextColor}>
-                      Assigned Technician
-                    </Text>
-                    <Text size="sm" c={primaryTextColor}>
-                      {selectedRequest.assigned_technician}
-                    </Text>
-                  </Grid.Col>
-                )}
-              </Grid>
-            </Card>
-            <Divider />
-            <Box>
-              <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
-                Issue Description
-              </Text>
-              <Text size="sm" c={primaryTextColor}>
-                {selectedRequest?.description}
-              </Text>
-            </Box>
-            {selectedRequest?.images && selectedRequest.images.length > 0 && (
-              <Box>
-                <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
-                  Attached Images
-                </Text>
-                <ServiceRequestCarousel
-                  images={selectedRequest.images}
-                  alt={`${selectedRequest.category} issue`}
-                  showIndicators={true}
-                  autoPlay={true}
-                  autoPlayInterval={4000}
-                />
-              </Box>
-            )}
-            {selectedRequest?.assignment_message && (
-              <Box>
-                <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
-                  Assignment Message
-                </Text>
-                <Text size="sm" c={primaryTextColor}>
-                  {selectedRequest.assignment_message}
-                </Text>
-              </Box>
-            )}
-            {selectedRequest?.technician_notes && (
-              <Box>
-                <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
-                  Technician Notes
-                </Text>
-                <Text size="sm" c={primaryTextColor}>
-                  {selectedRequest.technician_notes}
-                </Text>
-              </Box>
-            )}
-            {selectedRequest?.estimated_cost && (
-              <Box>
-                <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
-                  Estimated Cost
-                </Text>
-                <Text size="sm" c="green.6">
-                  {formatCurrency(selectedRequest.estimated_cost)}
-                </Text>
-              </Box>
-            )}
-            {selectedRequest?.completion_notes && (
-              <Box>
-                <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
-                  Completion Notes
-                </Text>
-                <Text size="sm" c={primaryTextColor}>
-                  {selectedRequest.completion_notes}
-                </Text>
-              </Box>
-            )}
-            {selectedRequest?.final_cost && (
-              <Box>
-                <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
-                  Final Cost
-                </Text>
-                <Text size="sm" c="green.6">
-                  {formatCurrency(selectedRequest.final_cost)}
-                </Text>
-              </Box>
-            )}
-            {selectedRequest?.payment_status && (
-              <Box>
-                <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
-                  Payment Status
-                </Text>
-                <Badge
-                  color={
-                    selectedRequest.payment_status === "paid"
-                      ? "green"
-                      : selectedRequest.payment_status === "failed"
-                        ? "red"
-                        : "yellow"
-                  }
-                  variant="light"
-                  size="sm"
-                  radius="md"
-                >
-                  {selectedRequest.payment_status.toUpperCase()}
-                </Badge>
-              </Box>
-            )}
-
-            {selectedRequest?.payment_status === "paid" && selectedRequest?.receipt_url && (
-  <Box>
-    <Text size="sm" fw={500} mb="sm" c={primaryTextColor}>
-      Receipt
-    </Text>
-    <MantineButton
-      variant="filled"
-      color="blue"
-      onClick={() => window.open(selectedRequest.receipt_url, '_blank')}
-      leftSection={<IconEye size={16} />}
-    >
-      View Receipt
-    </MantineButton>
-  </Box>
-)}
-            <Group justify="right">
-              <MantineButton variant="outline" color="gray" onClick={closeView}>
-                Close
-              </MantineButton>
+            <Group justify="space-between" style={{ width: '100%' }}>
+              <Title order={2} size="h3">Service Request Details</Title>
             </Group>
-          </Stack>
+          }
+          size="lg"
+          styles={{
+            header: { 
+              padding: '20px 24px',
+              marginBottom: 10,
+              borderBottom: `1px solid ${colorScheme === "dark" ? theme.colors.dark[5] : theme.colors.gray[3]}`,
+              backgroundColor: colorScheme === "dark" ? theme.colors.dark[7] : theme.colors.gray[0],
+            },
+            title: { 
+              width: '100%',
+              margin: 0,
+            },
+            close: { 
+              color: colorScheme === "dark" ? theme.colors.gray[5] : theme.colors.dark[4],
+              '&:hover': {
+                backgroundColor: colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[1],
+              },
+              width: 34,
+              height: 34,
+              borderRadius: theme.radius.md,
+            },
+            body: { padding: '10px 24px 24px' },
+            overlay: { backdropFilter: 'blur(3px)' },
+            root: { zIndex: 201 },
+          }}
+          centered
+        >
+          {selectedRequest && (
+            <Stack gap="lg">
+              {/* Request Overview Card */}
+              <Card withBorder radius="md" padding="md" style={{ backgroundColor: colorScheme === "dark" ? theme.colors.dark[7] : theme.colors.gray[0] }}>
+                <Title order={4} mb="md">Request Overview</Title>
+                <SimpleGrid cols={2} spacing="md">
+                  <div>
+                    <Text size="sm" fw={600} c={secondaryTextColor} mb={4}>
+                      Category
+                    </Text>
+                    <Text size="md" fw={600} c={primaryTextColor}>
+                      {selectedRequest.category}
+                    </Text>
+                  </div>
+                  <div>
+                    <Text size="sm" fw={600} c={secondaryTextColor} mb={4}>
+                      Created Date
+                    </Text>
+                    <Text size="md" fw={600} c={primaryTextColor}>
+                      {selectedRequest.date}
+                    </Text>
+                  </div>
+                  <div>
+                    <Text size="sm" fw={600} c={secondaryTextColor} mb={4}>
+                      Priority
+                    </Text>
+                    <Badge
+                      color={getPriorityColor(selectedRequest.priority)}
+                      variant="filled"
+                      size="md"
+                      radius="md"
+                      style={{ padding: '6px 10px' }}
+                    >
+                      {selectedRequest.priority.toUpperCase()}
+                    </Badge>
+                  </div>
+                  <div>
+                    <Text size="sm" fw={600} c={secondaryTextColor} mb={4}>
+                      Status
+                    </Text>
+                    <Group gap={8}>
+                      <Badge
+                        color={getStatusColor(selectedRequest.status)}
+                        variant="filled"
+                        size="md"
+                        radius="md"
+                        style={{ padding: '6px 10px' }}
+                      >
+                        {selectedRequest.status.toUpperCase()}
+                      </Badge>
+                      {selectedRequest.payment_status === "paid" && (
+                        <Badge
+                          color="green"
+                          variant="filled"
+                          size="md"
+                          radius="md"
+                          style={{ padding: '6px 10px' }}
+                        >
+                          PAID
+                        </Badge>
+                      )}
+                    </Group>
+                  </div>
+                </SimpleGrid>
+              </Card>
+
+              {/* Issue Description */}
+              <div>
+                <Text size="md" fw={600} c={secondaryTextColor} mb={4}>
+                  Issue Description
+                </Text>
+                <Text size="md" c={primaryTextColor} style={{ lineHeight: 1.6, padding: '10px', backgroundColor: colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[0], borderRadius: '8px' }}>
+                  {selectedRequest.description}
+                </Text>
+              </div>
+
+              {selectedRequest.images && selectedRequest.images.length > 0 && (
+                <div>
+                  <Text size="md" fw={600} c={secondaryTextColor} mb={4}>
+                    Images
+                  </Text>
+                  <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
+                    {selectedRequest.images.map((image, index) => (
+                      <Card key={index} p="xs" withBorder radius="md" style={{ cursor: 'pointer' }}>
+                        <Image
+                          src={image}
+                          alt={`Image ${index + 1}`}
+                          style={{ objectFit: "cover", borderRadius: theme.radius.md, height: 180 }}
+                          onClick={() => window.open(image, "_blank")}
+                        />
+                      </Card>
+                    ))}
+                  </SimpleGrid>
+                </div>
+              )}
+
+              {selectedRequest.assignment_message && (
+                <div>
+                  <Text size="md" fw={600} c={secondaryTextColor} mb={4}>
+                    Assignment Message
+                  </Text>
+                  <Text size="md" c={primaryTextColor} style={{ lineHeight: 1.6, padding: '10px', backgroundColor: colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[0], borderRadius: '8px' }}>
+                    {selectedRequest.assignment_message}
+                  </Text>
+                </div>
+              )}
+
+              {selectedRequest.status === "completed" && (
+                <Card withBorder radius="md" padding="md" style={{ backgroundColor: colorScheme === "dark" ? theme.colors.dark[7] : theme.colors.gray[0] }}>
+                  <Title order={4} mb="md">Completion Details</Title>
+                  <SimpleGrid cols={2} spacing="md" mb="md">
+                    <div>
+                      <Text size="sm" fw={600} c={secondaryTextColor} mb={4}>
+                        Estimated Cost
+                      </Text>
+                      <Text size="md" fw={600} c={primaryTextColor}>
+                        ₱{selectedRequest.estimated_cost?.toFixed(2) || "0.00"}
+                      </Text>
+                    </div>
+                    <div>
+                      <Text size="sm" fw={600} c={secondaryTextColor} mb={4}>
+                        Final Cost
+                      </Text>
+                      <Text size="md" fw={600} c={primaryTextColor}>
+                        ₱{selectedRequest.final_cost?.toFixed(2) || "0.00"}
+                      </Text>
+                    </div>
+                  </SimpleGrid>
+
+                  {selectedRequest.completion_notes && (
+                    <div style={{ marginBottom: theme.spacing.md }}>
+                      <Text size="sm" fw={600} c={secondaryTextColor} mb={4}>
+                        Completion Notes
+                      </Text>
+                      <Text size="md" c={primaryTextColor} style={{ lineHeight: 1.6, padding: '10px', backgroundColor: colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[1], borderRadius: '8px' }}>
+                        {selectedRequest.completion_notes}
+                      </Text>
+                    </div>
+                  )}
+
+                  {selectedRequest.payment_status && (
+                    <div>
+                      <Text size="sm" fw={600} c={secondaryTextColor} mb={4}>
+                        Payment Status
+                      </Text>
+                      <Badge
+                        color={
+                          selectedRequest.payment_status === "paid"
+                            ? "green"
+                            : selectedRequest.payment_status === "pending_verification"
+                              ? "orange"
+                              : "yellow"
+                        }
+                        variant="filled"
+                        size="md"
+                        radius="md"
+                        style={{ padding: '6px 10px' }}
+                      >
+                        {selectedRequest.payment_status === "pending_verification"
+                          ? "PENDING VERIFICATION"
+                          : selectedRequest.payment_status.toUpperCase()}
+                      </Badge>
+                    </div>
+                  )}
+                </Card>
+              )}
+            </Stack>
+          )}
+          <Group justify="flex-end" mt="xl" gap="md">
+            {selectedRequest?.receipt_url && (
+              <MantineButton
+                variant="gradient"
+                gradient={{ from: 'blue', to: 'cyan' }}
+                onClick={() => window.open(selectedRequest.receipt_url, "_blank")}
+                leftSection={<IconReceipt size={16} />}
+                size="md"
+                radius="md"
+              >
+                View Receipt
+              </MantineButton>
+            )}
+            <MantineButton 
+              variant="filled" 
+              color="gray" 
+              onClick={closeView}
+              size="md"
+              radius="md"
+            >
+              Close
+            </MantineButton>
+          </Group>
         </Modal>
-        {/* Payment Modal */}
+        {/* Payment Confirmation Modal */}
+        <Modal
+          opened={paymentModalOpened}
+          onClose={closePaymentModal}
+          title={<Title order={3}>Confirm Payment</Title>}
+          size="md"
+          centered
+          styles={{
+            header: { 
+              padding: '20px 24px',
+              marginBottom: 10,
+              borderBottom: `1px solid ${colorScheme === "dark" ? theme.colors.dark[5] : theme.colors.gray[3]}`,
+              backgroundColor: colorScheme === "dark" ? theme.colors.dark[7] : theme.colors.gray[0],
+            },
+            title: { 
+              width: '100%',
+              margin: 0,
+            },
+            close: { 
+              color: colorScheme === "dark" ? theme.colors.gray[5] : theme.colors.dark[4],
+              '&:hover': {
+                backgroundColor: colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[1],
+              },
+              width: 34,
+              height: 34,
+              borderRadius: theme.radius.md,
+            },
+            body: { padding: '10px 24px 24px' },
+            overlay: { backdropFilter: 'blur(3px)' },
+          }}
+        >
+          {requestToPay && (
+            <Stack gap="md">
+              <Text size="md" fw={500}>
+                You are about to make a payment for the following service request:
+              </Text>
+              
+              <Card withBorder radius="md" padding="md" bg={colorScheme === "dark" ? theme.colors.dark[7] : theme.colors.gray[0]}>
+                <Group justify="space-between" mb="xs">
+                  <Text fw={600}>{requestToPay.category}</Text>
+                  <Badge color={getStatusColor(requestToPay.status)} variant="filled">
+                    {requestToPay.status.toUpperCase()}
+                  </Badge>
+                </Group>
+                
+                <Text size="sm" color="dimmed" mb="md" lineClamp={2}>
+                  {requestToPay.description}
+                </Text>
+                
+                <Group justify="space-between">
+                  <Text fw={700} size="lg" color={colorScheme === "dark" ? theme.colors.blue[4] : theme.colors.blue[7]}>
+                    ₱{requestToPay.final_cost?.toFixed(2)}
+                  </Text>
+                  <Text size="sm" color="dimmed">
+                    {requestToPay.date}
+                  </Text>
+                </Group>
+              </Card>
+              
+              <Text size="sm" c="dimmed">
+                You will be redirected to PayMongo to complete your payment securely.
+              </Text>
+              
+              <Group justify="flex-end" mt="md">
+                <MantineButton variant="light" color="gray" onClick={closePaymentModal}>
+                  Cancel
+                </MantineButton>
+                <MantineButton 
+                  variant="gradient" 
+                  gradient={{ from: 'blue', to: 'cyan' }}
+                  onClick={() => handlePayment(requestToPay)}
+                  loading={paymentLoading && payingRequestId === requestToPay.id}
+                >
+                  Proceed to Payment
+                </MantineButton>
+              </Group>
+            </Stack>
+          )}
+        </Modal>
+        
+        {/* Old Payment Modal - Keeping for reference */}
         <Modal
           opened={opened}
           onClose={close}
-          title={
-            <Title order={2} c={primaryTextColor}>
-              Processing Payment
-            </Title>
-          }
+          title="Processing Payment"
           centered
         >
           <LoadingOverlay visible={paymentLoading} />
