@@ -1,0 +1,19 @@
+What is SubdiviSync? A responsive web-based platform that simplifies subdivision management by centralizing payments, service requests, and announcements.
+
+Who can use SubdiviSync? Both subdivision administrators and homeowners at Lynville Residences can access the platform via desktop or mobile browsers.
+
+Can I pay my dues online? Yes. SubdiviSync integrates with PayMongo for secure online payments, with instant confirmation.
+
+How do I request maintenance or services? Submit requests through the portal with photo attachments and priority levels. Admins track and update progress in real time.
+
+Can I track my property applications? Yes. You can monitor the status of your applications anytime through your dashboard.
+
+Where can I see announcements? Community updates are posted by administrators and displayed on your dashboard, with email notifications sent automatically.
+
+Is SubdiviSync mobile-friendly? Absolutely. It works seamlessly on both desktop and mobile browsers.
+
+Does it require internet? Yes. SubdiviSync is fully online and not accessible offline.
+
+Is my data secure? Yes. SubdiviSync uses HTTPS, secure authentication, and encrypted communication to protect homeowner and administrator information.
+
+Can administrators generate reports? Yes. Reports on payments, service requests, and applications are automatically generated and accessible via the admin dashboard.

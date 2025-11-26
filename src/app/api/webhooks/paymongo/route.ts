@@ -2,6 +2,65 @@
 import { connectDB, db } from "@/database/mongodb";
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
+import crypto from "crypto";
+
+// Verify PayMongo webhook signature to prevent spoofed requests
+function verifyPayMongoSignature(
+  payload: string,
+  signatureHeader: string | null,
+  webhookSecret: string | undefined
+): boolean {
+  // If no webhook secret is configured, log warning but allow in development
+  if (!webhookSecret) {
+    console.warn("PAYMONGO_WEBHOOK_SECRET not configured - skipping signature verification");
+    return process.env.NODE_ENV !== "production";
+  }
+
+  if (!signatureHeader) {
+    console.error("Missing Paymongo-Signature header");
+    return false;
+  }
+
+  try {
+    // PayMongo signature format: t=timestamp,te=test_signature,li=live_signature
+    const signatureParts = signatureHeader.split(",");
+    const timestampPart = signatureParts.find((part) => part.startsWith("t="));
+    const signaturePart = signatureParts.find(
+      (part) => part.startsWith("li=") || part.startsWith("te=")
+    );
+
+    if (!timestampPart || !signaturePart) {
+      console.error("Invalid signature format");
+      return false;
+    }
+
+    const timestamp = timestampPart.split("=")[1];
+    const signature = signaturePart.split("=")[1];
+
+    // Verify timestamp is not too old (5 minutes tolerance)
+    const timestampAge = Math.floor(Date.now() / 1000) - parseInt(timestamp);
+    if (timestampAge > 300) {
+      console.error("Webhook timestamp too old:", timestampAge, "seconds");
+      return false;
+    }
+
+    // Compute expected signature
+    const signedPayload = `${timestamp}.${payload}`;
+    const expectedSignature = crypto
+      .createHmac("sha256", webhookSecret)
+      .update(signedPayload)
+      .digest("hex");
+
+    // Use timing-safe comparison to prevent timing attacks
+    return crypto.timingSafeEqual(
+      Buffer.from(signature),
+      Buffer.from(expectedSignature)
+    );
+  } catch (error) {
+    console.error("Signature verification error:", error);
+    return false;
+  }
+}
 
 // Type definitions
 interface PayMongoWebhookPayload {
@@ -49,10 +108,28 @@ interface ReceiptData {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // Get raw body for signature verification
+    const rawBody = await request.text();
+    const body = JSON.parse(rawBody);
+    
+    // Verify webhook signature to prevent spoofed payment confirmations
+    const signatureHeader = request.headers.get("paymongo-signature");
+    const isValidSignature = verifyPayMongoSignature(
+      rawBody,
+      signatureHeader,
+      process.env.PAYMONGO_WEBHOOK_SECRET
+    );
+
+    if (!isValidSignature) {
+      console.error("Invalid webhook signature - possible spoofed request");
+      return NextResponse.json(
+        { success: false, error: "Invalid signature" },
+        { status: 401 }
+      );
+    }
     
     // Log full webhook payload for debugging
-    console.log("=== PayMongo Webhook Received ===");
+    console.log("=== PayMongo Webhook Received (Verified) ===");
     console.log("Timestamp:", new Date().toISOString());
     console.log("Full webhook body:", JSON.stringify(body, null, 2));
     

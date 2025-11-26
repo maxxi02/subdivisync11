@@ -18,16 +18,24 @@ import {
   useMantineTheme,
   useMantineColorScheme,
   rgba,
+  Tabs,
+  ActionIcon,
+  Modal,
 } from "@mantine/core";
 import {
   IconAlertCircle,
   IconClipboardCheck,
   IconCheck,
   IconX,
+  IconStar,
+  IconStarFilled,
+  IconEdit,
+  IconTrash,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { getServerSession } from "@/better-auth/action";
 import Image from "next/image";
+import { Button, Textarea, ScrollArea } from "@mantine/core";
 
 interface Announcement {
   _id: string;
@@ -80,7 +88,17 @@ interface MonthlyPayment {
 
 interface NotificationType {
   type: "success" | "error";
+  message: string | React.ReactNode;
+}
+
+interface Feedback {
+  _id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  rating: number;
   message: string;
+  createdAt: Date;
 }
 
 const TenantDashboard = () => {
@@ -94,6 +112,16 @@ const TenantDashboard = () => {
   const [notification, setNotification] = useState<NotificationType | null>(
     null
   );
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [allFeedbacks, setAllFeedbacks] = useState<Feedback[]>([]);
+  const [feedbackRating, setFeedbackRating] = useState(0);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [activeTab, setActiveTab] = useState<string | null>("your");
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingFeedback, setEditingFeedback] = useState<Feedback | null>(null);
+  const [editRating, setEditRating] = useState(0);
+  const [editMessage, setEditMessage] = useState("");
 
   const primaryTextColor = colorScheme === "dark" ? "white" : "dark";
   const getDefaultShadow = () => {
@@ -105,6 +133,150 @@ const TenantDashboard = () => {
   const showNotification = (type: "success" | "error", message: string) => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 5000);
+  };
+
+  const fetchFeedbacks = async () => {
+    try {
+      const res = await fetch("/api/feedbacks?limit=10");
+      const data = await res.json();
+      if (data.success) {
+        setFeedbacks(data.feedbacks);
+      }
+    } catch (error) {
+      console.error("Error fetching feedbacks:", error);
+    }
+  };
+
+  const fetchAllFeedbacks = async () => {
+    try {
+      const res = await fetch("/api/feedbacks?limit=20&viewAll=true");
+      const data = await res.json();
+      if (data.success) {
+        setAllFeedbacks(data.feedbacks);
+      }
+    } catch (error) {
+      console.error("Error fetching all feedbacks:", error);
+    }
+  };
+
+  const handleEditFeedback = (feedback: Feedback) => {
+    setEditingFeedback(feedback);
+    setEditRating(feedback.rating);
+    setEditMessage(feedback.message);
+    setEditModalOpen(true);
+  };
+
+  const handleUpdateFeedback = async () => {
+    if (!editingFeedback || editRating === 0 || !editMessage.trim()) {
+      showNotification("error", "Please provide rating and message");
+      return;
+    }
+
+    setSubmittingFeedback(true);
+    try {
+      const res = await fetch("/api/feedbacks", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          feedbackId: editingFeedback._id,
+          rating: editRating,
+          message: editMessage,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showNotification("success", "Feedback updated successfully!");
+        setEditModalOpen(false);
+        setEditingFeedback(null);
+        fetchFeedbacks();
+        if (activeTab === "all") fetchAllFeedbacks();
+      } else {
+        showNotification("error", data.error || "Failed to update feedback");
+      }
+    } catch (error) {
+      console.error("Error updating feedback:", error);
+      showNotification("error", "Failed to update feedback. Please try again.");
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
+  const handleDeleteFeedback = async (feedbackId: string) => {
+    if (!confirm("Are you sure you want to delete this feedback?")) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/feedbacks?id=${feedbackId}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showNotification("success", "Feedback deleted successfully!");
+        fetchFeedbacks();
+        if (activeTab === "all") fetchAllFeedbacks();
+      } else {
+        showNotification("error", data.error || "Failed to delete feedback");
+      }
+    } catch (error) {
+      console.error("Error deleting feedback:", error);
+      showNotification("error", "Failed to delete feedback. Please try again.");
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (feedbackRating === 0) {
+      showNotification("error", "Please select a rating");
+      return;
+    }
+    if (!feedbackMessage.trim()) {
+      showNotification("error", "Please enter your feedback message");
+      return;
+    }
+
+    setSubmittingFeedback(true);
+    try {
+      const res = await fetch("/api/feedbacks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rating: feedbackRating,
+          message: feedbackMessage,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showNotification("success", "Feedback submitted successfully!");
+        setFeedbackRating(0);
+        setFeedbackMessage("");
+        fetchFeedbacks(); // Refresh the list
+      } else {
+        // Check if this is a rate limit error with an existing feedback ID
+        if (data.feedbackId) {
+          // Find the feedback in the list
+          const existingFeedback = feedbacks.find(fb => fb._id === data.feedbackId);
+          if (existingFeedback) {
+            // Show a friendly notification without action button
+            setNotification({
+              type: "error",
+              message: data.error,
+            });
+          } else {
+            showNotification("error", data.error);
+          }
+        } else {
+          showNotification("error", data.error || "Failed to submit feedback");
+        }
+      }
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+      showNotification("error", "Failed to submit feedback. Please try again.");
+    } finally {
+      setSubmittingFeedback(false);
+    }
   };
 
   useEffect(() => {
@@ -179,6 +351,9 @@ const TenantDashboard = () => {
         } else {
           showNotification("error", payData.error || "Failed to load payments");
         }
+
+        // Fetch feedbacks
+        await fetchFeedbacks();
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
         showNotification(
@@ -191,6 +366,12 @@ const TenantDashboard = () => {
 
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "all") {
+      fetchAllFeedbacks();
+    }
+  }, [activeTab]);
   const stats = [
     {
       title: "Announcements",
@@ -244,7 +425,7 @@ const TenantDashboard = () => {
             )
           }
           color={notification.type === "success" ? "green" : "red"}
-          title={notification.type === "success" ? "Success" : "Error"}
+          title={notification.type === "success" ? "Success" : ""}
           onClose={() => setNotification(null)}
           style={{ position: "fixed", top: 20, right: 20, zIndex: 1000 }}
         >
@@ -341,8 +522,10 @@ const TenantDashboard = () => {
         </SimpleGrid>
 
         <Grid gutter={{ base: "md", md: "xl" }}>
-          {/* Latest Announcements with Images */}
-          <Grid.Col span={{ base: 12, lg: 8 }}>
+          {/* Left Column - Announcements and Service Requests */}
+          <Grid.Col span={{ base: 12, lg: 6 }}>
+            <Stack gap="xl">
+              {/* Latest Announcements with Images */}
             <Card
               padding="xl"
               radius="lg"
@@ -380,6 +563,16 @@ const TenantDashboard = () => {
                               : theme.white,
                           minWidth: 0,
                           width: "100%",
+                          transition: "all 0.2s ease",
+                          cursor: "pointer",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = "translateY(-2px)";
+                          e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = "translateY(0)";
+                          e.currentTarget.style.boxShadow = "none";
                         }}
                       >
                         <Grid gutter="md" style={{ minWidth: 0 }}>
@@ -516,10 +709,8 @@ const TenantDashboard = () => {
                 </Stack>
               </Stack>
             </Card>
-          </Grid.Col>
 
-          {/* Service Requests */}
-          <Grid.Col span={{ base: 12, lg: 4 }}>
+            {/* Service Requests */}
             <Card
               padding="xl"
               radius="lg"
@@ -553,6 +744,16 @@ const TenantDashboard = () => {
                             colorScheme === "dark"
                               ? theme.colors.dark[6]
                               : theme.colors.gray[0],
+                          transition: "all 0.2s ease",
+                          cursor: "pointer",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = "translateY(-2px)";
+                          e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = "translateY(0)";
+                          e.currentTarget.style.boxShadow = "none";
                         }}
                       >
                         <Stack gap="xs">
@@ -609,9 +810,317 @@ const TenantDashboard = () => {
                 </Stack>
               </Stack>
             </Card>
+            </Stack>
+          </Grid.Col>
+
+          {/* Right Column - Feedback Section */}
+          <Grid.Col span={{ base: 12, lg: 6 }}>
+            <Card
+              padding="xl"
+              radius="lg"
+              withBorder
+              style={{ 
+                boxShadow: getDefaultShadow(),
+                height: "100%",
+                display: "flex",
+                flexDirection: "column"
+              }}
+            >
+              <Stack gap="lg" style={{ flex: 1 }}>
+                <Title order={3} size="h4" fw={600} c={primaryTextColor}>
+                  Feedback
+                </Title>
+
+                {/* Feedback Form */}
+                <Stack gap="md">
+                  <Box>
+                    <Text size="sm" fw={500} c={primaryTextColor} mb="xs">
+                      Rate your experience
+                    </Text>
+                    <Group gap="xs">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Box
+                          key={star}
+                          onClick={() => setFeedbackRating(star)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          {star <= feedbackRating ? (
+                            <IconStarFilled
+                              size={28}
+                              color={theme.colors.yellow[6]}
+                            />
+                          ) : (
+                            <IconStar
+                              size={28}
+                              color={theme.colors.gray[4]}
+                            />
+                          )}
+                        </Box>
+                      ))}
+                    </Group>
+                  </Box>
+
+                  <Textarea
+                    placeholder="Share your feedback with us..."
+                    value={feedbackMessage}
+                    onChange={(e) => setFeedbackMessage(e.currentTarget.value)}
+                    minRows={3}
+                    maxRows={4}
+                    styles={{
+                      input: {
+                        backgroundColor:
+                          colorScheme === "dark"
+                            ? theme.colors.dark[6]
+                            : theme.white,
+                      },
+                    }}
+                  />
+
+                  <Button
+                    onClick={handleSubmitFeedback}
+                    loading={submittingFeedback}
+                    disabled={feedbackRating === 0 || !feedbackMessage.trim()}
+                  >
+                    Submit Feedback
+                  </Button>
+                </Stack>
+
+                {/* Feedback List with Tabs */}
+                <Box style={{ flex: 1, minHeight: 0 }}>
+                  <Tabs value={activeTab} onChange={setActiveTab}>
+                    <Tabs.List mb="md">
+                      <Tabs.Tab value="your">Your Feedback</Tabs.Tab>
+                      <Tabs.Tab value="all">All Feedbacks</Tabs.Tab>
+                    </Tabs.List>
+
+                    <Tabs.Panel value="your">
+                      <ScrollArea style={{ height: "400px" }}>
+                        <Stack gap="md">
+                          {feedbacks.length === 0 ? (
+                            <Text size="sm" c="dimmed">
+                              No feedback submitted yet.
+                            </Text>
+                          ) : (
+                            feedbacks.map((fb) => (
+                              <Card
+                                key={fb._id}
+                                padding="md"
+                                radius="md"
+                                withBorder
+                                style={{
+                                  backgroundColor:
+                                    colorScheme === "dark"
+                                      ? theme.colors.dark[6]
+                                      : theme.colors.gray[0],
+                                  transition: "all 0.2s ease",
+                                  cursor: "default",
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.transform = "translateY(-2px)";
+                                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.transform = "translateY(0)";
+                                  e.currentTarget.style.boxShadow = "none";
+                                }}
+                              >
+                                <Stack gap="xs">
+                                  <Group justify="space-between" align="flex-start">
+                                    <Group gap="xs">
+                                      {[1, 2, 3, 4, 5].map((star) => (
+                                        <Box key={star}>
+                                          {star <= fb.rating ? (
+                                            <IconStarFilled
+                                              size={16}
+                                              color={theme.colors.yellow[6]}
+                                            />
+                                          ) : (
+                                            <IconStar
+                                              size={16}
+                                              color={theme.colors.gray[4]}
+                                            />
+                                          )}
+                                        </Box>
+                                      ))}
+                                    </Group>
+                                    <Group gap="xs">
+                                      <ActionIcon
+                                        size="sm"
+                                        variant="subtle"
+                                        color="blue"
+                                        onClick={() => handleEditFeedback(fb)}
+                                      >
+                                        <IconEdit size={16} />
+                                      </ActionIcon>
+                                      <ActionIcon
+                                        size="sm"
+                                        variant="subtle"
+                                        color="red"
+                                        onClick={() => handleDeleteFeedback(fb._id)}
+                                      >
+                                        <IconTrash size={16} />
+                                      </ActionIcon>
+                                    </Group>
+                                  </Group>
+                                  <Text size="xs" c="dimmed">
+                                    {new Date(fb.createdAt).toLocaleDateString()} at{" "}
+                                    {new Date(fb.createdAt).toLocaleTimeString()}
+                                  </Text>
+                                  <Text size="sm" c={primaryTextColor}>
+                                    {fb.message}
+                                  </Text>
+                                </Stack>
+                              </Card>
+                            ))
+                          )}
+                        </Stack>
+                      </ScrollArea>
+                    </Tabs.Panel>
+
+                    <Tabs.Panel value="all">
+                      <ScrollArea style={{ height: "400px" }}>
+                        <Stack gap="md">
+                          {allFeedbacks.length === 0 ? (
+                            <Text size="sm" c="dimmed">
+                              No feedbacks available.
+                            </Text>
+                          ) : (
+                            allFeedbacks.map((fb) => (
+                              <Card
+                                key={fb._id}
+                                padding="md"
+                                radius="md"
+                                withBorder
+                                style={{
+                                  backgroundColor:
+                                    colorScheme === "dark"
+                                      ? theme.colors.dark[6]
+                                      : theme.colors.gray[0],
+                                  transition: "all 0.2s ease",
+                                  cursor: "default",
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.transform = "translateY(-2px)";
+                                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.transform = "translateY(0)";
+                                  e.currentTarget.style.boxShadow = "none";
+                                }}
+                              >
+                                <Stack gap="xs">
+                                  <Group justify="space-between" align="flex-start">
+                                    <Group gap="xs">
+                                      {[1, 2, 3, 4, 5].map((star) => (
+                                        <Box key={star}>
+                                          {star <= fb.rating ? (
+                                            <IconStarFilled
+                                              size={16}
+                                              color={theme.colors.yellow[6]}
+                                            />
+                                          ) : (
+                                            <IconStar
+                                              size={16}
+                                              color={theme.colors.gray[4]}
+                                            />
+                                          )}
+                                        </Box>
+                                      ))}
+                                    </Group>
+                                  </Group>
+                                  <Group justify="space-between" align="center">
+                                    <Text size="xs" fw={500} c={primaryTextColor}>
+                                      {fb.userName?.split(' ')[0] || "Anonymous"}
+                                    </Text>
+                                    <Text size="xs" c="dimmed">
+                                      {new Date(fb.createdAt).toLocaleDateString()}
+                                    </Text>
+                                  </Group>
+                                  <Text size="sm" c={primaryTextColor}>
+                                    {fb.message}
+                                  </Text>
+                                </Stack>
+                              </Card>
+                            ))
+                          )}
+                        </Stack>
+                      </ScrollArea>
+                    </Tabs.Panel>
+                  </Tabs>
+                </Box>
+              </Stack>
+            </Card>
           </Grid.Col>
         </Grid>
       </Stack>
+
+      {/* Edit Feedback Modal */}
+      <Modal
+        opened={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setEditingFeedback(null);
+        }}
+        title="Edit Feedback"
+        size="md"
+      >
+        <Stack gap="md">
+          <Box>
+            <Text size="sm" fw={500} c={primaryTextColor} mb="xs">
+              Rating
+            </Text>
+            <Group gap="xs">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Box
+                  key={star}
+                  onClick={() => setEditRating(star)}
+                  style={{ cursor: "pointer" }}
+                >
+                  {star <= editRating ? (
+                    <IconStarFilled
+                      size={28}
+                      color={theme.colors.yellow[6]}
+                    />
+                  ) : (
+                    <IconStar
+                      size={28}
+                      color={theme.colors.gray[4]}
+                    />
+                  )}
+                </Box>
+              ))}
+            </Group>
+          </Box>
+
+          <Textarea
+            label="Message"
+            placeholder="Share your feedback..."
+            value={editMessage}
+            onChange={(e) => setEditMessage(e.currentTarget.value)}
+            minRows={4}
+            maxRows={6}
+          />
+
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="subtle"
+              onClick={() => {
+                setEditModalOpen(false);
+                setEditingFeedback(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateFeedback}
+              loading={submittingFeedback}
+              disabled={editRating === 0 || !editMessage.trim()}
+            >
+              Update Feedback
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Container>
   );
 };

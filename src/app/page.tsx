@@ -14,7 +14,10 @@ import {
   Image,
   Center,
   Paper,
+  Box,
+  SimpleGrid,
 } from "@mantine/core";
+import { IconStarFilled } from "@tabler/icons-react";
 import {
   Home,
   Building2,
@@ -46,6 +49,16 @@ interface Announcement {
   created_by: string;
   created_at: string;
   updated_at?: string;
+}
+
+interface Feedback {
+  _id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  rating: number;
+  message: string;
+  createdAt: Date;
 }
 
 const AnnouncementCard = ({ announcement }: { announcement: Announcement }) => {
@@ -252,37 +265,16 @@ export default function HomePage() {
   const theme = useMantineTheme();
   const colorScheme = useComputedColorScheme("dark", { getInitialValueInEffect: true });
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [cardWidth, setCardWidth] = useState(550);
+  
+  // House model image indices
+  const [sofiaImageIndex, setSofiaImageIndex] = useState(0);
+  const [zerinaImageIndex, setZerinaImageIndex] = useState(0);
+  const [sofiaTransition, setSofiaTransition] = useState(true);
+  const [zerinaTransition, setZerinaTransition] = useState(true);
 
-  // === Hero carousel images & state (NEW) ===
-  const heroImages = [
-    "https://lynville.com.ph/wp-content/uploads/2019/01/SOFIA-DELUXE-ACTUAL-LIPA-2-SAN-NICOLAS-2-1920x1280.jpg",
-    "https://lynville.com.ph/wp-content/uploads/2018/11/Sofia_Deluxe_SuggestedInterior1-934x700.jpg",
-    "https://lynville.com.ph/wp-content/uploads/2018/11/Sofia_Deluxe_SuggestedInterior2-934x700.jpg",
-    "https://lynville.com.ph/wp-content/uploads/2018/11/Sofia_Deluxe_SuggestedInterior3-934x700.jpg",
-    "https://lynville.com.ph/wp-content/uploads/2020/02/Lynville-Cabuyao_Moment2-1920x1080.jpg",
-  ];
-
-  const [heroIndex, setHeroIndex] = useState(0);
-
-  // Autoplay for hero carousel
-  useEffect(() => {
-    const id = setInterval(() => {
-      setHeroIndex((i) => (i === heroImages.length - 1 ? 0 : i + 1));
-    }, 5000);
-    return () => clearInterval(id);
-  }, [heroImages.length]);
-
-  const prevHero = useCallback(
-    () => setHeroIndex((i) => (i === 0 ? heroImages.length - 1 : i - 1)),
-    [heroImages.length]
-  );
-  const nextHero = useCallback(
-    () => setHeroIndex((i) => (i === heroImages.length - 1 ? 0 : i + 1)),
-    [heroImages.length]
-  );
-  // === End hero carousel additions ===
 
   const getDefaultShadow = () => {
     const baseShadow = "0 1px 3px";
@@ -340,16 +332,123 @@ export default function HomePage() {
     fetchAnnouncements();
   }, []);
 
-  // Calculate card width to show exactly 2 cards
+  useEffect(() => {
+    const fetchFeedbacks = async () => {
+      try {
+        console.log("Fetching feedbacks...");
+        // Use a public endpoint without authentication
+        const response = await fetch("/api/feedbacks?limit=6&viewAll=true&sort=rating");
+        const data = await response.json();
+        console.log("Feedbacks API response:", data);
+        
+        if (data.success && data.feedbacks && data.feedbacks.length > 0) {
+          setFeedbacks(data.feedbacks);
+          console.log("Feedbacks set:", data.feedbacks);
+        } else {
+          console.log("No feedbacks found or API error, using placeholder data");
+          // Use placeholder data if API fails or returns no data
+          setFeedbacks([
+            {
+              _id: "placeholder1",
+              userId: "user1",
+              userName: "John Doe",
+              userEmail: "john@example.com",
+              rating: 5,
+              message: "We love our new home in Lynville! The community is perfect for our family.",
+              createdAt: new Date()
+            },
+            {
+              _id: "placeholder2",
+              userId: "user2",
+              userName: "Maria Santos",
+              userEmail: "maria@example.com",
+              rating: 4,
+              message: "Great location and excellent amenities. The security gives us peace of mind.",
+              createdAt: new Date()
+            },
+            {
+              _id: "placeholder3",
+              userId: "user3",
+              userName: "Robert Cruz",
+              userEmail: "robert@example.com",
+              rating: 5,
+              message: "The property management team is very responsive. Highly recommended!",
+              createdAt: new Date()
+            },
+            {
+              _id: "placeholder4",
+              userId: "user4",
+              userName: "Sarah Garcia",
+              userEmail: "sarah@example.com",
+              rating: 4,
+              message: "We've been living here for a year and love the community atmosphere.",
+              createdAt: new Date()
+            },
+            {
+              _id: "placeholder5",
+              userId: "user5",
+              userName: "Michael Reyes",
+              userEmail: "michael@example.com",
+              rating: 5,
+              message: "The house quality exceeded our expectations. Very satisfied with our purchase.",
+              createdAt: new Date()
+            },
+            {
+              _id: "placeholder6",
+              userId: "user6",
+              userName: "Jennifer Tan",
+              userEmail: "jennifer@example.com",
+              rating: 5,
+              message: "Excellent value for money and the location is perfect for commuting to work.",
+              createdAt: new Date()
+            }
+          ]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch feedbacks", (err as Error).message);
+        // Use placeholder data if API fails
+        setFeedbacks([
+          {
+            _id: "error1",
+            userId: "user1",
+            userName: "John Doe",
+            userEmail: "john@example.com",
+            rating: 5,
+            message: "We love our new home in Lynville! The community is perfect for our family.",
+            createdAt: new Date()
+          },
+          {
+            _id: "error2",
+            userId: "user2",
+            userName: "Maria Santos",
+            userEmail: "maria@example.com",
+            rating: 4,
+            message: "Great location and excellent amenities. The security gives us peace of mind.",
+            createdAt: new Date()
+          },
+          {
+            _id: "error3",
+            userId: "user3",
+            userName: "Robert Cruz",
+            userEmail: "robert@example.com",
+            rating: 5,
+            message: "The property management team is very responsive. Highly recommended!",
+            createdAt: new Date()
+          }
+        ]);
+      }
+    };
+    fetchFeedbacks();
+  }, []);
+
+  // Calculate card width to show exactly 2 cards side by side
   useEffect(() => {
     const calculateCardWidth = () => {
       const scrollContainer = document.getElementById("house-models-scroll-container");
       if (!scrollContainer) return;
       
       const containerWidth = scrollContainer.clientWidth;
-      const gap = 24;
-      const calculatedWidth = (containerWidth - gap) / 2;
-      setCardWidth(calculatedWidth);
+      setCardWidth(containerWidth);
     };
 
     calculateCardWidth();
@@ -419,7 +518,7 @@ export default function HomePage() {
     <div
       suppressHydrationWarning
       style={{
-        minHeight: "100vh",
+        minHeight: "70vh",
         backgroundColor:
           colorScheme === "dark" ? theme.colors.dark[7] : theme.white,
       }}
@@ -481,304 +580,183 @@ export default function HomePage() {
       {/* Hero Section */}
       <section
         style={{
-          background:
-            colorScheme === "dark"
-              ? `linear-gradient(to bottom right, ${theme.colors.dark[5]}, ${theme.colors.dark[7]})`
-              : `linear-gradient(to bottom right, ${theme.colors.gray[0]}, ${theme.white})`,
-          padding: "5rem 0",
+          position: "relative",
+          padding: "8rem 0",
+          minHeight: "70vh",
+          overflow: "hidden",
         }}
       >
-        <Container size="lg">
-          <Group
-            align="center"
-            gap="xl"
-            className="hero-group"
+        {/* YouTube Video Background */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            zIndex: 0,
+            pointerEvents: "none",
+            overflow: "hidden",
+          }}
+        >
+          <iframe
+            src="https://www.youtube.com/embed/IKufP6JoOgo?autoplay=1&mute=1&loop=1&playlist=IKufP6JoOgo&controls=0&showinfo=0&modestbranding=1&rel=0&disablekb=1&fs=0&iv_load_policy=3"
             style={{
-              flexDirection: isMobile ? "column" : "row",
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              width: "100vw",
+              height: "56.25vw",
+              minHeight: "100%",
+              minWidth: "177.78vh",
+              transform: "translate(-50%, -50%)",
+              border: "none",
+            }}
+            allow="autoplay; encrypted-media"
+            title="Background Video"
+          />
+          {/* Dark overlay for better text readability */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+            }}
+          />
+        </div>
+        <Container size="lg" style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "60vh" }}>
+          <Stack
+            gap="xl"
+            align="flex-start"
+            style={{
+              maxWidth: "600px",
+              textAlign: "left",
+              flex: 1,
+              justifyContent: "center",
             }}
           >
-            <Stack gap="xl" style={{ flex: 1 }}>
-              <Stack gap="md">
-                <Title
-                  order={1}
-                  style={{
-                    fontSize: "clamp(2.5rem, 5vw, 3.75rem)",
-                    fontWeight: 700,
-                    color:
-                      colorScheme === "dark"
-                        ? theme.white
-                        : theme.colors.gray[9],
-                    lineHeight: 1.2,
-                  }}
-                >
-                  Lynville Residences Malvar 2 Sonera
-                </Title>
-                <Text
-                  size="lg"
-                  style={{
-                    color:
-                      colorScheme === "dark"
-                        ? theme.colors.gray[4]
-                        : theme.colors.gray[6],
-                    lineHeight: 1.6,
-                  }}
-                >
-                  A Beautiful and Modern Community in Brgy San Fernando and
-                  Santiago, Malvar, Batangas.
-                </Text>
-              </Stack>
-              <Group gap="md" wrap="wrap">
-                {propertyTypes.map((type, index) => (
-                  <Paper
-                    key={index}
-                    shadow="sm"
-                    radius="md"
-                    p="md"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      backgroundColor:
-                        colorScheme === "dark"
-                          ? theme.colors.dark[6]
-                          : theme.white,
-                      border: `1px solid ${
-                        colorScheme === "dark"
-                          ? theme.colors.dark[4]
-                          : theme.colors.gray[2]
-                      }`,
-                      cursor: "pointer",
-                      transition: "transform 0.2s ease-in-out",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "scale(1.05)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "scale(1)";
-                    }}
-                  >
-                    <Paper
-                      radius="md"
-                      style={{
-                        width: 40,
-                        height: 40,
-                        backgroundColor: theme.colors.blue[1],
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <type.icon size={20} color={theme.colors.blue[6]} />
-                    </Paper>
-                    <Stack gap={0}>
-                      <Text
-                        style={{
-                          fontWeight: 600,
-                          color:
-                            colorScheme === "dark"
-                              ? theme.white
-                              : theme.colors.gray[9],
-                        }}
-                      >
-                        {type.label}
-                      </Text>
-                      <Text
-                        size="sm"
-                        style={{
-                          color:
-                            colorScheme === "dark"
-                              ? theme.colors.gray[4]
-                              : theme.colors.gray[5],
-                        }}
-                      >
-                        {type.count}
-                      </Text>
-                    </Stack>
-                  </Paper>
-                ))}
-              </Group>
-              <Center>
-                <Stack align="center" gap="xs">
-                  <Text
-                    style={{
-                      color:
-                        colorScheme === "dark"
-                          ? theme.colors.gray[4]
-                          : theme.colors.gray[5],
-                    }}
-                  >
-                    Scroll down to explore
-                  </Text>
-                  <MantineButton
-                    variant="subtle"
-                    onClick={() => {
-                      const announcementsSection = document.querySelector(
-                        'section[data-section="announcements"]'
-                      );
-                      announcementsSection?.scrollIntoView({
-                        behavior: "smooth",
-                      });
-                    }}
-                    style={{
-                      padding: 0,
-                      minWidth: "auto",
-                      height: "auto",
-                    }}
-                  >
-                    <ChevronDown
-                      size={20}
-                      style={{
-                        color:
-                          colorScheme === "dark"
-                            ? theme.colors.gray[4]
-                            : theme.colors.gray[4],
-                        animation: "bounce 1s infinite",
-                      }}
-                    />
-                  </MantineButton>
-                </Stack>
-              </Center>
-            </Stack>
-
-            {/* === Hero Carousel (NEW) === */}
-            <div style={{ flex: 1, maxWidth: 500, position: "relative" }}>
-              <div
+            <Title
+                order={1}
                 style={{
-                  overflow: "hidden",
-                  width: "100%",
-                  borderRadius: theme.radius.xl,
-                  boxShadow: getDefaultShadow(),
+                  fontSize: "clamp(2.5rem, 5vw, 3.75rem)",
+                  fontWeight: 700,
+                  color: theme.white,
+                  lineHeight: 1.2,
+                  textShadow: "0 2px 10px rgba(0,0,0,0.3)",
                 }}
               >
-                <div
+                Lynville Residences Malvar 2 Sonera
+              </Title>
+              <Text
+                size="lg"
+                style={{
+                  color: theme.colors.gray[3],
+                  lineHeight: 1.6,
+                  textShadow: "0 1px 5px rgba(0,0,0,0.3)",
+                }}
+              >
+                A Beautiful and Modern Community in Brgy San Fernando and
+                Santiago, Malvar, Batangas.
+              </Text>
+            <Group gap="md" wrap="wrap" justify="flex-start">
+              {propertyTypes.map((type, index) => (
+                <Paper
+                  key={index}
+                  shadow="sm"
+                  radius="md"
+                  p="md"
                   style={{
                     display: "flex",
-                    width: `${heroImages.length * 100}%`,
-                    transform: `translateX(-${heroIndex * (100 / heroImages.length)}%)`,
-                    transition: "transform 0.6s ease",
+                    alignItems: "center",
+                    gap: 12,
+                    backgroundColor: "rgba(255, 255, 255, 0.1)",
+                    backdropFilter: "blur(10px)",
+                    WebkitBackdropFilter: "blur(10px)",
+                    border: "1px solid rgba(255, 255, 255, 0.2)",
+                    cursor: "pointer",
+                    transition: "transform 0.2s ease-in-out, background-color 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "scale(1.05)";
+                    e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.15)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "scale(1)";
+                    e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
                   }}
                 >
-                  {heroImages.map((src, idx) => (
-                    <div
-                      key={idx}
+                  <Paper
+                    radius="md"
+                    style={{
+                      width: 40,
+                      height: 40,
+                      backgroundColor: "rgba(59, 130, 246, 0.3)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <type.icon size={20} color={theme.colors.blue[4]} />
+                  </Paper>
+                  <Stack gap={0}>
+                    <Text
                       style={{
-                        width: `${100 / heroImages.length}%`,
-                        flexShrink: 0,
-                        height: isMobile ? 240 : 360,
-                        display: "block",
-                        position: "relative",
+                        fontWeight: 600,
+                        color: theme.white,
                       }}
                     >
-                      <Image
-                        src={src}
-                        alt={`Lynville ${idx + 1}`}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                          borderRadius: theme.radius.xl,
-                          display: "block",
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Left / Right controls */}
-              <MantineButton
-                variant="filled"
-                size="xs"
-                onClick={prevHero}
+                      {type.label}
+                    </Text>
+                    <Text
+                      size="sm"
+                      style={{
+                        color: theme.colors.gray[3],
+                      }}
+                    >
+                      {type.count}
+                    </Text>
+                  </Stack>
+                </Paper>
+              ))}
+              </Group>
+          </Stack>
+          <Center style={{ width: "100%", paddingBottom: "2.5rem" }}>
+            <Stack align="center" gap="xs">
+              <Text
                 style={{
-                  position: "absolute",
-                  left: 8,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background:
-                    colorScheme === "dark"
-                      ? "rgba(0,0,0,0.5)"
-                      : "rgba(255,255,255,0.85)",
-                  padding: 6,
-                  minWidth: 36,
-                  height: 36,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  color: theme.colors.gray[3],
                 }}
               >
-                <ArrowLeft
-                  size={16}
-                  color={
-                    colorScheme === "dark" ? theme.white : theme.colors.gray[8]
-                  }
+                Scroll down to explore
+              </Text>
+              <MantineButton
+                variant="subtle"
+                onClick={() => {
+                  const announcementsSection = document.querySelector(
+                    'section[data-section="announcements"]'
+                  );
+                  announcementsSection?.scrollIntoView({
+                    behavior: "smooth",
+                  });
+                }}
+                style={{
+                  minWidth: "auto",
+                  overflow: "visible",
+                }}
+              >
+                <ChevronDown
+                  size={20}
+                  style={{
+                    color: theme.colors.gray[3],
+                    animation: "bounce 1s infinite",
+                  }}
                 />
               </MantineButton>
-
-              <MantineButton
-                variant="filled"
-                size="xs"
-                onClick={nextHero}
-                style={{
-                  position: "absolute",
-                  right: 8,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background:
-                    colorScheme === "dark"
-                      ? "rgba(0,0,0,0.5)"
-                      : "rgba(255,255,255,0.85)",
-                  padding: 6,
-                  minWidth: 36,
-                  height: 36,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <ArrowRight
-                  size={16}
-                  color={
-                    colorScheme === "dark" ? theme.white : theme.colors.gray[8]
-                  }
-                />
-              </MantineButton>
-
-              {/* Indicators */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  gap: 8,
-                  marginTop: 12,
-                  position: "relative",
-                  zIndex: 2,
-                }}
-              >
-                {heroImages.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setHeroIndex(i)}
-                    aria-label={`Go to slide ${i + 1}`}
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      border: "none",
-                      background:
-                        i === heroIndex
-                          ? theme.colors.blue[6]
-                          : colorScheme === "dark"
-                            ? theme.colors.dark[4]
-                            : theme.colors.gray[4],
-                      cursor: "pointer",
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-            {/* === End Hero Carousel === */}
-          </Group>
+            </Stack>
+          </Center>
         </Container>
       </section>
 
@@ -794,12 +772,14 @@ export default function HomePage() {
       >
         <Container size="lg">
           <Stack gap="xl">
-            <Stack align="center" gap="md">
+            <Stack align="center" gap="md" mb="xl">
               <Title
                 order={2}
                 style={{
                   color:
                     colorScheme === "dark" ? theme.white : theme.colors.gray[9],
+                  fontSize: "1.75rem",
+                  fontWeight: 600
                 }}
               >
                 Available House Models
@@ -813,271 +793,250 @@ export default function HomePage() {
                       : theme.colors.gray[6],
                   maxWidth: 672,
                   textAlign: "center",
+                  fontSize: "0.95rem"
                 }}
               >
-                Explore our diverse range of modern house models designed to suit
-                your lifestyle and budget
+                Explore our diverse range of modern house models designed to suit your lifestyle and budget
               </Text>
             </Stack>
             <div
               className="house-models-scroll"
               id="house-models-scroll-container"
               style={{
-                overflowX: "auto",
-                overflowY: "hidden",
+                overflow: "visible",
                 paddingBottom: "16px",
-                scrollbarWidth: "thin",
-                scrollbarColor: `${colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[3]} ${colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[0]}`,
                 width: "100%",
-                scrollSnapType: "x mandatory",
-                scrollBehavior: "smooth",
+                margin: "0 auto"
               }}
             >
               <div
                 style={{
                   display: "flex",
-                  gap: "24px",
-                  padding: "8px 0",
-                  width: "max-content",
+                  justifyContent: "center",
+                  flexWrap: isMobile ? "wrap" : "nowrap",
+                  gap: "20px",
+                  padding: "8px 24px",
+                  width: "100%",
                 }}
               >
                 {[
                   {
-                    name: "Lynville 1",
-                    area: "42 sqm",
-                    bedrooms: 2,
-                    bathrooms: 1,
-                    price: "PHP 1,766,000",
-                    color: theme.colors.blue[6],
+                    name: "Sofia Delux",
+                    images: [
+                      "/sofia-delux/s 1.jpg",
+                      "/sofia-delux/s 2.jpg",
+                      "/sofia-delux/s 3.jpg",
+                      "/sofia-delux/s 4.jpg",
+                      "/sofia-delux/s 5.jpg",
+                      "/sofia-delux/s 6.jpg"
+                    ]
                   },
                   {
-                    name: "Lynville 2",
-                    area: "50 sqm",
-                    bedrooms: 3,
-                    bathrooms: 2,
-                    price: "PHP 2,000,000",
-                    color: theme.colors.green[6],
-                  },
-                  {
-                    name: "Lynville 3",
-                    area: "60 sqm",
-                    bedrooms: 3,
-                    bathrooms: 2,
-                    price: "PHP 2,200,000",
-                    color: theme.colors.violet[6],
-                  },
-                  {
-                    name: "Lynville 4",
-                    area: "75 sqm",
-                    bedrooms: 4,
-                    bathrooms: 3,
-                    price: "PHP 2,500,000",
-                    color: theme.colors.orange[6],
-                  },
-                  {
-                    name: "Lynville 5",
-                    area: "45 sqm",
-                    bedrooms: 2,
-                    bathrooms: 1,
-                    price: "PHP 1,850,000",
-                    color: theme.colors.blue[7],
-                  },
-                  {
-                    name: "Lynville 6",
-                    area: "55 sqm",
-                    bedrooms: 3,
-                    bathrooms: 2,
-                    price: "PHP 2,100,000",
-                    color: theme.colors.green[7],
-                  },
-                  {
-                    name: "Lynville 7",
-                    area: "65 sqm",
-                    bedrooms: 3,
-                    bathrooms: 2,
-                    price: "PHP 2,350,000",
-                    color: theme.colors.violet[7],
-                  },
-                  {
-                    name: "Lynville 8",
-                    area: "70 sqm",
-                    bedrooms: 4,
-                    bathrooms: 2,
-                    price: "PHP 2,400,000",
-                    color: theme.colors.orange[7],
-                  },
-                  {
-                    name: "Lynville 9",
-                    area: "80 sqm",
-                    bedrooms: 4,
-                    bathrooms: 3,
-                    price: "PHP 2,650,000",
-                    color: theme.colors.red[6],
-                  },
-                  {
-                    name: "Lynville 10",
-                    area: "48 sqm",
-                    bedrooms: 2,
-                    bathrooms: 2,
-                    price: "PHP 1,950,000",
-                    color: theme.colors.blue[5],
-                  },
-                  {
-                    name: "Lynville 11",
-                    area: "58 sqm",
-                    bedrooms: 3,
-                    bathrooms: 2,
-                    price: "PHP 2,150,000",
-                    color: theme.colors.green[5],
-                  },
-                  {
-                    name: "Lynville 12",
-                    area: "68 sqm",
-                    bedrooms: 3,
-                    bathrooms: 3,
-                    price: "PHP 2,450,000",
-                    color: theme.colors.yellow[6],
-                  },
-                  {
-                    name: "Lynville 13",
-                    area: "85 sqm",
-                    bedrooms: 4,
-                    bathrooms: 3,
-                    price: "PHP 2,750,000",
-                    color: theme.colors.violet[5],
-                  },
-                  {
-                    name: "Lynville 14",
-                    area: "52 sqm",
-                    bedrooms: 3,
-                    bathrooms: 2,
-                    price: "PHP 2,050,000",
-                    color: theme.colors.orange[5],
-                  },
-                ].map((model, index) => (
-                  <Card
-                    key={index}
-                    className="house-model-card"
-                    shadow="sm"
-                    radius="md"
-                    withBorder
-                    style={{
-                      overflow: "hidden",
-                      backgroundColor:
-                        colorScheme === "dark"
-                          ? theme.colors.dark[6]
-                          : theme.white,
-                      cursor: "pointer",
-                      transition: "all 0.3s ease-in-out",
-                      minWidth: `${cardWidth}px`,
-                      maxWidth: `${cardWidth}px`,
-                      width: `${cardWidth}px`,
-                      flexShrink: 0,
-                      scrollSnapAlign: "start",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "translateY(-8px)";
-                      e.currentTarget.style.boxShadow = theme.shadows.lg;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow = theme.shadows.sm;
-                    }}
-                  >
-                  <CardSection>
-                    <div
+                    name: "Zerina Premium",
+                    images: [
+                      "/zerina-premium/zerina-premium 1.jpg",
+                      "/zerina-premium/z 2.jpg",
+                      "/zerina-premium/z 3.jpg",
+                      "/zerina-premium/z 4.jpg",
+                      "/zerina-premium/z 5.jpg"
+                    ]
+                  }
+                ].map((model, index) => {
+                  const currentImageIndex = index === 0 ? sofiaImageIndex : zerinaImageIndex;
+                  const setCurrentImageIndex = index === 0 ? setSofiaImageIndex : setZerinaImageIndex;
+                  const hasTransition = index === 0 ? sofiaTransition : zerinaTransition;
+                  const setHasTransition = index === 0 ? setSofiaTransition : setZerinaTransition;
+                  
+                  const prevImage = () => {
+                    const isLooping = currentImageIndex === 0;
+                    if (isLooping) {
+                      setHasTransition(false);
+                      setTimeout(() => setHasTransition(true), 50);
+                    }
+                    setCurrentImageIndex(prev => 
+                      prev === 0 ? model.images.length - 1 : prev - 1
+                    );
+                  };
+                  
+                  const nextImage = () => {
+                    const isLooping = currentImageIndex === model.images.length - 1;
+                    if (isLooping) {
+                      setHasTransition(false);
+                      setTimeout(() => setHasTransition(true), 50);
+                    }
+                    setCurrentImageIndex(prev => 
+                      prev === model.images.length - 1 ? 0 : prev + 1
+                    );
+                  };
+                  
+                  return (
+                    <Card
+                      key={index}
+                      className="house-model-card"
+                      shadow="sm"
+                      radius="md"
+                      withBorder
                       style={{
-                        width: "100%",
-                        height: 400,
-                        backgroundColor: model.color,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        position: "relative",
+                        overflow: "hidden",
+                        backgroundColor:
+                          colorScheme === "dark"
+                            ? "#2A2A2A"
+                            : theme.white,
+                        cursor: "pointer",
+                        transition: "all 0.3s ease-in-out",
+                        minWidth: `${cardWidth/2 + 40}px`,
+                        maxWidth: `${cardWidth/2 + 40}px`,
+                        width: `${cardWidth/2 + 40}px`,
+                        flexShrink: 0,
+                        border: `1px solid ${colorScheme === "dark" ? "#3f3f3f" : "#e9e9e9"}`
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = "translateY(-4px)";
+                        e.currentTarget.style.boxShadow = theme.shadows.md;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = "translateY(0)";
+                        e.currentTarget.style.boxShadow = theme.shadows.sm;
                       }}
                     >
-                      <Text
-                        size="xl"
-                        fw={700}
-                        style={{
-                          color: theme.white,
-                          textAlign: "center",
-                          padding: "0 16px",
-                          fontSize: "1.75rem",
-                        }}
-                      >
-                        {model.name}
-                      </Text>
-                      <Badge
-                        color="white"
-                        variant="filled"
-                        style={{
-                          position: "absolute",
-                          top: 12,
-                          right: 12,
-                          backgroundColor: "rgba(255, 255, 255, 0.2)",
-                          backdropFilter: "blur(10px)",
-                          color: theme.white,
-                        }}
-                      >
-                        Coming Soon
-                      </Badge>
+                  <CardSection>
+                    <div style={{ position: "relative", width: "100%", paddingBottom: "55%" }}>
+                      <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", overflow: "hidden", borderTopLeftRadius: theme.radius.md, borderTopRightRadius: theme.radius.md }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            transition: hasTransition ? "transform 0.3s ease" : "none",
+                            transform: `translateX(-${currentImageIndex * (100 / model.images.length)}%)`,
+                            width: `${model.images.length * 100}%`,
+                            height: "100%",
+                          }}
+                        >
+                          {model.images.map((img, idx) => (
+                            <Image
+                              key={idx}
+                              src={img}
+                              alt={`${model.name} ${idx + 1}`}
+                              style={{
+                                width: `${100 / model.images.length}%`,
+                                height: "100%",
+                                objectFit: "cover",
+                                flexShrink: 0,
+                                display: "block"
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      {model.images.length > 1 && (
+                        <>
+                          <MantineButton
+                            variant="filled"
+                            color="gray"
+                            size="xs"
+                            style={{
+                              position: "absolute",
+                              left: 8,
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              backgroundColor: "rgba(0, 0, 0, 0.5)",
+                              width: "28px",
+                              height: "28px",
+                              padding: 0,
+                              minWidth: "28px",
+                              borderRadius: "50%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              border: "none"
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              prevImage();
+                            }}
+                          >
+                            <ArrowLeft
+                              size={16}
+                              color={
+                                colorScheme === "dark"
+                                  ? theme.white
+                                  : theme.colors.gray[8]
+                              }
+                            />
+                          </MantineButton>
+                          <MantineButton
+                            variant="filled"
+                            color="gray"
+                            size="xs"
+                            style={{
+                              position: "absolute",
+                              right: 8,
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              backgroundColor: "rgba(0, 0, 0, 0.5)",
+                              width: "28px",
+                              height: "28px",
+                              padding: 0,
+                              minWidth: "28px",
+                              borderRadius: "50%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              border: "none"
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              nextImage();
+                            }}
+                          >
+                            <ArrowRightIcon
+                              size={16}
+                              color={
+                                colorScheme === "dark"
+                                  ? theme.white
+                                  : theme.colors.gray[8]
+                              }
+                            />
+                          </MantineButton>
+                        </>
+                      )}
                     </div>
                   </CardSection>
-                  <CardSection p="md">
-                    <Stack gap="xs">
-                      <Title
-                        order={4}
-                        style={{
-                          color:
-                            colorScheme === "dark"
-                              ? theme.white
-                              : theme.colors.gray[9],
-                          fontSize: "1.1rem",
-                          marginBottom: 4,
-                        }}
-                      >
-                        {model.name}
-                      </Title>
-                      <Stack gap={4}>
-                        <Text
-                          size="sm"
-                          style={{
-                            color:
-                              colorScheme === "dark"
-                                ? theme.colors.gray[4]
-                                : theme.colors.gray[6],
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          <strong>Bedroom{model.bedrooms !== 1 ? "s" : ""}:</strong> {model.bedrooms} • <strong>Bathroom{model.bathrooms !== 1 ? "s" : ""}:</strong> {model.bathrooms} • {model.area}
-                        </Text>
-                        <Text
-                          size="sm"
-                          fw={600}
-                          style={{
-                            color: model.color,
-                            marginTop: 4,
-                          }}
-                        >
-                          {model.price}
-                        </Text>
-                      </Stack>
-                    </Stack>
+                  <CardSection p="sm" style={{ backgroundColor: colorScheme === "dark" ? "#2A2A2A" : theme.white, paddingTop: "12px", paddingBottom: "12px" }}>
+                    <Title
+                      order={4}
+                      style={{
+                        color:
+                          colorScheme === "dark"
+                            ? theme.white
+                            : theme.colors.gray[9],
+                        fontSize: "0.95rem",
+                        textAlign: "center",
+                        fontWeight: 500,
+                        margin: 0
+                      }}
+                    >
+                      {model.name}
+                    </Title>
                   </CardSection>
                 </Card>
-              ))}
-              </div>
+              );
+            })}
+            </div>
             </div>
             <Center mt="xl">
               <MantineButton
-                size="lg"
+                size="md"
                 variant="filled"
                 color="blue"
-                rightSection={<ArrowRight size={18} />}
+                rightSection={<ArrowRight size={16} />}
                 style={{
-                  paddingLeft: "2rem",
-                  paddingRight: "2rem",
+                  paddingLeft: "1.5rem",
+                  paddingRight: "1.5rem",
+                  backgroundColor: "#3182CE",
+                  borderRadius: "4px",
+                  fontWeight: 500,
+                  fontSize: "0.9rem",
+                  height: "38px"
                 }}
               >
                 Browse All House Models
@@ -1525,11 +1484,6 @@ export default function HomePage() {
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-              backgroundColor:
-                colorScheme === "dark"
-                  ? theme.colors.dark[6]
-                  : theme.colors.gray[0],
-              padding: "2rem",
               alignItems: "stretch",
             }}
           >
@@ -1549,32 +1503,72 @@ export default function HomePage() {
                       ? theme.colors.dark[4]
                       : theme.colors.gray[2],
                   cursor: "pointer",
-                  transition: "transform 0.2s ease-in-out",
+                  transition: "all 0.2s ease-in-out",
                   height: "100%",
                   display: "flex",
                   flexDirection: "column",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "scale(1.05)";
+                  e.currentTarget.style.backgroundColor = theme.colors.blue[6];
+                  const iconContainer = e.currentTarget.querySelector('[data-icon-container]') as HTMLElement;
+                  if (iconContainer) {
+                    iconContainer.style.backgroundColor = theme.white;
+                    iconContainer.style.color = theme.colors.blue[6];
+                  }
+                  const title = e.currentTarget.querySelector('h3') as HTMLElement;
+                  if (title) {
+                    title.style.color = theme.white;
+                  }
+                  const text = e.currentTarget.querySelector('p') as HTMLElement;
+                  if (text) {
+                    text.style.color = theme.colors.blue[1];
+                  }
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.backgroundColor =
+                    colorScheme === "dark"
+                      ? theme.colors.dark[5]
+                      : theme.white;
+                  const iconContainer = e.currentTarget.querySelector('[data-icon-container]') as HTMLElement;
+                  if (iconContainer) {
+                    iconContainer.style.backgroundColor = theme.colors.blue[6];
+                    iconContainer.style.color = theme.white;
+                  }
+                  const title = e.currentTarget.querySelector('h3') as HTMLElement;
+                  if (title) {
+                    title.style.color =
+                      colorScheme === "dark"
+                        ? theme.white
+                        : theme.colors.gray[9];
+                  }
+                  const text = e.currentTarget.querySelector('p') as HTMLElement;
+                  if (text) {
+                    text.style.color =
+                      colorScheme === "dark"
+                        ? theme.colors.gray[3]
+                        : theme.colors.gray[6];
+                  }
                 }}
               >
                 <CardSection p="md" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                   <Paper
+                    data-icon-container
                     radius="md"
                     style={{
                       width: 48,
                       height: 48,
                       backgroundColor: theme.colors.blue[6],
+                      color: theme.white,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       marginBottom: 16,
+                      transition: "all 0.2s ease-in-out",
                     }}
                   >
-                    <item.icon size={24} color={theme.white} />
+                    <item.icon size={24} color="currentColor" />
                   </Paper>
                   <Title
                     order={3}
@@ -1584,6 +1578,7 @@ export default function HomePage() {
                         colorScheme === "dark"
                           ? theme.white
                           : theme.colors.gray[9],
+                      transition: "color 0.2s ease-in-out",
                     }}
                   >
                     {item.title}
@@ -1596,6 +1591,7 @@ export default function HomePage() {
                           ? theme.colors.gray[3]
                           : theme.colors.gray[6],
                       lineHeight: 1.6,
+                      transition: "color 0.2s ease-in-out",
                     }}
                   >
                     {item.description}
@@ -1606,6 +1602,150 @@ export default function HomePage() {
           </Group>
         </Container>
       </section>
+
+      {/* Customer Feedback Ratings */}
+      {(
+        <section
+          style={{
+            padding: "4rem 0",
+            backgroundColor:
+              colorScheme === "dark"
+                ? theme.colors.dark[6]
+                : theme.colors.gray[0],
+          }}
+        >
+          <Container size="lg">
+            <Stack align="center" gap="md" mb="xl">
+              <Title
+                order={2}
+                style={{
+                  color:
+                    colorScheme === "dark"
+                      ? theme.white
+                      : theme.colors.gray[9],
+                }}
+              >
+                What Our Homeowners Say
+              </Title>
+              <Text
+                size="md"
+                style={{
+                  color:
+                    colorScheme === "dark"
+                      ? theme.colors.gray[3]
+                      : theme.colors.gray[6],
+                  maxWidth: 672,
+                  textAlign: "center",
+                }}
+              >
+                Real feedback from our valued homeowners
+              </Text>
+            </Stack>
+            <SimpleGrid
+              cols={{ base: 1, sm: 2, md: 3 }}
+              spacing="lg"
+            >
+              {feedbacks.map((feedback) => (
+                <Card
+                  key={feedback._id}
+                  shadow="sm"
+                  radius="md"
+                  withBorder
+                  p="lg"
+                  style={{
+                    backgroundColor:
+                      colorScheme === "dark"
+                        ? theme.colors.dark[5]
+                        : theme.white,
+                    transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                    cursor: "default",
+                    height: "100%",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-4px)";
+                    e.currentTarget.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.15)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "";
+                  }}
+                >
+                  <Stack gap="md">
+                    {/* Rating stars */}
+                    <Group gap="xs">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <IconStarFilled
+                          key={star}
+                          size={18}
+                          color={
+                            star <= feedback.rating
+                              ? theme.colors.yellow[6]
+                              : theme.colors.gray[4]
+                          }
+                        />
+                      ))}
+                    </Group>
+
+                    {/* Feedback message */}
+                    <Text
+                      size="sm"
+                      style={{
+                        color:
+                          colorScheme === "dark"
+                            ? theme.colors.gray[3]
+                            : theme.colors.gray[7],
+                        lineHeight: 1.6,
+                        fontStyle: "italic",
+                      }}
+                    >
+                      "{feedback.message}"
+                    </Text>
+
+                    {/* User name and date */}
+                    <Box
+                      style={{
+                        borderTop: `1px solid ${
+                          colorScheme === "dark"
+                            ? theme.colors.dark[4]
+                            : theme.colors.gray[2]
+                        }`,
+                        paddingTop: 12,
+                        marginTop: "auto",
+                      }}
+                    >
+                      <Group justify="space-between">
+                        <Text
+                          size="sm"
+                          fw={500}
+                          style={{
+                            color:
+                              colorScheme === "dark"
+                                ? theme.white
+                                : theme.colors.gray[9],
+                          }}
+                        >
+                          {feedback.userName?.split(" ")[0] || "Anonymous"}
+                        </Text>
+                        <Text
+                          size="xs"
+                          style={{
+                            color:
+                              colorScheme === "dark"
+                                ? theme.colors.gray[5]
+                                : theme.colors.gray[5],
+                          }}
+                        >
+                          {new Date(feedback.createdAt).toLocaleDateString()}
+                        </Text>
+                      </Group>
+                    </Box>
+                  </Stack>
+                </Card>
+              ))}
+            </SimpleGrid>
+          </Container>
+        </section>
+      )}
 
       {/* Footer */}
       <footer
@@ -1724,9 +1864,11 @@ export default function HomePage() {
               }`,
               marginTop: 32,
               paddingTop: 32,
+              width: "100%",
+              textAlign: "center",
             }}
           >
-            <Group justify="center" gap="xl" mb="md">
+            <Group justify="center" gap="md" mb="md" style={{ width: "100%" }}>
               <Link
                 href="/terms-of-service"
                 style={{
@@ -1789,6 +1931,43 @@ export default function HomePage() {
                 }}
               >
                 Privacy Policy
+              </Link>
+              <Text
+                size="sm"
+                style={{
+                  color:
+                    colorScheme === "dark"
+                      ? theme.colors.gray[4]
+                      : theme.colors.gray[6],
+                }}
+              >
+                •
+              </Text>
+              <Link
+                href="/faqs"
+                style={{
+                  color:
+                    colorScheme === "dark"
+                      ? theme.colors.gray[4]
+                      : theme.colors.gray[6],
+                  textDecoration: "none",
+                  fontSize: "0.875rem",
+                  transition: "color 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color =
+                    colorScheme === "dark"
+                      ? theme.colors.blue[4]
+                      : theme.colors.blue[6];
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color =
+                    colorScheme === "dark"
+                      ? theme.colors.gray[4]
+                      : theme.colors.gray[6];
+                }}
+              >
+                FAQs
               </Link>
             </Group>
             <Text

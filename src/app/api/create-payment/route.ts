@@ -25,6 +25,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate requestId format to prevent invalid ObjectId errors
+    if (!ObjectId.isValid(requestId)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid request ID format" },
+        { status: 400 }
+      );
+    }
+
     await connectDB();
     const serviceRequestsCollection: Collection<ServiceRequest> =
       db.collection("service-requests");
@@ -194,7 +202,7 @@ async function createPayMongoCheckout(params: {
               },
             ],
             payment_method_types: ["card", "gcash", "grab_pay"],
-            success_url: `${baseUrl}/payment-success?payment_intent_id=${paymentIntentId}&request_id=${params.requestId}`,
+            success_url: `${baseUrl}/payment-success?payment_intent_id=${encodeURIComponent(paymentIntentId)}&request_id=${encodeURIComponent(params.requestId)}`,
             cancel_url: `${baseUrl}/service-requests?payment=cancelled`,
             metadata: {
               request_id: params.requestId,

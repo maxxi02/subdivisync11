@@ -5,6 +5,11 @@ import { db } from "@/database/mongodb";
 import { UserSecurityModel } from "@/database/schemas/user-security";
 import { connectDB } from "@/database/mongodb";
 
+// Helper function to escape regex special characters to prevent ReDoS attacks
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Helper function to get start of today
 function getStartOfToday(): Date {
   const now = new Date();
@@ -45,10 +50,12 @@ export async function GET(request: NextRequest) {
     let filter: any = { accountLocked: true };
     
     if (search) {
+      // Escape regex special characters to prevent ReDoS attacks
+      const escapedSearch = escapeRegex(search);
       filter.$or = [
-        { lockedReason: { $regex: search, $options: "i" } },
-        { userId: { $regex: search, $options: "i" } },
-        { lockedBy: { $regex: search, $options: "i" } }
+        { lockedReason: { $regex: escapedSearch, $options: "i" } },
+        { userId: { $regex: escapedSearch, $options: "i" } },
+        { lockedBy: { $regex: escapedSearch, $options: "i" } }
       ];
     }
 

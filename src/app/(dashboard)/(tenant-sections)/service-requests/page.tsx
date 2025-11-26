@@ -1591,7 +1591,9 @@ const ServiceRequestsSection = () => {
                         <Image
                           src={image}
                           alt={`Image ${index + 1}`}
-                          style={{ objectFit: "cover", borderRadius: theme.radius.md, height: 180 }}
+                          width={300}
+                          height={180}
+                          style={{ objectFit: "cover", borderRadius: theme.radius.md, height: 180, width: "100%" }}
                           onClick={() => window.open(image, "_blank")}
                         />
                       </Card>

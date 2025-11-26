@@ -1,0 +1,27 @@
+/* Print styles for receipt */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  
+  .receipt-container,
+  .receipt-container * {
+    visibility: visible;
+  }
+  
+  .receipt-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  
+  .receipt-paper {
+    box-shadow: none !important;
+    border: none !important;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+}
