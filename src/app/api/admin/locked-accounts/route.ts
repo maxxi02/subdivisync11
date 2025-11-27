@@ -74,47 +74,41 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .lean();
 
-    // Enrich with Better-Auth user data
-    const formattedAccounts = await Promise.all(
-      lockedAccounts.map(async (account) => {
-        let userEmail = null;
-        let userName = null;
+    // Get all unique user IDs from locked accounts
+    const userIds = lockedAccounts
+      .map((account) => account.userId)
+      .filter((id): id is string => Boolean(id));
 
-        // Try to fetch user details from Better-Auth
-        if (account.userId) {
-          try {
-            const user = await auth.api.getUser({
-              headers: request.headers,
-              query: {
-                userId: account.userId,
-              },
-            });
+    // Fetch user details from Better-Auth user collection in bulk
+    const usersCollection = db.collection("user");
+    const users = await usersCollection
+      .find({ id: { $in: userIds } })
+      .toArray();
 
-            if (user) {
-              userEmail = user.email;
-              userName = user.name;
-            }
-          } catch (error) {
-            console.warn(`Could not fetch user details for userId: ${account.userId}`, error);
-          }
-        }
-
-        return {
-          id: account._id.toString(),
-          userId: account.userId,
-          userEmail,
-          userName,
-          failedLoginCount: account.failedLoginCount,
-          accountLocked: account.accountLocked,
-          lockedAt: account.lockedAt,
-          lockedBy: account.lockedBy,
-          lockedReason: account.lockedReason,
-          lastLoginAttempt: account.lastLoginAttempt,
-          createdAt: account.createdAt,
-          updatedAt: account.updatedAt,
-        };
-      })
+    // Create a map for quick lookup
+    const userMap = new Map(
+      users.map((user) => [user.id, { email: user.email, name: user.name }])
     );
+
+    // Enrich accounts with user data
+    const formattedAccounts = lockedAccounts.map((account) => {
+      const userData = account.userId ? userMap.get(account.userId) : null;
+
+      return {
+        id: account._id.toString(),
+        userId: account.userId,
+        userEmail: userData?.email || null,
+        userName: userData?.name || null,
+        failedLoginCount: account.failedLoginCount,
+        accountLocked: account.accountLocked,
+        lockedAt: account.lockedAt,
+        lockedBy: account.lockedBy,
+        lockedReason: account.lockedReason,
+        lastLoginAttempt: account.lastLoginAttempt,
+        createdAt: account.createdAt,
+        updatedAt: account.updatedAt,
+      };
+    });
 
     return NextResponse.json({
       success: true,

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     // Get userId if not provided
     let targetUserId = userId;
     if (!targetUserId && email) {
-      targetUserId = await getUserIdFromEmail(email);
+      targetUserId = (await getUserIdFromEmail(email)) ?? undefined;
     }
 
     if (!targetUserId) {
