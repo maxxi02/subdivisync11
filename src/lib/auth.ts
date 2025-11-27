@@ -1,15 +1,20 @@
 import { db } from "@/database/mongodb";
-import {  sendEmail } from "@/resend/resend";
+import { sendEmail } from "@/resend/resend";
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { nextCookies } from "better-auth/next-js";
 import { admin as adminPlugin, twoFactor } from "better-auth/plugins";
 
+// Provide fallback URLs for build time when env vars may not be available
+const getBaseURL = () => {
+  if (process.env.NODE_ENV === "production") {
+    return process.env.NEXT_PUBLIC_URL || "https://www.subdivisync.online";
+  }
+  return process.env.BETTER_AUTH_URL || "http://localhost:3000";
+};
+
 export const auth = betterAuth({
-  baseURL:
-    process.env.NODE_ENV === "production"
-      ? process.env.NEXT_PUBLIC_URL!
-      : process.env.BETTER_AUTH_URL!,
+  baseURL: getBaseURL(),
   advanced: {
     ipAddress: {
       ipAddressHeaders: ["x-forwarded-for", "x-real-ip"],
@@ -62,11 +67,10 @@ export const auth = betterAuth({
   },
   database: mongodbAdapter(db),
   trustedOrigins: [
-    process.env.NODE_ENV === "production"
-      ? (process.env.NEXT_PUBLIC_URL! as string)
-      : (process.env.BETTER_AUTH_URL! as string),
+    getBaseURL(),
     "https://www.subdivisync.online",
-  ],
+    "https://subdivisync.online",
+  ].filter(Boolean),
   appName: "SubdiviSync",
   emailAndPassword: {
     requireEmailVerification: true,
