@@ -18,7 +18,19 @@ export default function AuthLayout({
   }, [pathname]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 relative overflow-hidden flex items-center justify-center">
+    <div className="min-h-screen relative overflow-hidden flex items-center justify-center auth-gradient-bg">
+      <style jsx>{`
+        .auth-gradient-bg {
+          background: linear-gradient(150deg, #39ff6c, #0062c1);
+          background-size: 400% 400%;
+          animation: AuthGradientAnimation 11s ease infinite;
+        }
+        @keyframes AuthGradientAnimation {
+          0% { background-position: 34% 0%; }
+          50% { background-position: 67% 100%; }
+          100% { background-position: 34% 0%; }
+        }
+      `}</style>
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-20">
         <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/10 to-transparent transform rotate-12 scale-150"></div>

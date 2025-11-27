@@ -8,7 +8,7 @@ import { admin as adminPlugin, twoFactor } from "better-auth/plugins";
 // Provide fallback URLs for build time when env vars may not be available
 const getBaseURL = () => {
   if (process.env.NODE_ENV === "production") {
-    return process.env.NEXT_PUBLIC_URL || "https://www.subdivisync.online";
+    return process.env.NEXT_PUBLIC_URL || "https://www.subdivisync.com";
   }
   return process.env.BETTER_AUTH_URL || "http://localhost:3000";
 };
@@ -68,8 +68,8 @@ export const auth = betterAuth({
   database: mongodbAdapter(db),
   trustedOrigins: [
     getBaseURL(),
-    "https://www.subdivisync.online",
-    "https://subdivisync.online",
+    "https://www.subdivisync.com",
+    "https://subdivisync.com",
   ].filter(Boolean),
   appName: "SubdiviSync",
   emailAndPassword: {

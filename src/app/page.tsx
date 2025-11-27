@@ -1024,23 +1024,25 @@ export default function HomePage() {
             </div>
             </div>
             <Center mt="xl">
-              <MantineButton
-                size="md"
-                variant="filled"
-                color="blue"
-                rightSection={<ArrowRight size={16} />}
-                style={{
-                  paddingLeft: "1.5rem",
-                  paddingRight: "1.5rem",
-                  backgroundColor: "#3182CE",
-                  borderRadius: "4px",
-                  fontWeight: 500,
-                  fontSize: "0.9rem",
-                  height: "38px"
-                }}
-              >
-                Browse All House Models
-              </MantineButton>
+              <Link href="/house-models" style={{ textDecoration: "none" }}>
+                <MantineButton
+                  size="md"
+                  variant="filled"
+                  color="blue"
+                  rightSection={<ArrowRight size={16} />}
+                  style={{
+                    paddingLeft: "1.5rem",
+                    paddingRight: "1.5rem",
+                    backgroundColor: "#3182CE",
+                    borderRadius: "4px",
+                    fontWeight: 500,
+                    fontSize: "0.9rem",
+                    height: "38px"
+                  }}
+                >
+                  Browse All House Models
+                </MantineButton>
+              </Link>
             </Center>
           </Stack>
         </Container>

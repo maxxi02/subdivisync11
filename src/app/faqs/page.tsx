@@ -1,14 +1,14 @@
 "use client";
 
-import {
-  Container,
-  Title,
-  Text,
-  Paper,
-  Stack,
-  useMantineTheme,
-} from "@mantine/core";
-import { useComputedColorScheme } from "@mantine/core";
+import { Container, Title, Text, Stack, Paper } from "@mantine/core";
+import { useMantineTheme, useComputedColorScheme } from "@mantine/core";
+import dynamic from "next/dynamic";
+import Link from "next/link";
+
+const HeaderClientNoSSR = dynamic(
+  () => import("../_components/HeaderClient"),
+  { ssr: false }
+);
 
 const faqs = [
   { q: "What is SubdiviSync?", a: "A responsive web-based platform that simplifies subdivision management by centralizing payments, service requests, and announcements." },
@@ -29,63 +29,92 @@ export default function FAQsPage() {
 
   return (
     <div
+      suppressHydrationWarning
       style={{
         minHeight: "100vh",
         backgroundColor:
-          colorScheme === "dark" ? theme.colors.dark[8] : theme.colors.gray[0],
-        padding: "4rem 0",
+          colorScheme === "dark" ? theme.colors.dark[7] : theme.white,
       }}
     >
-      <Container size="md">
-        <Title
-          order={1}
-          ta="center"
-          mb="xl"
-          style={{
-            color: colorScheme === "dark" ? theme.white : theme.colors.gray[9],
-          }}
-        >
-          Frequently Asked Questions
-        </Title>
-        <Stack gap="md">
-          {faqs.map((faq, index) => (
-            <Paper
-              key={index}
-              p="md"
-              radius="sm"
+      <HeaderClientNoSSR />
+      
+      <Container size="lg" py="xl">
+        <Stack gap="xl">
+          <Title
+            order={1}
+            style={{
+              color:
+                colorScheme === "dark" ? theme.white : theme.colors.gray[9],
+            }}
+          >
+            Frequently Asked Questions
+          </Title>
+          
+          <Text
+            size="sm"
+            style={{
+              color:
+                colorScheme === "dark"
+                  ? theme.colors.gray[4]
+                  : theme.colors.gray[6],
+            }}
+          >
+            Find answers to common questions about SubdiviSync
+          </Text>
+
+          <Paper
+            p="xl"
+            radius="md"
+            withBorder
+            style={{
+              backgroundColor:
+                colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+            }}
+          >
+            <Stack gap="lg">
+              {faqs.map((faq, index) => (
+                <Stack key={index} gap="md">
+                  <Title
+                    order={3}
+                    style={{
+                      color:
+                        colorScheme === "dark"
+                          ? theme.white
+                          : theme.colors.gray[9],
+                    }}
+                  >
+                    {faq.q}
+                  </Title>
+                  <Text
+                    style={{
+                      color:
+                        colorScheme === "dark"
+                          ? theme.colors.gray[3]
+                          : theme.colors.gray[7],
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {faq.a}
+                  </Text>
+                </Stack>
+              ))}
+            </Stack>
+          </Paper>
+
+          <div style={{ textAlign: "center", marginTop: "2rem" }}>
+            <Link
+              href="/"
               style={{
-                backgroundColor:
-                  colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
-                border: `1px solid ${
+                color:
                   colorScheme === "dark"
-                    ? theme.colors.dark[4]
-                    : theme.colors.gray[2]
-                }`,
+                    ? theme.colors.blue[4]
+                    : theme.colors.blue[6],
+                textDecoration: "none",
               }}
             >
-              <Text
-                fw={600}
-                mb={4}
-                style={{
-                  color:
-                    colorScheme === "dark" ? theme.white : theme.colors.gray[8],
-                }}
-              >
-                {faq.q}
-              </Text>
-              <Text
-                size="sm"
-                style={{
-                  color:
-                    colorScheme === "dark"
-                      ? theme.colors.gray[4]
-                      : theme.colors.gray[6],
-                }}
-              >
-                {faq.a}
-              </Text>
-            </Paper>
-          ))}
+              ← Back to Home
+            </Link>
+          </div>
         </Stack>
       </Container>
     </div>

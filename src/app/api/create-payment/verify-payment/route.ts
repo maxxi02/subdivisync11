@@ -77,9 +77,13 @@ async function sendReceiptEmail(params: {
           
           <!-- Success Icon -->
           <div style="text-align: center; padding: 30px 20px 10px 20px;">
-            <div style="width: 60px; height: 60px; background-color: #dcfce7; border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
-              <span style="color: #16a34a; font-size: 30px;">✓</span>
-            </div>
+            <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+              <tr>
+                <td style="width: 60px; height: 60px; background-color: #dcfce7; border-radius: 50%; text-align: center; vertical-align: middle;">
+                  <span style="color: #16a34a; font-size: 30px; line-height: 60px;">&#10003;</span>
+                </td>
+              </tr>
+            </table>
             <h2 style="color: #16a34a; margin: 15px 0 5px 0; font-size: 20px;">Payment Successful!</h2>
             <p style="color: #6b7280; margin: 0; font-size: 14px;">Thank you for your payment</p>
           </div>
@@ -96,10 +100,6 @@ async function sendReceiptEmail(params: {
               <tr>
                 <td style="padding: 10px 0; color: #6b7280; font-size: 14px;">Receipt ID:</td>
                 <td style="padding: 10px 0; color: #111827; font-size: 14px; text-align: right; font-family: monospace;">${receiptId}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px 0; color: #6b7280; font-size: 14px; border-top: 1px solid #e5e7eb;">Transaction ID:</td>
-                <td style="padding: 10px 0; color: #111827; font-size: 14px; text-align: right; border-top: 1px solid #e5e7eb; font-family: monospace;">${transactionId}</td>
               </tr>
               <tr>
                 <td style="padding: 10px 0; color: #6b7280; font-size: 14px; border-top: 1px solid #e5e7eb;">Payment Date:</td>
@@ -148,7 +148,6 @@ Total Amount Paid: ${formatCurrency(amount)}
 
 Receipt Details:
 - Receipt ID: ${receiptId}
-- Transaction ID: ${transactionId}
 - Payment Date: ${formatDate(paidDate)}
 - Description: ${description}
 
